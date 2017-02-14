@@ -89,8 +89,7 @@ ENV/
 .ropeproject
 
 # Django stuff:
-*.log
-local_settings.py
+migrations/
 
 # PyCharm stuff:
 .idea/
