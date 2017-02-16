@@ -344,9 +344,10 @@ class AnalyzerView(View):
         analyzer, created = Analyzer.objects.get_or_create(user=user(), name=name)
         if created and filters is not None:
             for f in filters:
-                analyzer.filter.add(literal_eval(f))
+                analyzer.filter.add(f)
 
         analyzer.tokenizer = tkn_chk
+        analyzer.save()
         status = created and 201 or 409
         response = HttpResponse()
         response.status_code = status
@@ -391,7 +392,7 @@ class AnalyzerIDView(View):
             status = 200
             analyzer.filter.set(filters)
             analyzer.tokenizer = tkn_chk
-
+            analyzer.save()
         elif analyzer.user != user():
             status = 403
         else:
