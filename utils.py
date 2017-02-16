@@ -55,7 +55,6 @@ def iter_flt_from_anl(anl_name):
     set = AnalyserFilters.objects.filter(analyzer__name=anl_name)
     l=[]
     for s in set:
-        # l.append(iter_flt(s.filter))
         l.append(s.filter.name)
     return l
 

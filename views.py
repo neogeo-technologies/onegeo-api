@@ -402,10 +402,10 @@ class AnalyzerIDView(View):
                 for f in filters:
                     try:
                         flt = Filter.objects.get(name=f)
-                        analyzer.filter.add(flt)
-                        analyzer.save()
                     except Filter.DoesNotExist:
                         return HttpResponseBadRequest("Filter DoesNotExist")
+                analyzer.filter.set(filters)
+                analyzer.save()
             if tokenizer:
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
