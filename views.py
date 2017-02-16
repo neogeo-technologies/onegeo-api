@@ -377,6 +377,10 @@ class AnalyzerIDView(View):
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or ""
         filters = "filters" in body_data and body_data["filters"] or {}
+        try:
+            tkn_chk = Tokenizer.objects.get(name=tokenizer)
+        except Tokenizer.DoesNotExist:
+            return HttpResponseBadRequest()
 
         name = (name.endswith('/') and name[:-1] or name)
 
@@ -385,8 +389,8 @@ class AnalyzerIDView(View):
         response = HttpResponse()
         if analyzer.user == user():
             status = 200
-            analyzer.tokenizer=tokenizer
             analyzer.filter.set(filters)
+            analyzer.tokenizer = tkn_chk
 
         elif analyzer.user != user():
             status = 403
