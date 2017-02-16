@@ -55,7 +55,8 @@ def iter_flt_from_anl(anl_name):
     set = AnalyserFilters.objects.filter(analyzer__name=anl_name)
     l=[]
     for s in set:
-        l.append(iter_flt(s.filter))
+        # l.append(iter_flt(s.filter))
+        l.append(s.filter.name)
     return l
 
 
@@ -63,7 +64,7 @@ def iter_anl(a):
     d = {'location':'analyzers/{}'.format(a.name),
          'name': a.name,
          'filters': iter_flt_from_anl(a.name),
-         'tokenizer': [a.tokenizer and a.tokenizer.name or ""]
+         'tokenizer': a.tokenizer and a.tokenizer.name or ""
     }
     return d
 
