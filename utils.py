@@ -108,11 +108,10 @@ def get_contexts(user):
     l = []
     for s in src:
         rsrc = Resource.objects.get(source=s, source__user=user)
-        try:
-            ctx = Context.objects.get(resource_id=rsrc.id, resource__source__user=user)
-            l.append(iter_ctx(s, rsrc, ctx))
-        except Context.DoesNotExist:
-            pass
+        set = Context.objects.filter(resource_id=rsrc.id, resource__source__user=user)
+        if len(set) > 0:
+            for ctx in set:
+                l.append(iter_ctx(s, rsrc, ctx))
     return l
 
 
