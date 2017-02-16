@@ -62,8 +62,8 @@ def iter_flt_from_anl(anl_name):
 def iter_anl(a):
     d = {'location':'analyzers/{}'.format(a.name),
          'name': a.name,
-         'filter': iter_flt_from_anl(a.name),
-         'tokenizer': a.tokenizer
+         'filters': iter_flt_from_anl(a.name),
+         'tokenizer': [a.tokenizer and a.tokenizer.name or ""]
     }
     return d
 

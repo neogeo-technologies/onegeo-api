@@ -377,23 +377,28 @@ class AnalyzerIDView(View):
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
-        tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or ""
-        filters = "filters" in body_data and body_data["filters"] or {}
-        try:
-            tkn_chk = Tokenizer.objects.get(name=tokenizer)
-        except Tokenizer.DoesNotExist:
-            return HttpResponseBadRequest()
-
+        tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or False
+        filters = "filters" in body_data and body_data["filters"] or []
         name = (name.endswith('/') and name[:-1] or name)
-
         analyzer = get_object_or_404(Analyzer, name=name)
+
+        if tokenizer:
+            try:
+                tkn_chk = Tokenizer.objects.get(name=tokenizer)
+            except Tokenizer.DoesNotExist:
+                return HttpResponseBadRequest()
 
         response = HttpResponse()
         if analyzer.user == user():
             status = 200
-            analyzer.filter.set(filters)
-            analyzer.tokenizer = tkn_chk
-            analyzer.save()
+            if len(filters) > 0:
+                for f in filters:
+                    flt = Filter.objects.get(name=f)
+                    analyzer.filter.add(flt)
+                    analyzer.save()
+            if tokenizer:
+                analyzer.tokenizer = tkn_chk
+                analyzer.save()
         elif analyzer.user != user():
             status = 403
         else:
