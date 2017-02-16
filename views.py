@@ -336,13 +336,17 @@ class AnalyzerView(View):
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or None
         filters = "filters" in body_data and body_data["filters"] or None
+        try:
+            tkn_chk = Tokenizer.objects.get(name=tokenizer)
+        except Tokenizer.DoesNotExist:
+            return HttpResponseBadRequest()
 
         analyzer, created = Analyzer.objects.get_or_create(user=user(), name=name)
         if created and filters is not None:
             for f in filters:
                 analyzer.filter.add(literal_eval(f))
-        if created and tokenizer is not None:
-            analyzer.tokenizer = tokenizer
+
+        analyzer.tokenizer = tkn_chk
         status = created and 201 or 409
         response = HttpResponse()
         response.status_code = status
