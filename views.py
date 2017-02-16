@@ -8,6 +8,7 @@ from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer
 from django.conf import settings
+from django.db import transaction, IntegrityError
 
 from onegeo_manager.source import PdfSource
 from onegeo_manager.index import Index
@@ -321,6 +322,7 @@ class AnalyzerView(View):
             return user
         return JsonResponse(utils.get_analyzers(user()), safe=False)
 
+    @transaction.atomic
     def post(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -335,20 +337,25 @@ class AnalyzerView(View):
             return HttpResponseBadRequest()
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or None
-        filters = "filters" in body_data and body_data["filters"] or None
+        filters = "filters" in body_data and body_data["filters"] or []
 
         analyzer, created = Analyzer.objects.get_or_create(user=user(), name=name)
-        if created and filters is not None:
+        if created and len(filters) > 0:
             for f in filters:
-                analyzer.filter.add(f)
-                analyzer.save()
+                try:
+                    flt = Filter.objects.get(name=f)
+                    analyzer.filter.add(flt)
+                    analyzer.save()
+                except Filter.DoesNotExist:
+                    return HttpResponseBadRequest("Filter DoesNotExist")
+
         if created and tokenizer is not None:
             try:
                 tkn_chk = Tokenizer.objects.get(name=tokenizer)
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
             except Tokenizer.DoesNotExist:
-                return HttpResponseBadRequest()
+                return HttpResponseBadRequest("Tokenizer DoesNotExist")
         status = created and 201 or 409
         response = HttpResponse()
         response.status_code = status
@@ -393,9 +400,12 @@ class AnalyzerIDView(View):
             status = 200
             if len(filters) > 0:
                 for f in filters:
-                    flt = Filter.objects.get(name=f)
-                    analyzer.filter.add(flt)
-                    analyzer.save()
+                    try:
+                        flt = Filter.objects.get(name=f)
+                        analyzer.filter.add(flt)
+                        analyzer.save()
+                    except Filter.DoesNotExist:
+                        return HttpResponseBadRequest("Filter DoesNotExist")
             if tokenizer:
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
