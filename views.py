@@ -191,7 +191,6 @@ class ContextIDView(View):
 
         ctx_id = literal_eval(id)
         context = Context.objects.filter(resource_id=ctx_id)
-        response = HttpResponse()
         if len(context) == 1:
             context.update(resource=set_rscr, name=name, clmn_properties=column_ppt)
             status = 200

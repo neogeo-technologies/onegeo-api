@@ -99,7 +99,7 @@ class Analyzer(models.Model):
 
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
     user = models.ForeignKey(User)
-    filter = models.ManyToManyField(Filter, blank=True, null=True)
+    filter = models.ManyToManyField(Filter, blank=True)
     tokenizer = models.ForeignKey("Tokenizer", blank=True, null=True)
 
 
