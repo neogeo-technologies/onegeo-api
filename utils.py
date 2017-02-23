@@ -32,7 +32,7 @@ def iter_rsrc(s, r):
              'location': '/sources/{}/resources/{}'.format(s.id, r.id),
              'name': r.name,
              'columns': r.columns,
-             'context': iter_ctx(s, r, ctx)}
+             'context': iter_ctx(s, r, ctx)["location"]}
     except Context.DoesNotExist:
         d = {'id': r.id,
              'location': '/sources/{}/resources/{}'.format(s.id, r.id),
@@ -125,10 +125,15 @@ def get_contexts(user):
 
 
 def get_context_id(user, id):
-    ctx = get_object_or_404(Context, resource_id=id, resource__source__user=user)
-    rsrc = get_object_or_404(Resource, id=id, source__user=user)
-    src = get_object_or_404(Source, user=user)
-    return iter_ctx(src, rsrc, ctx)
+    src = Source.objects.filter(user=user)
+    l = []
+    for s in src:
+        rsrc = Resource.objects.filter(source=s, source__user=user)
+        for r in rsrc:
+            if r.id == id:
+                ctx = Context.objects.get(resource_id=r.id, resource__source__user=user)
+                return iter_ctx(s, r, ctx)
+
 
 
 def get_filters(user):
