@@ -26,10 +26,19 @@ def iter_src(s):
 
 
 def iter_rsrc(s, r):
-    d = {'id': r.id,
-         'location': '/sources/{}/resources/{}'.format(s.id, r.id),
-         'name': r.name,
-         'columns': r.columns}
+    try:
+        ctx = Context.objects.get(resource_id=r.id)
+        d = {'id': r.id,
+             'location': '/sources/{}/resources/{}'.format(s.id, r.id),
+             'name': r.name,
+             'columns': r.columns,
+             'context': iter_ctx(s, r, ctx)}
+    except Context.DoesNotExist:
+        d = {'id': r.id,
+             'location': '/sources/{}/resources/{}'.format(s.id, r.id),
+             'name': r.name,
+             'columns': r.columns
+             }
     return d
 
 
