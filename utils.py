@@ -20,7 +20,7 @@ def iter_src(s):
         d = {'id': s.id,
              'uri': s.s_uri,
              'location': '/sources/{}'.format(s.id),
-             'resources': iter_rsrc(s, r)}
+             'resources': [iter_rsrc(s, r)]}
     except:
         d = {'id': s.id,
              'uri': s.s_uri,
