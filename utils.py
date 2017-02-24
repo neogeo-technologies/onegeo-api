@@ -14,24 +14,6 @@ from django.db import IntegrityError
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
-def iter_src(s):
-    try:
-        r = Resource.objects.get(source=s)
-        d = {'id': s.id,
-             'uri': s.s_uri,
-             'location': '/sources/{}'.format(s.id),
-             'resources': [iter_rsrc(s, r)]}
-    except:
-        d = {'id': s.id,
-             'uri': s.s_uri,
-             'location': '/sources/{}'.format(s.id),
-             'resources': [{'id': r.id,
-                            'name': r.name,
-                            'location': '/sources/{}/resources/{}'.format(s.id, r.id),
-                            'columns': r.columns} for r in list(Resource.objects.filter(source=s))]}
-    return d
-
-
 def iter_rsrc(s, r):
     try:
         ctx = Context.objects.get(resource_id=r.id)
@@ -46,6 +28,14 @@ def iter_rsrc(s, r):
              'name': r.name,
              'columns': r.columns
              }
+    return d
+
+
+def iter_src(s):
+    d = {'id': s.id,
+         'uri': s.s_uri,
+         'location': '/sources/{}'.format(s.id),
+         'resources': [iter_rsrc(s, r) for r in list(Resource.objects.filter(source=s))]}
     return d
 
 
