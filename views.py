@@ -39,12 +39,23 @@ class SourceView(View):
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
+
+        if "uri" not in body_data:
+            return JsonResponse([{"Error": "URI field is missing"}], safe=False)
+        if "mode" not in body_data:
+            return JsonResponse([{"Error": "Mode field is missing"}], safe=False)
+        if "name" not in body_data:
+            return JsonResponse([{"Error": "Name field is missing"}], safe=False)
+
         uri = body_data["uri"]
+        mode = body_data["mode"]
+        name = body_data["name"]
+
         np = utils.check_uri(uri)
         if np is None:
             return HttpResponseBadRequest()
 
-        sources, created = Source.objects.get_or_create(uri=np, user=user())
+        sources, created = Source.objects.get_or_create(uri=np, user=user(), name=name, mode=mode)
         status = created and 201 or 409
 
         response = HttpResponse()
@@ -122,7 +133,8 @@ class ContextView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
+        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -177,7 +189,8 @@ class ContextIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        # if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -234,7 +247,8 @@ class FilterView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
+        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -269,7 +283,8 @@ class FilterIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
+        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -329,7 +344,8 @@ class AnalyzerView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
+        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -380,7 +396,8 @@ class AnalyzerIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
+        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -453,7 +470,8 @@ class TokenizerView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
+        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -486,7 +504,8 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
+        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
