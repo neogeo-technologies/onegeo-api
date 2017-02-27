@@ -34,6 +34,8 @@ def iter_rsrc(s, r):
 def iter_src(s):
     d = {'id': s.id,
          'uri': s.s_uri,
+         'mode': s.mode,
+         'name': s.name,
          'location': '/sources/{}'.format(s.id),
          'resources': [iter_rsrc(s, r) for r in list(Resource.objects.filter(source=s))]}
     return d
@@ -43,7 +45,8 @@ def iter_ctx(s, r, c):
     d = {"location": "/contexts/{}".format(c.resource_id),
          "resource": "/sources/{}/resources/{}".format(s.id, r.id),
          "columns": c.clmn_properties,
-         "name": c.name
+         "name": c.name,
+         "reindex_frequency": c.reindex_frequency
     }
     return d
 
