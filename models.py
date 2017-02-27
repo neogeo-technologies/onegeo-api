@@ -34,9 +34,11 @@ def does_uri_exist(uri):
 
 class Source(models.Model):
 
-
+    MODE_L = (("pdf","pdf"),)
     user = models.ForeignKey(User)
     uri = models.CharField("URI", max_length=2048, unique=True)
+    name = models.CharField("Name", max_length=250)
+    mode = models.CharField("Mode", choices= MODE_L, default="pdf", max_length=250)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -48,7 +50,7 @@ class Source(models.Model):
         if not does_uri_exist(self.uri):
             raise Exception()  # TODO
 
-        self.__src = PdfSource(self.uri)
+        self.__src = PdfSource(self.uri, self.name, self.mode)
 
         super().save(*args, **kwargs)
 
@@ -72,7 +74,6 @@ class Resource(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__rsrc = None
-
 
     source = models.ForeignKey(Source, on_delete=models.CASCADE)
     name = models.CharField("Name", max_length=250)
