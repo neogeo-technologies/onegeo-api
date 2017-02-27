@@ -34,7 +34,8 @@ class SourceView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        if request.content_type != "application/json":
+        if "application/json" not in request.content_type:
+        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -45,6 +46,7 @@ class SourceView(View):
 
         sources, created = Source.objects.get_or_create(uri=np, user=user())
         status = created and 201 or 409
+
         response = HttpResponse()
         response.status_code = status
         if created:

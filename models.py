@@ -34,10 +34,14 @@ def does_uri_exist(uri):
 
 class Source(models.Model):
 
-    __src = None
 
     user = models.ForeignKey(User)
     uri = models.CharField("URI", max_length=2048, unique=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__src = None
+
 
     def save(self, *args, **kwargs):
 
@@ -62,9 +66,13 @@ class Source(models.Model):
         return 'file:///{}'.format(dir_name.group(2))
 
 
+
 class Resource(models.Model):
 
-    __rsrc = None
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__rsrc = None
+
 
     source = models.ForeignKey(Source, on_delete=models.CASCADE)
     name = models.CharField("Name", max_length=250)
@@ -82,10 +90,15 @@ class Resource(models.Model):
 
 
 class Context(models.Model):
+    RF_L = (
+        ("daily", "daily"),
+        ("weekly", "weekly"),
+        ("monthly", "monthly"),)
 
     resource = models.OneToOneField(Resource, on_delete=models.CASCADE, primary_key=True)
     name = models.CharField("Name", max_length=250)
     clmn_properties = JSONField("Columns")
+    reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L, default="monthly", max_length=250)
 
 
 class Filter(models.Model):

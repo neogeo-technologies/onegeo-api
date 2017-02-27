@@ -208,7 +208,6 @@ def check_uri(b):
         raise ConnectionError('Given path does not exist.')
     for x in p.iterdir():
         if x.is_dir() and x.name == b[8:]:
-            print(x.name)
             return x.as_uri()
     return None
 
