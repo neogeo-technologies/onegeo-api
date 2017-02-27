@@ -134,25 +134,23 @@ class ContextView(View):
             return user
 
         if "application/json" not in request.content_type:
-        # if request.content_type != "application/json":
+            # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
 
         body_data = json.loads(data)
-        if "mode" not in body_data:
-            return JsonResponse([{"Error": "Mode field is missing"}], safe=False)
         if "name" not in body_data:
             return JsonResponse([{"Error": "Name field is missing"}], safe=False)
         if "resource" not in body_data:
             return JsonResponse([{"Error": "Resource field is missing"}], safe=False)
-        if "reindex_frequency" not in body_data:
-            return JsonResponse([{"Error": "Reindex_frequency field is missing"}], safe=False)
 
         name = body_data['name']
-        mode = body_data['mode']
-        reindex_frequency = body_data['reindex_frequency']
-        data = search('^\/sources\/(\d+)\/resources\/(\d+)$', body_data['resource'])
 
+        reindex_frequency = "monthly"
+        if "reindex_frequency" in body_data:
+            reindex_frequency = body_data['reindex_frequency']
+
+        data = search('^\/sources\/(\d+)\/resources\/(\d+)$', body_data['resource'])
         if not data:
             return None
         src_id = data.group(1)
@@ -161,7 +159,7 @@ class ContextView(View):
         set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
 
 
-        pdf = PdfSource(set_src.uri, name, mode)
+        pdf = PdfSource(set_src.uri, name, set_src.mode)
         type = None
         index = Index(set_rscr.name)
         for e in iter(pdf.get_types()):
