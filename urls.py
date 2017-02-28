@@ -3,7 +3,7 @@ from .views import (SourceView, SourceIDView, ResourceView,
                     ResourceIDView, Directories, ContextView,
                     ContextIDView, FilterView, FilterIDView,
                     AnalyzerView, AnalyzerIDView, TokenizerView,
-                    TokenizerIDView)
+                    TokenizerIDView, ActionView)
 
 
 app_name = "api"
@@ -23,4 +23,5 @@ urlpatterns = [
     url(r"^analyzers/(\S+)?$", AnalyzerIDView.as_view()),
     url(r"^tokenizers/?$", TokenizerView.as_view()),
     url(r"^tokenizers/(\S+)?$", TokenizerIDView.as_view()),
+    url(r"^action/?$", ActionView.as_view()),
 ]

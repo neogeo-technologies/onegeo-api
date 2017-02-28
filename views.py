@@ -1,5 +1,6 @@
 from ast import literal_eval
 from re import search
+import uuid
 
 from django.views.generic import View
 from django.utils.decorators import method_decorator
@@ -9,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer
 from django.conf import settings
 from django.db import transaction, IntegrityError
+
 
 from onegeo_manager.source import PdfSource
 from onegeo_manager.index import Index
@@ -576,3 +578,49 @@ class Directories(View):
         subdir = utils.uri_shortcut(PDF_BASE_DIR)
 
         return JsonResponse(subdir, safe=False)
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ActionView(View):
+
+    def post(self, request):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+
+        data = json.loads(request.body.decode('utf-8'))
+        type = data['type']
+        index = data['index'] # Nom du context
+
+        if type == "reindex":
+            try:
+                ctx = Context.objects.get(name=index)
+            except Context.DoesNotExist:
+                return HttpResponseBadRequest()
+
+
+        rscr = ctx.resource
+        src = rscr.source
+
+        pdf = PdfSource(src.uri, src.name, src.mode)
+        type = None
+        index = Index(rscr.name)
+        for e in iter(pdf.get_types()):
+            if e.name == rscr.name:
+                type = e
+        context = PdfContext(index, type)
+
+        mapping = context.generate_elastic_mapping()
+        print()
+        es = utils.ActiveConnexion()
+
+        uuid_index = uuid.uuid4()
+        es.put_pipeline()
+        es.create_index(uuid_index)
+        es.put_mapping(uuid_index, mapping, type)
+
+
+
+        response = HttpResponse()
+        response.status_code = 202
+        response['Location']  = '{}'.format(request.build_absolute_uri())
+        return response

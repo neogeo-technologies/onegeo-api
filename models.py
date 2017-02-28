@@ -97,7 +97,7 @@ class Context(models.Model):
         ("monthly", "monthly"),)
 
     resource = models.OneToOneField(Resource, on_delete=models.CASCADE, primary_key=True)
-    name = models.CharField("Name", max_length=250)
+    name = models.CharField("Name", max_length=250, unique=True)
     clmn_properties = JSONField("Columns")
     reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L, default="monthly", max_length=250)
 

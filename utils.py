@@ -2,6 +2,7 @@ import functools
 from base64 import b64decode
 from pathlib import Path
 from re import search
+import uuid
 
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer
 from django.contrib.auth import authenticate
@@ -10,6 +11,8 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.db import IntegrityError
+
+from elasticsearch import Elasticsearch
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
@@ -288,3 +291,43 @@ def get_user_or_401(request):
         response['WWW-Authenticate'] = 'Basic realm="%s"' % "Basic Auth Protected"
         return response
     return user
+
+
+
+class ActiveConnexion:
+
+
+    es = Elasticsearch([{'host': settings.ES_VAR["HOST"]}])
+
+    # ignore 400 cause by IndexAlreadyExistsException when creating an index
+    # es.indices.create(index=uuid.uuid4(), ignore=400) #uuid ds index
+
+    # ignore 404 and 400
+    # es.indices.delete(index=uuid.uuid4(), ignore=[400, 404])
+
+    # only wait for 1 second, regardless of the client's default
+    es.cluster.health(wait_for_status='yellow', request_timeout=60)
+
+    def create_index(self, index_id):
+        # ignore 400 cause by IndexAlreadyExistsException when creating an index
+        self.es.indices.create(index=index_id, ignore=400)
+
+
+    def put_mapping(self,index_id, mapping, type):
+        self.es.indices.put_mapping(index=index_id, doc_type=type.name, body=mapping)
+
+    def put_pipeline(self):
+        body={
+              "description" : "EXTRACTION PDF",
+              "processors" : [
+                {
+                  "attachment" : {
+                    "field" : "data"
+                  }
+                }
+              ]
+            }
+        self.es.ingest.put_pipeline(id="attachment", body=body)
+
+
+
