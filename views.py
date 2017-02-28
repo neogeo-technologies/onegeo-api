@@ -1,6 +1,6 @@
 from ast import literal_eval
 from re import search
-import uuid
+from uuid import uuid4
 
 from django.views.generic import View
 from django.utils.decorators import method_decorator
@@ -19,6 +19,8 @@ from onegeo_manager.context import PdfContext
 import json
 
 from . import utils
+
+from .elasticsearch_wrapper import ElasticConnexion
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
@@ -589,7 +591,7 @@ class ActionView(View):
 
         data = json.loads(request.body.decode('utf-8'))
         type = data['type']
-        index = data['index'] # Nom du context
+        index = data['index']
 
         if type == "reindex":
             try:
@@ -597,30 +599,33 @@ class ActionView(View):
             except Context.DoesNotExist:
                 return HttpResponseBadRequest()
 
-
         rscr = ctx.resource
         src = rscr.source
 
         pdf = PdfSource(src.uri, src.name, src.mode)
+        
         type = None
         index = Index(rscr.name)
         for e in iter(pdf.get_types()):
             if e.name == rscr.name:
                 type = e
+
         context = PdfContext(index, type)
 
-        mapping = context.generate_elastic_mapping()
-        print()
-        es = utils.ActiveConnexion()
+        es = ElasticConnexion()
 
-        uuid_index = uuid.uuid4()
-        es.put_pipeline()
-        es.create_index(uuid_index)
-        es.put_mapping(uuid_index, mapping, type)
+        pipeline = None
+        if src.mode == 'pdf':
+            pipeline = 'attachment'
+            es.push_pipeline_if_not_exists(pipeline)
 
-
+        es.create_or_replace_index(str(uuid4())[0:7],
+                                   ctx.name,
+                                   type.name, 
+                                   context.generate_elastic_mapping(), 
+                                   collections=pdf.get_collection(),
+                                   pipeline=pipeline)
 
         response = HttpResponse()
         response.status_code = 202
-        response['Location']  = '{}'.format(request.build_absolute_uri())
         return response
