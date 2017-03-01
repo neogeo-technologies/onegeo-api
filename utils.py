@@ -12,6 +12,9 @@ from django.http import HttpResponse
 from django.db import IntegrityError
 
 
+PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
+
+
 def iter_rsrc(s, r):
     try:
         ctx = Context.objects.get(resource_id=r.id)

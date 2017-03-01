@@ -20,7 +20,7 @@ import json
 
 from . import utils
 
-from .elasticsearch_wrapper import ElasticConnexion
+from .elasticsearch_wrapper import elastic_conn
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
@@ -565,7 +565,6 @@ class TokenizerIDView(View):
         return response
 
 
-
 @method_decorator(csrf_exempt, name="dispatch")
 class Directories(View):
 
@@ -581,6 +580,7 @@ class Directories(View):
 
         return JsonResponse(subdir, safe=False)
 
+
 @method_decorator(csrf_exempt, name="dispatch")
 class ActionView(View):
 
@@ -589,42 +589,49 @@ class ActionView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        data = json.loads(request.body.decode('utf-8'))
-        type = data['type']
-        index = data['index']
+        data = json.loads(request.body.decode("utf-8"))
+        try:
+            ctx = Context.objects.get(name=data["index"])
+        except Context.DoesNotExist:
+            return HttpResponseBadRequest()
 
-        if type == "reindex":
-            try:
-                ctx = Context.objects.get(name=index)
-            except Context.DoesNotExist:
-                return HttpResponseBadRequest()
+        action = data["type"]
 
         rscr = ctx.resource
         src = rscr.source
 
         pdf = PdfSource(src.uri, src.name, src.mode)
-        
-        type = None
+
+        doc_type = None
         index = Index(rscr.name)
         for e in iter(pdf.get_types()):
             if e.name == rscr.name:
-                type = e
+                doc_type = e
 
-        context = PdfContext(index, type)
+        context = PdfContext(index, doc_type)
 
-        es = ElasticConnexion()
+        for col_property in iter(ctx.clmn_properties):
+            context.update_property(**col_property)
 
-        pipeline = None
-        if src.mode == 'pdf':
-            pipeline = 'attachment'
-            es.push_pipeline_if_not_exists(pipeline)
+        opts = {}
 
-        es.create_or_replace_index(str(uuid4())[0:7],
-                                   ctx.name,
-                                   type.name, 
-                                   context.generate_elastic_mapping(), 
-                                   collections=pdf.get_collection(),
-                                   pipeline=pipeline)
+        if src.mode == "pdf":
+            pipeline = "attachment"
+            elastic_conn.create_pipeline_if_not_exists(pipeline)
+            opts.update({"pipeline": pipeline})
+
+        if action == "rebuild":
+            opts.update({"collections": context.get_collection()})
+        
+        if action == "reindex":
+            pass  # Action par défaut
+
+        if action == "purge_all_index":
+            elastic_conn.delete_index("_all")
+
+        elastic_conn.create_or_replace_index(
+                                str(uuid4())[0:7], ctx.name, doc_type.name,
+                                context.generate_elastic_mapping(), **opts)
 
         response = HttpResponse()
         response.status_code = 202

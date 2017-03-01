@@ -1,3 +1,4 @@
+import asyncio
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as ElasticExceptions
 from threading import Thread
@@ -6,97 +7,131 @@ from uuid import uuid4
 from django.conf import settings
 
 from .tools import Singleton
-from .tools import Promise
-from .tools import FuncThread
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
-class ElasticConnexion(metaclass=Singleton):
+class ElasticWrapper(metaclass=Singleton):
 
-    ES = Elasticsearch([{'host': settings.ES_VAR["HOST"]}])
+    def __init__(self):
+        self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
+        self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
 
-    def __init__(self, *args, **kwargs):
+    def create_pipeline_if_not_exists(self, id):
 
-        self.ES.cluster.health(wait_for_status='yellow', request_timeout=60)
+        body = {'description': 'Pdf',
+                'processors': [{
+                    'attachment': {
+                        'field': 'data',
+                        'ignore_missing': True,
+                        'indexed_chars': -1,
+                        'properties': [
+                            'content',
+                            # 'title',
+                            # 'author',
+                            # 'keywords',
+                            'date',
+                            'content_type',
+                            'content_length',
+                            'language'
+                            ]}}]}
 
-    def __switch_aliases(self, index, name):
+        try:
+            self.conn.ingest.get_pipeline(id=id)
+        except ElasticExceptions.NotFoundError as err:
+            self.conn.ingest.put_pipeline(id=id, body=body)
 
-        def callback(index, name):
-            body = {'actions': []}
-            if self.ES.indices.exists_alias(name=name):
-                obj = self.ES.indices.get_alias(name=name)
-                for k, v in obj.items():
-                    body['actions'].append({'remove': {'index': k, 'alias': name}})
+    def create_or_replace_index(self, index, name, doc_type, body, 
+                                collections=None, pipeline=None):
 
-            self.ES.indices.put_alias(index=index, name=name)
-            body['actions'].append({'add': {'index': index, 'alias': name}})
+        def reindex(index, name):
 
-            self.ES.indices.update_aliases(body=body)
+                indices = self.get_indices_by_alias(name)
+                if len(indices) < 1:
+                    self.delete_index(index)
+                    raise Exception('Hop hop hop.')
+                if len(indices) > 1:
+                    raise Exception('Hop hop hop.')
+                old = indices[0]
 
-        thread = Thread(target=callback, args=(index, name))
-        thread.start()
+                self.reindex(old, index)
+                self.switch_aliases(index, name)
 
-    def __push_mapping(self, index, doc_type, body):
+        def rebuild(index, name, doc_type, collections, pipeline):
+            self.push_document(index, name, doc_type, collections, pipeline)
 
-        params = {'index': index, 'doc_type': doc_type, 'body': body}
-        self.ES.indices.put_mapping(**params)
+        try:
+            self.conn.indices.create(index=index, ignore=400)
+        except:
+            raise
+        else:
+            self.push_mapping(index, doc_type, body)
+            if collections:
+                rebuild(index, name, doc_type, collections, pipeline)
+            else:
+                reindex(index, name)
 
-    def __push_document(self, index, doc_type, collections, pipeline=None):
-        p = Promise()
-        
-        def callback(index, doc_type, collections, pipeline):
+    def delete_index(self, index):
+        self.conn.indices.delete(index=index)
+
+    def delete_index_by_alias(self, name):
+        indices = self.get_indices_by_alias(name)
+        for index in iter(indices):
+            self.delete_index(index)
+
+    def push_document(self, index, name, doc_type, collections, pipeline):
+              
+        def callback(index, name, doc_type, collections, pipeline):
+
             for document in collections:
                 params = {'body': document, 'doc_type': doc_type,
                           'id': str(uuid4())[0:7], 'index': index}
                 if pipeline is not None:
                     params.update({'pipeline': pipeline})
 
-                self.ES.index(**params)
+                self.conn.index(**params)
 
-            p.resolve(True)
+            self.switch_aliases(index, name)
 
-        thread = Thread(target=callback, args=(index, doc_type, collections, pipeline))
+        thread = Thread(target=callback, args=(index, name, doc_type, collections, pipeline))
         thread.start()
 
-        return p
+    def push_mapping(self, index, doc_type, body):
 
-    def create_or_replace_index(self, index, name, doc_type, body, collections=None, pipeline=None):
+        params = {'index': index, 'doc_type': doc_type, 'body': body}
+        self.conn.indices.put_mapping(**params)
 
-        try:
-            self.ES.indices.create(index=index, ignore=400)
-        except:
-            return
-        else:
-            self.__push_mapping(index, doc_type, body)
-            if collections is not None:
-                self.__push_document(index, doc_type, collections, pipeline=pipeline)
-            else: 
-            	# TODO
-                pass
-            self.__switch_aliases(index, name)
+    def reindex(self, source, dest):
 
-    def push_pipeline_if_not_exists(self, id):
+        body = {'source': {'index': source}, 'dest': {'index': dest}}
+        res = self.conn.reindex(body=body)
 
-        body = {"description": "Pdf",
-                "processors": [{
-                    "attachment": {
-                        "field": "data",
-                        "ignore_missing": True,
-                        "indexed_chars": -1,
-                        "properties": [
-                            "content",
-                            "title", 
-                            "author",
-                            "keywords",
-                            "date",
-                            "content_type",
-                            "content_length",
-                            "language"]}}]}
+    def switch_aliases(self, index, name):
+        """Permute l'alias vers le nouvel index. """
 
-        try:
-            self.ES.ingest.get_pipeline(id=id)
-        except ElasticExceptions.NotFoundError as err:
-            self.ES.ingest.put_pipeline(id=id, body=body)
+        body = {'actions': []}
 
+        indices = self.get_indices_by_alias(name)
+        for i in range(len(indices)):
+            body['actions'].append(
+                            {'remove': {'index': indices[i], 'alias': name}})
+
+        self.conn.indices.put_alias(index=index, name=name)
+        body['actions'].append({'add': {'index': index, 'alias': name}})
+
+        self.conn.indices.update_aliases(body=body)
+
+        for i in range(len(indices)):
+            self.delete_index(indices[i])
+
+    def get_indices_by_alias(self, name):
+
+            indices = []
+            if self.conn.indices.exists_alias(name=name):
+                res = self.conn.indices.get_alias(name=name)
+                for index, _ in res.items():
+                    indices.append(index)
+            return indices
+
+elastic_conn = ElasticWrapper()

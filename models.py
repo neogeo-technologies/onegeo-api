@@ -5,11 +5,13 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.contrib.postgres.fields import JSONField
 from django.conf import settings
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from onegeo_manager.source import PdfSource
 # from onegeo_manager.index import Index
 # from onegeo_manager.context import PdfContext
+
+from .elasticsearch_wrapper import elastic_conn
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
@@ -66,7 +68,6 @@ class Source(models.Model):
     def s_uri(self):
         dir_name = search('(\S+)\/(\S+)', self.uri)
         return 'file:///{}'.format(dir_name.group(2))
-
 
 
 class Resource(models.Model):
@@ -131,3 +132,9 @@ def handler(sender, instance, *args, **kwargs):
         resource = Resource.objects.create(
                         source=instance, name=res.name, columns=res.columns)
         resource.set_rsrc(res)
+
+@receiver(post_delete, sender=Context)
+def handler(sender, instance, *args, **kwargs):
+    elastic_conn.delete_index_by_alias(instance.name)  # easy
+    
+
