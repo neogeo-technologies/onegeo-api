@@ -9,6 +9,8 @@ from django.conf import settings
 from .tools import Singleton
 
 
+import json
+
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
@@ -28,21 +30,20 @@ class ElasticWrapper(metaclass=Singleton):
                         'indexed_chars': -1,
                         'properties': [
                             'content',
-                            # 'title',
-                            # 'author',
-                            # 'keywords',
+                            'title',
+                            'author',
+                            'keywords',
                             'date',
                             'content_type',
                             'content_length',
-                            'language'
-                            ]}}]}
+                            'language']}}]}
 
-        try:
-            self.conn.ingest.get_pipeline(id=id)
-        except ElasticExceptions.NotFoundError as err:
-            self.conn.ingest.put_pipeline(id=id, body=body)
+        # try:
+        #     self.conn.ingest.get_pipeline(id=id)
+        # except ElasticExceptions.NotFoundError as err:
+        self.conn.ingest.put_pipeline(id=id, body=body)
 
-    def create_or_replace_index(self, index, name, doc_type, body, 
+    def create_or_replace_index(self, index, name, doc_type, body,
                                 collections=None, pipeline=None):
 
         def reindex(index, name):
@@ -62,11 +63,10 @@ class ElasticWrapper(metaclass=Singleton):
             self.push_document(index, name, doc_type, collections, pipeline)
 
         try:
-            self.conn.indices.create(index=index, ignore=400)
+            self.conn.indices.create(index=index, body=body)
         except:
             raise
         else:
-            self.push_mapping(index, doc_type, body)
             if collections:
                 rebuild(index, name, doc_type, collections, pipeline)
             else:
@@ -97,10 +97,14 @@ class ElasticWrapper(metaclass=Singleton):
         thread = Thread(target=callback, args=(index, name, doc_type, collections, pipeline))
         thread.start()
 
-    def push_mapping(self, index, doc_type, body):
+    # def push_mapping(self, index, doc_type, body):
 
-        params = {'index': index, 'doc_type': doc_type, 'body': body}
-        self.conn.indices.put_mapping(**params)
+    #     params = {'index': index, 'doc_type': doc_type, 'body': body}
+    #     self.conn.indices.put_mapping(**params)
+
+    # def push_settings(self, index, body):
+
+    #     self.conn.indices.put_settings(body=body, index=index)
 
     def reindex(self, source, dest):
 

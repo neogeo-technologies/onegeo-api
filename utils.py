@@ -62,7 +62,7 @@ def iter_flt(f):
 
 def iter_flt_from_anl(anl_name):
     AnalyserFilters = Analyzer.filter.through
-    set = AnalyserFilters.objects.filter(analyzer__name=anl_name)
+    set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by('id')
     l=[]
     for s in set:
         l.append(s.filter.name)

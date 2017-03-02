@@ -127,14 +127,14 @@ class Tokenizer(models.Model):
 # Signaux
 
 @receiver(post_save, sender=Source)
-def handler(sender, instance, *args, **kwargs):
+def on_save_source(sender, instance, *args, **kwargs):
     for res in instance.src.get_types():
         resource = Resource.objects.create(
                         source=instance, name=res.name, columns=res.columns)
         resource.set_rsrc(res)
 
 @receiver(post_delete, sender=Context)
-def handler(sender, instance, *args, **kwargs):
+def on_delete_context(sender, instance, *args, **kwargs):
     elastic_conn.delete_index_by_alias(instance.name)  # easy
     
 

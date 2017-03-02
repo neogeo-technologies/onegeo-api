@@ -212,8 +212,15 @@ class ContextIDView(View):
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
+
         name = body_data['name']
+
+        reindex_frequency = "monthly"
+        if "reindex_frequency" in body_data:
+            reindex_frequency = body_data['reindex_frequency']
+
         column_ppt = body_data['columns']
+
         data = search('^\/sources\/(\d+)\/resources\/(\d+)$', body_data['resource'])
         if not data:
             return None
@@ -224,8 +231,13 @@ class ContextIDView(View):
 
         ctx_id = literal_eval(id)
         context = Context.objects.filter(resource_id=ctx_id)
+        
         if len(context) == 1:
-            context.update(resource=set_rscr, name=name, clmn_properties=column_ppt)
+            context.update(resource=set_rscr, 
+                           name=name, 
+                           clmn_properties=column_ppt,
+                           reindex_frequency=reindex_frequency)
+
             status = 200
         elif len(context) == 0:
             status = 204
@@ -422,6 +434,7 @@ class AnalyzerIDView(View):
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or False
         filters = "filters" in body_data and body_data["filters"] or []
+
         name = (name.endswith('/') and name[:-1] or name)
         analyzer = get_object_or_404(Analyzer, name=name)
 
@@ -441,7 +454,8 @@ class AnalyzerIDView(View):
                     except Filter.DoesNotExist:
                         return HttpResponseBadRequest("Filter DoesNotExist")
                 analyzer.filter.set([])
-                analyzer.filter.set(filters)
+                for f in filters:
+                    analyzer.filter.add(f)
                 analyzer.save()
             if tokenizer:
                 analyzer.tokenizer = tkn_chk
@@ -590,6 +604,7 @@ class ActionView(View):
             return user
 
         data = json.loads(request.body.decode("utf-8"))
+
         try:
             ctx = Context.objects.get(name=data["index"])
         except Context.DoesNotExist:
@@ -625,14 +640,52 @@ class ActionView(View):
         
         if action == "reindex":
             pass  # Action par défaut
+        
+        body = {'mappings': context.generate_elastic_mapping(),
+                'settings': {
+                    'analysis': self.retreive_analysis(
+                                        self.retreive_analyzers(context))}}
 
-        if action == "purge_all_index":
-            elastic_conn.delete_index("_all")
-
-        elastic_conn.create_or_replace_index(
-                                str(uuid4())[0:7], ctx.name, doc_type.name,
-                                context.generate_elastic_mapping(), **opts)
+        elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
+                                             ctx.name,           # Alias de l'index
+                                             doc_type.name,      # Nom du type
+                                             body,               # Settings & Mapping
+                                             **opts)
 
         response = HttpResponse()
-        response.status_code = 202
+        response.status_code = 202. # Ne garantie pas un résultat
         return response
+
+    def retreive_analyzers(self, context):
+
+        analyzers = []
+        for prop in context.iter_properties():
+            if prop.analyzer not in analyzers:
+                analyzers.append(prop.analyzer)
+            if prop.search_analyzer not in analyzers:
+                analyzers.append(prop.search_analyzer)
+        return [analyzer for analyzer in analyzers if analyzer not in (None, '')]
+
+    def retreive_analysis(self, analyzers):
+
+        analysis = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
+
+        for analyzer_name in analyzers:
+
+            analyzer = Analyzer.objects.get(name=analyzer_name)
+            tokenizer = analyzer.tokenizer
+            filters_name = utils.iter_flt_from_anl(analyzer.name)
+
+            for filter_name in utils.iter_flt_from_anl(analyzer.name):
+                filter_obj = Filter.objects.get(name=filter_name)
+                analysis['filter'][filter_obj.name] = filter_obj.config
+
+            analysis['tokenizer'][tokenizer.name] = tokenizer.config
+            
+            analysis['analyzer'][analyzer.name] = {
+                                        'filter': filters_name,
+                                        'type': 'custom',
+                                        'tokenizer': tokenizer.name}
+
+        return analysis
+
