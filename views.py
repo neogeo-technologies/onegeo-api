@@ -512,7 +512,6 @@ class TokenizerView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-
         return JsonResponse(utils.get_token(user()), safe=False)
 
     def post(self, request):
