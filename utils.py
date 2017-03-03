@@ -16,14 +16,14 @@ from django.db.models import Q
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
-def iter_rsrc(s, r):
+def format_resource(s, r):
     try:
         ctx = Context.objects.get(resource_id=r.id)
         d = {'id': r.id,
              'location': '/sources/{}/resources/{}'.format(s.id, r.id),
              'name': r.name,
              'columns': r.columns,
-             'context': iter_ctx(s, r, ctx)["location"]}
+             'context': format_context(s, r, ctx)["location"]}
     except Context.DoesNotExist:
         d = {'id': r.id,
              'location': '/sources/{}/resources/{}'.format(s.id, r.id),
@@ -33,17 +33,17 @@ def iter_rsrc(s, r):
     return d
 
 
-def iter_src(s):
+def format_source(s):
     d = {'id': s.id,
          'uri': s.s_uri,
          'mode': s.mode,
          'name': s.name,
          'location': '/sources/{}'.format(s.id),
-         'resources': [iter_rsrc(s, r) for r in list(Resource.objects.filter(source=s).order_by('name'))]}
+         'resources': [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by('name'))]}
     return d
 
 
-def iter_ctx(s, r, c):
+def format_context(s, r, c):
     d = {"location": "/contexts/{}".format(c.resource_id),
          "resource": "/sources/{}/resources/{}".format(s.id, r.id),
          "columns": c.clmn_properties,
@@ -53,7 +53,7 @@ def iter_ctx(s, r, c):
     return d
 
 
-def iter_flt(obj):
+def format_filter(obj):
     return {
         "location": "filters/{}".format(obj.name),
         "name": obj.name,
@@ -70,7 +70,7 @@ def iter_flt_from_anl(anl_name):
     return l
 
 
-def iter_anl(obj):
+def format_analyzer(obj):
     return {
         "location": "analyzers/{}".format(obj.name),
         "name": obj.name,
@@ -79,7 +79,7 @@ def iter_anl(obj):
         "tokenizer": obj.tokenizer and obj.tokenizer.name or ""} 
 
 
-def iter_tkn(obj):
+def format_tokenizer(obj):
     return {
         "location": "tokenizers/{}".format(obj.name),
         "name": obj.name,
@@ -90,13 +90,13 @@ def get_sources(user):
     sources = Source.objects.filter(user=user).order_by('name')
     list = []
     for set in sources:
-        list.append(iter_src(set))
+        list.append(format_source(set))
     return list
 
 
 def get_sources_id(user, id):
     source = get_object_or_404(Source, id=id, user=user)
-    return iter_src(source)
+    return format_source(source)
 
 
 def get_resources(user, src_id):
@@ -104,14 +104,14 @@ def get_resources(user, src_id):
     rsrc = Resource.objects.filter(source=source, source__user=user).order_by('name')
     l = []
     for r in rsrc:
-        l.append(iter_rsrc(source, r))
+        l.append(format_resource(source, r))
     return l
 
 
 def get_resources_id(user, src_id, rsrc_id):
     source = get_object_or_404(Source, id=src_id, user=user)
     rsrc = get_object_or_404(Resource, id=rsrc_id, source=source, source__user=user)
-    return iter_rsrc(source, rsrc)
+    return format_resource(source, rsrc)
 
 
 def get_contexts(user):
@@ -122,7 +122,7 @@ def get_contexts(user):
         for r in rsrc:
             set = Context.objects.filter(resource_id=r.id, resource__source__user=user)
             for ctx in set:
-                l.append(iter_ctx(s, r, ctx))
+                l.append(format_context(s, r, ctx))
     return l
 
 
@@ -134,14 +134,14 @@ def get_context_id(user, id):
         for r in rsrc:
             if r.id == id:
                 ctx = Context.objects.get(resource_id=r.id, resource__source__user=user)
-                return iter_ctx(s, r, ctx)
+                return format_context(s, r, ctx)
 
 
 def get_filters(user):
-    flt = Filter.objects.filter(user=user).order_by('reserved', 'name')
+    flt = Filter.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
     l = []
     for f in flt:
-        l.append(iter_flt(f))
+        l.append(format_filter(f))
     return l
 
 
@@ -149,15 +149,15 @@ def get_filter_id(user, name):
     l = None
     flt = get_object_or_404(Filter, name=name)
     if flt.user == user or flt.user is None:
-        l = iter_flt(flt)
+        l = format_filter(flt)
     return l
 
 
 def get_analyzers(user):
     l = []
-    anl = Analyzer.objects.filter(user=user).order_by('reserved', 'name')
+    anl = Analyzer.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
     for a in anl:
-        l.append(iter_anl(a))
+        l.append(format_analyzer(a))
     return l
 
 
@@ -165,16 +165,15 @@ def get_analyzers_id(user, name):
     l = None
     anl = get_object_or_404(Analyzer, name=name)
     if anl.user == user or anl.user is None:
-        l = iter_anl(anl)
+        l = format_analyzer(anl)
     return l
-
 
 
 def get_token(user):
     l = []
     tkn = Tokenizer.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
     for t in tkn:
-        l.append(iter_tkn(t))
+        l.append(format_tokenizer(t))
     return l
 
 
@@ -182,7 +181,7 @@ def get_token_id(user, name):
     l = None
     tkn = get_object_or_404(Tokenizer, name=name)
     if tkn.user == user or tkn.user is None:
-        l = iter_tkn(tkn)
+        l = format_tokenizer(tkn)
     return l
 
 
@@ -195,6 +194,7 @@ def read_name(body_data):
     except IntegrityError:
         return None
     return name
+
 
 def uri_shortcut(b):
     """
