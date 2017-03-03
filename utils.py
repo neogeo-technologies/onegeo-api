@@ -10,6 +10,7 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.db import IntegrityError
+from django.db.models import Q
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
@@ -163,7 +164,7 @@ def get_analyzers_id(user, name):
 
 
 def get_token(user):
-    tkn = Tokenizer.objects.filter(user=user).order_by('reserved', 'name')
+    tkn = Tokenizer.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
     l = []
     for t in tkn:
         l.append(iter_tkn(t))

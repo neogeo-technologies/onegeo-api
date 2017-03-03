@@ -124,7 +124,7 @@ class Analyzer(models.Model):
 class Tokenizer(models.Model):
 
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
-    user = models.ForeignKey(User)
+    user = models.ForeignKey(User, blank=True, null=True)
     config = JSONField("Config", blank=True, null=True)
     reserved = models.BooleanField("Reserved", default=False)
 
