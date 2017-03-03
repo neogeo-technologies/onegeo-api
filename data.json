@@ -1,0 +1,278 @@
+[
+
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "standard",
+    "fields": {
+      "tokenizer_id": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "simple",
+    "fields": {
+      "tokenizer_id": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "whitespace",
+    "fields": {
+      "tokenizer_id": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "stop",
+    "fields": {
+      "tokenizer_id": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "keyword",
+    "fields": {
+      "tokenizer_id": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "pattern",
+    "fields": {
+      "tokenizer_id": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "french",
+    "fields": {
+      "tokenizer_id": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "fingerprint",
+    "fields": {
+      "tokenizer_id": null,
+      "reserved": true
+    }
+  },
+
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "classic",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "edge_ngram",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "keyword",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "letter",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "lowercase",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "ngram",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "path_hierarchy",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "pattern",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "standard",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "thai",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "whitespace",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "uax_url_email",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+
+  {
+    "model": "onegeo_api.filter",
+    "pk": "asciifolding",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "lowercase",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "stop",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "lenght",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "snowball",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "stemmer",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "kstem",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "phonetic",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "reverse",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "truncate",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "elision",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "unique",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "shingle",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.filter",
+    "pk": "shingle",
+    "fields": {
+      "config": null,
+      "reserved": true
+    }
+  }
+
+]
