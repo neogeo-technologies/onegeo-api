@@ -146,34 +146,44 @@ def get_filters(user):
 
 
 def get_filter_id(user, name):
-    flt = get_object_or_404(Filter, user=user, name=name)
-    return iter_flt(flt)
+    l = None
+    flt = get_object_or_404(Filter, name=name)
+    if flt.user == user or flt.user is None:
+        l = iter_flt(flt)
+    return l
 
 
 def get_analyzers(user):
-    anl = Analyzer.objects.filter(user=user).order_by('reserved', 'name')
     l = []
+    anl = Analyzer.objects.filter(user=user).order_by('reserved', 'name')
     for a in anl:
         l.append(iter_anl(a))
     return l
 
 
 def get_analyzers_id(user, name):
-    anl = get_object_or_404(Analyzer, user=user, name=name)
-    return iter_anl(anl)
+    l = None
+    anl = get_object_or_404(Analyzer, name=name)
+    if anl.user == user or anl.user is None:
+        l = iter_anl(anl)
+    return l
+
 
 
 def get_token(user):
-    tkn = Tokenizer.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
     l = []
+    tkn = Tokenizer.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
     for t in tkn:
         l.append(iter_tkn(t))
     return l
 
 
 def get_token_id(user, name):
-    tkn = get_object_or_404(Tokenizer, user=user, name=name)
-    return iter_tkn(tkn)
+    l = None
+    tkn = get_object_or_404(Tokenizer, name=name)
+    if tkn.user == user or tkn.user is None:
+        l = iter_tkn(tkn)
+    return l
 
 
 def read_name(body_data):

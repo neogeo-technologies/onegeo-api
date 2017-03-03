@@ -107,7 +107,7 @@ class Context(models.Model):
 class Filter(models.Model):
 
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
-    user = models.ForeignKey(User)
+    user = models.ForeignKey(User, blank=True, null=True)
     config = JSONField("Config", blank=True, null=True)
     reserved = models.BooleanField("Reserved", default=False)
 
@@ -115,7 +115,7 @@ class Filter(models.Model):
 class Analyzer(models.Model):
 
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
-    user = models.ForeignKey(User)
+    user = models.ForeignKey(User, blank=True, null=True)
     filter = models.ManyToManyField(Filter, blank=True)
     tokenizer = models.ForeignKey("Tokenizer", blank=True, null=True)
     reserved = models.BooleanField("Reserved", default=False)

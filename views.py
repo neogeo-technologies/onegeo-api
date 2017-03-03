@@ -39,7 +39,6 @@ class SourceView(View):
             return user
 
         if "application/json" not in request.content_type:
-        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -138,7 +137,6 @@ class ContextView(View):
             return user
 
         if "application/json" not in request.content_type:
-            # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
 
@@ -207,7 +205,6 @@ class ContextIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        # if request.content_type != "application/json":
         if "application/json" not in request.content_type:
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
@@ -278,7 +275,6 @@ class FilterView(View):
             return user
 
         if "application/json" not in request.content_type:
-        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -305,8 +301,15 @@ class FilterIDView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        flt_name = (name.endswith('/') and name[:-1] or name)
-        return JsonResponse(utils.get_filter_id(user(), flt_name), safe=False)
+        name = (name.endswith('/') and name[:-1] or name)
+        res = utils.get_filter_id(user(), name)
+        if res is None:
+            response = JsonResponse({'Error': '401 Unauthorized'})
+            response.status_code = 403
+        else:
+            response = JsonResponse(res)
+            response.status_code = 200
+        return response
 
     def put(self, request, name):
         user = utils.get_user_or_401(request)
@@ -314,7 +317,6 @@ class FilterIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -381,7 +383,6 @@ class AnalyzerView(View):
             return user
 
         if "application/json" not in request.content_type:
-        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -425,7 +426,14 @@ class AnalyzerIDView(View):
             return user
         name = (name.endswith('/')and name[:-1] or name)
 
-        return JsonResponse(utils.get_analyzers_id(user(), name), safe=False)
+        res = utils.get_analyzers_id(user(), name)
+        if res is None:
+            response = JsonResponse({'Error': '401 Unauthorized'})
+            response.status_code = 403
+        else:
+            response = JsonResponse(res)
+            response.status_code = 200
+        return response
 
     def put(self, request, name):
         user = utils.get_user_or_401(request)
@@ -433,7 +441,6 @@ class AnalyzerIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -514,7 +521,6 @@ class TokenizerView(View):
             return user
 
         if "application/json" not in request.content_type:
-        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -540,7 +546,14 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        return JsonResponse(utils.get_token_id(user(), name), safe=False)
+        res = utils.get_token_id(user(), name)
+        if res is None:
+            response = JsonResponse({'Error': '401 Unauthorized'})
+            response.status_code = 403
+        else:
+            response = JsonResponse(res)
+            response.status_code = 200
+        return response
 
     def put(self, request, name):
         user = utils.get_user_or_401(request)
@@ -548,7 +561,6 @@ class TokenizerIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-        # if request.content_type != "application/json":
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
