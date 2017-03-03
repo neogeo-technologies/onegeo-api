@@ -38,7 +38,7 @@ def iter_src(s):
          'mode': s.mode,
          'name': s.name,
          'location': '/sources/{}'.format(s.id),
-         'resources': [iter_rsrc(s, r) for r in list(Resource.objects.filter(source=s))]}
+         'resources': [iter_rsrc(s, r) for r in list(Resource.objects.filter(source=s).order_by('name'))]}
     return d
 
 
@@ -52,12 +52,12 @@ def iter_ctx(s, r, c):
     return d
 
 
-def iter_flt(f):
-    d = {"location": "filters/{}".format(f.name),
-         "name": f.name,
-         "config": f.config
-    }
-    return d
+def iter_flt(obj):
+    return {
+        "location": "filters/{}".format(obj.name),
+        "name": obj.name,
+        "config": obj.config,
+        "reserved": obj.reserved}
 
 
 def iter_flt_from_anl(anl_name):
@@ -69,24 +69,24 @@ def iter_flt_from_anl(anl_name):
     return l
 
 
-def iter_anl(a):
-    d = {'location':'analyzers/{}'.format(a.name),
-         'name': a.name,
-         'filters': iter_flt_from_anl(a.name),
-         'tokenizer': a.tokenizer and a.tokenizer.name or ""
-    }
-    return d
+def iter_anl(obj):
+    return {
+        "location": "analyzers/{}".format(obj.name),
+        "name": obj.name,
+        "filters": iter_flt_from_anl(obj.name),
+        "reserved": obj.reserved,
+        "tokenizer": obj.tokenizer and obj.tokenizer.name or ""} 
 
 
-def iter_tkn(t):
-    d = {"location": "tokenizers/{}".format(t.name),
-         "name": t.name,
-         "config": t.config
-         }
-    return d
+def iter_tkn(obj):
+    return {
+        "location": "tokenizers/{}".format(obj.name),
+        "name": obj.name,
+        "config": obj.config,
+        "reserved": obj.reserved}
 
 def get_sources(user):
-    sources = Source.objects.filter(user=user)
+    sources = Source.objects.filter(user=user).order_by('name')
     list = []
     for set in sources:
         list.append(iter_src(set))
@@ -100,11 +100,11 @@ def get_sources_id(user, id):
 
 def get_resources(user, src_id):
     source = Source.objects.get(id=src_id, user=user)
-    rsrc = Resource.objects.filter(source=source, source__user=user)
-    list = []
+    rsrc = Resource.objects.filter(source=source, source__user=user).order_by('name')
+    l = []
     for r in rsrc:
-        list.append(iter_rsrc(source, r))
-    return list
+        l.append(iter_rsrc(source, r))
+    return l
 
 
 def get_resources_id(user, src_id, rsrc_id):
@@ -136,9 +136,8 @@ def get_context_id(user, id):
                 return iter_ctx(s, r, ctx)
 
 
-
 def get_filters(user):
-    flt = Filter.objects.filter(user=user)
+    flt = Filter.objects.filter(user=user).order_by('reserved', 'name')
     l = []
     for f in flt:
         l.append(iter_flt(f))
@@ -151,7 +150,7 @@ def get_filter_id(user, name):
 
 
 def get_analyzers(user):
-    anl = Analyzer.objects.filter(user=user)
+    anl = Analyzer.objects.filter(user=user).order_by('reserved', 'name')
     l = []
     for a in anl:
         l.append(iter_anl(a))
@@ -162,8 +161,9 @@ def get_analyzers_id(user, name):
     anl = get_object_or_404(Analyzer, user=user, name=name)
     return iter_anl(anl)
 
+
 def get_token(user):
-    tkn = Tokenizer.objects.filter(user=user)
+    tkn = Tokenizer.objects.filter(user=user).order_by('reserved', 'name')
     l = []
     for t in tkn:
         l.append(iter_tkn(t))

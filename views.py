@@ -346,9 +346,14 @@ class FilterIDView(View):
         response = HttpResponse()
         flt_name = (name.endswith('/') and name[:-1] or name)
         filter = Filter.objects.filter(name=flt_name, user=user())
+
         if len(filter) == 1:
-            filter.delete()
-            response.status_code = 200
+            filter = filter[0]
+            if not filter.reserved:
+                filter.delete()
+                response.status_code = 200
+            else:
+                response.status_code = 405
         elif len(filter) == 0:
             flt = Filter.objects.filter(name=flt_name)
             if len(flt) == 1:
@@ -357,6 +362,7 @@ class FilterIDView(View):
                 response.status_code = 204
         else:
             return HttpResponseBadRequest()
+
         return response
 
 
@@ -442,13 +448,13 @@ class AnalyzerIDView(View):
             try:
                 tkn_chk = Tokenizer.objects.get(name=tokenizer)
             except Tokenizer.DoesNotExist:
-                return HttpResponseBadRequest()
+                return HttpResponseBadRequest("Tokenizer DoesNotExist")
 
         response = HttpResponse()
         if analyzer.user == user():
             status = 200
             if len(filters) > 0:
-                for f in filters:
+                for f in filters:                  
                     try:
                         flt = Filter.objects.get(name=f)
                     except Filter.DoesNotExist:
@@ -475,6 +481,11 @@ class AnalyzerIDView(View):
 
         analyzer = get_object_or_404(Analyzer, name=name)
         response = HttpResponse()
+
+        if analyzer.reserved:
+            response.status_code = 405
+            return response
+
         if analyzer.user == user():
             status = 200
             analyzer.delete()
@@ -565,9 +576,15 @@ class TokenizerIDView(View):
         response = HttpResponse()
 
         token = Tokenizer.objects.filter(name=name, user=user())
+
         if len(token) == 1:
-            token.delete()
-            response.status_code = 200
+            token = token[0]
+            if not token.reserved:
+                token.delete()
+                response.status_code = 200
+            else:
+                response.status_code = 405
+
         elif len(token) == 0:
             flt = Filter.objects.filter(name=name)
             if len(flt) == 1:
@@ -671,21 +688,25 @@ class ActionView(View):
         analysis = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
 
         for analyzer_name in analyzers:
-
             analyzer = Analyzer.objects.get(name=analyzer_name)
+
+            if analyzer.reserved:
+                continue
+
+            analysis['analyzer'][analyzer.name] = {'type': 'custom'}
+
             tokenizer = analyzer.tokenizer
+            if tokenizer:
+                analysis['analyzer'][analyzer.name]['tokenizer'] = tokenizer.name
+                if not tokenizer.reserved:
+                    analysis['tokenizer'][tokenizer.name] = tokenizer.config
+
             filters_name = utils.iter_flt_from_anl(analyzer.name)
-
-            for filter_name in utils.iter_flt_from_anl(analyzer.name):
-                filter_obj = Filter.objects.get(name=filter_name)
-                analysis['filter'][filter_obj.name] = filter_obj.config
-
-            analysis['tokenizer'][tokenizer.name] = tokenizer.config
+            for filter_name in iter(filters_name):
+                filter = Filter.objects.get(name=filter_name)
+                if not filter.reserved:
+                    analysis['filter'][filter.name] = filter.config
             
-            analysis['analyzer'][analyzer.name] = {
-                                        'filter': filters_name,
-                                        'type': 'custom',
-                                        'tokenizer': tokenizer.name}
+            analysis['analyzer'][analyzer.name]['filter'] = filters_name
 
         return analysis
-

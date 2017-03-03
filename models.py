@@ -92,6 +92,7 @@ class Resource(models.Model):
 
 
 class Context(models.Model):
+    
     RF_L = (
         ("daily", "daily"),
         ("weekly", "weekly"),
@@ -108,6 +109,7 @@ class Filter(models.Model):
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
     user = models.ForeignKey(User)
     config = JSONField("Config", blank=True, null=True)
+    reserved = models.BooleanField("Reserved", default=False)
 
 
 class Analyzer(models.Model):
@@ -116,6 +118,7 @@ class Analyzer(models.Model):
     user = models.ForeignKey(User)
     filter = models.ManyToManyField(Filter, blank=True)
     tokenizer = models.ForeignKey("Tokenizer", blank=True, null=True)
+    reserved = models.BooleanField("Reserved", default=False)
 
 
 class Tokenizer(models.Model):
@@ -123,18 +126,16 @@ class Tokenizer(models.Model):
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
     user = models.ForeignKey(User)
     config = JSONField("Config", blank=True, null=True)
+    reserved = models.BooleanField("Reserved", default=False)
 
-# Signaux
 
 @receiver(post_save, sender=Source)
 def on_save_source(sender, instance, *args, **kwargs):
     for res in instance.src.get_types():
-        resource = Resource.objects.create(
-                        source=instance, name=res.name, columns=res.columns)
+        resource = Resource.objects.create(source=instance, name=res.name, columns=res.columns)
         resource.set_rsrc(res)
+
 
 @receiver(post_delete, sender=Context)
 def on_delete_context(sender, instance, *args, **kwargs):
-    elastic_conn.delete_index_by_alias(instance.name)  # easy
-    
-
+    elastic_conn.delete_index_by_alias(instance.name)
