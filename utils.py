@@ -64,10 +64,7 @@ def format_filter(obj):
 def iter_flt_from_anl(anl_name):
     AnalyserFilters = Analyzer.filter.through
     set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by('id')
-    l=[]
-    for s in set:
-        l.append(s.filter.name)
-    return l
+    return [s.filter.name for s in set if s.filter.name is not None]
 
 
 def format_analyzer(obj):
@@ -86,20 +83,18 @@ def format_tokenizer(obj):
         "config": obj.config,
         "reserved": obj.reserved}
 
+
 def iter_ctx_from_search_model(mdl_name):
-    ModelContext = SearchModel.context.through
-    set = ModelContext.objects.filter(searchmodel__name=mdl_name)
-    l = []
-    for s in set:
-        l.append(s.context.name)
-    return l
+    return [s.context.name for s in SearchModel.objects.filter(name=mdl_name) if s.context.name is not None]
+
 
 def format_search_model(obj):
+    l = iter_ctx_from_search_model(obj.name)
     return {
         "location": "models/{}".format(obj.name),
         "name": obj.name,
         "config": obj.config,
-        "contexts": iter_ctx_from_search_model(obj.name)
+        "contexts": l
     }
 
 
