@@ -93,116 +93,77 @@ def format_search_model(obj):
         "config": obj.config,
     }
 
-def get_sources(user):
-    sources = Source.objects.filter(user=user).order_by('name')
-    list = []
-    for set in sources:
-        list.append(format_source(set))
-    return list
 
-
-def get_sources_id(user, id):
-    source = get_object_or_404(Source, id=id, user=user)
-    return format_source(source)
-
-
-def get_resources(user, src_id):
-    source = Source.objects.get(id=src_id, user=user)
-    rsrc = Resource.objects.filter(source=source, source__user=user).order_by('name')
+def get_objects(user, mdl, src_id=None):
     l = []
-    for r in rsrc:
-        l.append(format_resource(source, r))
-    return l
+    d = {Tokenizer: format_tokenizer,
+         Analyzer: format_analyzer,
+         Filter: format_filter}
 
+    if mdl in d:
+        obj = mdl.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
+        for o in obj:
+            l.append(d[mdl](o))
 
-def get_resources_id(user, src_id, rsrc_id):
-    source = get_object_or_404(Source, id=src_id, user=user)
-    rsrc = get_object_or_404(Resource, id=rsrc_id, source=source, source__user=user)
-    return format_resource(source, rsrc)
+    if mdl is SearchModel:
+        search_model = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by('name')
+        for sm in search_model:
+            l.append(format_search_model(sm))
 
+    if mdl is Context:
+        src = Source.objects.filter(user=user)
+        for s in src:
+            rsrc = Resource.objects.filter(source=s, source__user=user)
+            for r in rsrc:
+                set = Context.objects.filter(resource_id=r.id, resource__source__user=user)
+                for ctx in set:
+                    l.append(format_context(s, r, ctx))
 
-def get_contexts(user):
-    src = Source.objects.filter(user=user)
-    l = []
-    for s in src:
-        rsrc = Resource.objects.filter(source=s, source__user=user)
+    if mdl is Resource and src_id is not None:
+        source = Source.objects.get(id=src_id, user=user)
+        rsrc = Resource.objects.filter(source=source, source__user=user).order_by('name')
         for r in rsrc:
-            set = Context.objects.filter(resource_id=r.id, resource__source__user=user)
-            for ctx in set:
-                l.append(format_context(s, r, ctx))
+            l.append(format_resource(source, r))
+
+    if mdl is Source:
+        src = Source.objects.filter(user=user).order_by('name')
+        for s in src:
+            l.append(format_source(s))
+
     return l
 
 
-def get_context_id(user, id):
-    src = Source.objects.filter(user=user)
-    l = []
-    for s in src:
-        rsrc = Resource.objects.filter(source=s, source__user=user)
-        for r in rsrc:
-            if r.id == id:
-                ctx = Context.objects.get(resource_id=r.id, resource__source__user=user)
-                return format_context(s, r, ctx)
-
-
-def get_filters(user):
-    flt = Filter.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
-    l = []
-    for f in flt:
-        l.append(format_filter(f))
-    return l
-
-
-def get_filter_id(user, name):
+def get_object_id(user, id, mdl, src_id=None):
     l = None
-    flt = get_object_or_404(Filter, name=name)
-    if flt.user == user or flt.user is None:
-        l = format_filter(flt)
-    return l
+    d = {SearchModel : format_search_model,
+         Tokenizer: format_tokenizer,
+         Analyzer : format_analyzer,
+         Filter : format_filter}
+
+    if mdl in d:
+        obj = get_object_or_404(mdl, name=id)
+        if obj.user == user or obj.user is None:
+            l = d[mdl](obj)
+
+    if mdl is Context:
+        src = Source.objects.filter(user=user)
+        for s in src:
+            rsrc = Resource.objects.filter(source=s, source__user=user)
+            for r in rsrc:
+                if r.id == id:
+                    ctx = Context.objects.get(resource_id=r.id, resource__source__user=user)
+                    l = format_context(s, r, ctx)
+
+    if mdl is Resource and src_id is not None:
+        source = get_object_or_404(Source, id=src_id, user=user)
+        rsrc = get_object_or_404(Resource, id=id, source=source, source__user=user)
+        l = format_resource(source, rsrc)
+
+    if mdl is Source:
+        source = get_object_or_404(Source, id=id, user=user)
+        l = format_source(source)
 
 
-def get_analyzers(user):
-    l = []
-    anl = Analyzer.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
-    for a in anl:
-        l.append(format_analyzer(a))
-    return l
-
-
-def get_analyzers_id(user, name):
-    l = None
-    anl = get_object_or_404(Analyzer, name=name)
-    if anl.user == user or anl.user is None:
-        l = format_analyzer(anl)
-    return l
-
-
-def get_token(user):
-    l = []
-    tkn = Tokenizer.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
-    for t in tkn:
-        l.append(format_tokenizer(t))
-    return l
-
-
-def get_token_id(user, name):
-    l = None
-    tkn = get_object_or_404(Tokenizer, name=name)
-    if tkn.user == user or tkn.user is None:
-        l = format_tokenizer(tkn)
-    return l
-
-def get_models(user):
-    l = []
-    mdl = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by('name')
-    for m in mdl:
-        l.append(format_search_model(m))
-    return l
-
-def get_model_id(user, name):
-    l = None
-    mdl = get_object_or_404(SearchModel, name=name)
-    if mdl.user == user or mdl.user is None:
-        l = format_search_model(mdl)
     return l
 
 

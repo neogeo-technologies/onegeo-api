@@ -31,7 +31,7 @@ class SourceView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        return JsonResponse(utils.get_sources(user()), safe=False)
+        return JsonResponse(utils.get_objects(user(), Source), safe=False)
 
     def post(self, request):
         user = utils.get_user_or_401(request)
@@ -76,7 +76,7 @@ class SourceIDView(View):
         if isinstance(user, HttpResponse):
             return user
         src_id = literal_eval(id)
-        return JsonResponse(utils.get_sources_id(user(), src_id), safe=False)
+        return JsonResponse(utils.get_object_id(user(), src_id, Source), safe=False)
 
     def delete(self, request, id):
         user = utils.get_user_or_401(request)
@@ -107,7 +107,7 @@ class ResourceView(View):
             return user
 
         src_id = literal_eval(id)
-        return JsonResponse(utils.get_resources(user(), src_id), safe=False)
+        return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -117,7 +117,7 @@ class ResourceIDView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        return JsonResponse(utils.get_resources_id(user(), src_id, rsrc_id), safe=False)
+        return JsonResponse(utils.get_object_id(user(), rsrc_id, Resource, src_id), safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -128,7 +128,7 @@ class ContextView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        return JsonResponse(utils.get_contexts(user()), safe=False)
+        return JsonResponse(utils.get_objects(user(), Context), safe=False)
 
 
     def post(self, request):
@@ -198,7 +198,7 @@ class ContextIDView(View):
         if isinstance(user, HttpResponse):
             return user
         ctx_id = literal_eval(id)
-        return JsonResponse(utils.get_context_id(user(), ctx_id), safe=False)
+        return JsonResponse(utils.get_object_id(user(), ctx_id, Context), safe=False)
 
     def put(self, request, id):
         user = utils.get_user_or_401(request)
@@ -267,7 +267,7 @@ class FilterView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        return JsonResponse(utils.get_filters(user()), safe=False)
+        return JsonResponse(utils.get_objects(user(), Filter), safe=False)
 
     def post(self, request):
         user = utils.get_user_or_401(request)
@@ -302,7 +302,7 @@ class FilterIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        res = utils.get_filter_id(user(), name)
+        res = utils.get_object_id(user(), name, Filter)
         if res is None:
             response = JsonResponse({'Error': '401 Unauthorized'})
             response.status_code = 403
@@ -374,7 +374,7 @@ class AnalyzerView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        return JsonResponse(utils.get_analyzers(user()), safe=False)
+        return JsonResponse(utils.get_objects(user(), Analyzer), safe=False)
 
     @transaction.atomic
     def post(self, request):
@@ -426,7 +426,7 @@ class AnalyzerIDView(View):
             return user
         name = (name.endswith('/')and name[:-1] or name)
 
-        res = utils.get_analyzers_id(user(), name)
+        res = utils.get_object_id(user(), name, Analyzer)
         if res is None:
             response = JsonResponse({'Error': '401 Unauthorized'})
             response.status_code = 403
@@ -512,7 +512,7 @@ class TokenizerView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        return JsonResponse(utils.get_token(user()), safe=False)
+        return JsonResponse(utils.get_objects(user(), Tokenizer), safe=False)
 
     def post(self, request):
         user = utils.get_user_or_401(request)
@@ -545,7 +545,7 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        res = utils.get_token_id(user(), name)
+        res = utils.get_object_id(user(), name, Tokenizer)
         if res is None:
             response = JsonResponse({'Error': '401 Unauthorized'})
             response.status_code = 403
@@ -730,7 +730,7 @@ class SearchModelView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        return JsonResponse(utils.get_models(user()), safe=False)
+        return JsonResponse(utils.get_objects(user(), SearchModel), safe=False)
 
     def post(self, request):
         user = utils.get_user_or_401(request)
@@ -765,7 +765,7 @@ class SearchModelIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        res = utils.get_model_id(user(), name)
+        res = utils.get_object_id(user(), name, SearchModel)
         if res is None:
             response = JsonResponse({'Error': '401 Unauthorized'})
             response.status_code = 403
@@ -826,3 +826,10 @@ class SearchModelIDView(View):
             return HttpResponseBadRequest()
 
         return response
+
+@method_decorator(csrf_exempt, name="dispatch")
+class SearchView(View):
+    def get(self, request, name):
+        """Connect config elastic search"""
+        pass
+

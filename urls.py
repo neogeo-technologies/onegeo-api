@@ -4,7 +4,7 @@ from .views import (SourceView, SourceIDView, ResourceView,
                     ContextIDView, FilterView, FilterIDView,
                     AnalyzerView, AnalyzerIDView, TokenizerView,
                     TokenizerIDView, ActionView, SearchModelView,
-                    SearchModelIDView)
+                    SearchModelIDView, SearchView)
 
 
 app_name = "api"
@@ -27,4 +27,5 @@ urlpatterns = [
     url(r"^action/?$", ActionView.as_view()),
     url(r"^models/?$", SearchModelView.as_view()),
     url(r"^models/(\S+)?$", SearchModelIDView.as_view()),
+    url(r"^models/(\S+)/search/?$", SearchView.as_view()),
 ]
