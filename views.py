@@ -490,7 +490,7 @@ class AnalyzerIDView(View):
         response = HttpResponse()
 
         if analyzer.reserved:
-            response.status_code = 405
+            response.status_code = 403
             return response
 
         if analyzer.user == user():
