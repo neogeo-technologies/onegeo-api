@@ -128,6 +128,13 @@ class Tokenizer(models.Model):
     config = JSONField("Config", blank=True, null=True)
     reserved = models.BooleanField("Reserved", default=False)
 
+class SearchModel(models.Model):
+
+    user = models.ForeignKey(User, blank=True, null=True)
+    name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
+    context = models.ManyToManyField(Context, blank=True)
+    config = JSONField("Config", blank=True, null=True)
+
 
 @receiver(post_save, sender=Source)
 def on_save_source(sender, instance, *args, **kwargs):

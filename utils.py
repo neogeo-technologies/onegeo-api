@@ -3,7 +3,7 @@ from base64 import b64decode
 from pathlib import Path
 from re import search
 
-from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer
+from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -85,6 +85,13 @@ def format_tokenizer(obj):
         "name": obj.name,
         "config": obj.config,
         "reserved": obj.reserved}
+
+def format_search_model(obj):
+    return {
+        "location": "models/{}".format(obj.name),
+        "name": obj.name,
+        "config": obj.config,
+    }
 
 def get_sources(user):
     sources = Source.objects.filter(user=user).order_by('name')
@@ -182,6 +189,20 @@ def get_token_id(user, name):
     tkn = get_object_or_404(Tokenizer, name=name)
     if tkn.user == user or tkn.user is None:
         l = format_tokenizer(tkn)
+    return l
+
+def get_models(user):
+    l = []
+    mdl = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by('name')
+    for m in mdl:
+        l.append(format_search_model(m))
+    return l
+
+def get_model_id(user, name):
+    l = None
+    mdl = get_object_or_404(SearchModel, name=name)
+    if mdl.user == user or mdl.user is None:
+        l = format_search_model(mdl)
     return l
 
 
