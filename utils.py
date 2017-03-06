@@ -99,7 +99,7 @@ def format_search_model(obj):
         "location": "models/{}".format(obj.name),
         "name": obj.name,
         "config": obj.config,
-        "context": iter_ctx_from_search_model(obj.name)
+        "contexts": iter_ctx_from_search_model(obj.name)
     }
 
 
