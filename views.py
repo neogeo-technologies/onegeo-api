@@ -7,9 +7,9 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.shortcuts import get_object_or_404
-from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer
+from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
 from django.conf import settings
-from django.db import transaction, IntegrityError
+from django.db import transaction
 
 
 from onegeo_manager.source import PdfSource
@@ -721,3 +721,108 @@ class ActionView(View):
             analysis['analyzer'][analyzer.name]['filter'] = filters_name
 
         return analysis
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class SearchModelView(View):
+
+    def get(self, request):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+        return JsonResponse(utils.get_models(user()), safe=False)
+
+    def post(self, request):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+
+        if "application/json" not in request.content_type:
+            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+        data = request.body.decode('utf-8')
+        body_data = json.loads(data)
+
+        name = utils.read_name(body_data)
+        if name is None:
+            return HttpResponseBadRequest()
+
+        cfg = "config" in body_data and body_data["config"] or {}
+
+        search_model, created = SearchModel.objects.get_or_create(config=cfg, user=user(), name=name)
+        status = created and 201 or 409
+        response = HttpResponse()
+        response.status_code = status
+        if created:
+            response['Location']  = '{}{}'.format(request.build_absolute_uri(), search_model.name)
+        return response
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class SearchModelIDView(View):
+
+    def get(self, request, name):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+        name = (name.endswith('/') and name[:-1] or name)
+        res = utils.get_model_id(user(), name)
+        if res is None:
+            response = JsonResponse({'Error': '401 Unauthorized'})
+            response.status_code = 403
+        else:
+            response = JsonResponse(res)
+            response.status_code = 200
+        return response
+
+    def put(self, request, name):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+
+        if "application/json" not in request.content_type:
+            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+        data = request.body.decode('utf-8')
+        body_data = json.loads(data)
+
+        cfg = "config" in body_data and body_data["config"] or {}
+
+        name = (name.endswith('/') and name[:-1] or name)
+        search_model = SearchModel.objects.filter(name=name, user=user())
+
+        if len(search_model) == 1:
+            search_model.update(config=cfg)
+            status = 200
+        elif len(search_model) == 0:
+            mdl = SearchModel.objects.filter(name=name)
+            if len(mdl) == 1:
+                status = 403
+            elif len(mdl) == 0:
+                status = 204
+        response = HttpResponse()
+        response.status_code = status
+        return response
+
+
+    def delete(self, request, name):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+
+        response = HttpResponse()
+        name = (name.endswith('/') and name[:-1] or name)
+        search_model = SearchModel.objects.filter(name=name, user=user())
+
+        if len(search_model) == 1:
+            search_model[0].delete()
+            response.status_code = 200
+
+        elif len(search_model) == 0:
+            mdl = SearchModel.objects.filter(name=name)
+            if len(mdl) == 1:
+                response.status_code = 403
+            elif len(mdl) == 0:
+                response.status_code = 204
+        else:
+            return HttpResponseBadRequest()
+
+        return response
