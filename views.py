@@ -833,3 +833,61 @@ class SearchView(View):
         """Connect config elastic search"""
         pass
 
+    def post(self, request):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+
+        body_data = json.loads(request.body.decode("utf-8"))
+
+        try:
+            mdl = SearchModel.objects.get(name=data["index"])
+        except SearchModel.DoesNotExist:
+            return HttpResponseBadRequest()
+
+        # action = data["type"]
+        cfg = "config" in body_data and body_data["config"] or {}
+
+        ctx = mdl.context
+
+
+        pdf = PdfSource(src.uri, src.name, src.mode)
+
+        doc_type = None
+        index = Index(rscr.name)
+        for e in iter(pdf.get_types()):
+            if e.name == rscr.name:
+                doc_type = e
+
+        context = PdfContext(index, doc_type)
+
+        for col_property in iter(ctx.clmn_properties):
+            context.update_property(**col_property)
+
+        opts = {}
+
+        if src.mode == "pdf":
+            pipeline = "attachment"
+            elastic_conn.create_pipeline_if_not_exists(pipeline)
+            opts.update({"pipeline": pipeline})
+
+        if action == "rebuild":
+            opts.update({"collections": context.get_collection()})
+
+        if action == "reindex":
+            pass  # Action par défaut
+
+        body = {'mappings': context.generate_elastic_mapping(),
+                'settings': {
+                    'analysis': self.retreive_analysis(
+                        self.retreive_analyzers(context))}}
+
+        elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
+                                             ctx.name,  # Alias de l'index
+                                             doc_type.name,  # Nom du type
+                                             body,  # Settings & Mapping
+                                             **opts)
+
+        response = HttpResponse()
+        response.status_code = 202.  # Ne garantie pas un résultat
+        return response

@@ -86,11 +86,20 @@ def format_tokenizer(obj):
         "config": obj.config,
         "reserved": obj.reserved}
 
+def iter_ctx_from_search_model(mdl_name):
+    ModelContext = SearchModel.context.through
+    set = ModelContext.objects.filter(searchmodel__name=mdl_name)
+    l = []
+    for s in set:
+        l.append(s.context.name)
+    return l
+
 def format_search_model(obj):
     return {
         "location": "models/{}".format(obj.name),
         "name": obj.name,
         "config": obj.config,
+        "context": iter_ctx_from_search_model(obj.name)
     }
 
 
