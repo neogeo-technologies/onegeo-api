@@ -6,6 +6,7 @@ from django.views.generic import View
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
 from django.conf import settings
@@ -172,22 +173,29 @@ class ContextView(View):
         for property in context.iter_properties():
             column_ppt.append(property.all())
 
-        try:
-            context = Context.objects.get(resource=set_rscr)
-            created = False
-        except Context.DoesNotExist:
-            created = True
-            context = Context.objects.create(resource=set_rscr,
-                                             name=name,
-                                             clmn_properties=column_ppt,
-                                             reindex_frequency=reindex_frequency)
-        finally:
-            status = created and 201 or 409
-            response = HttpResponse()
-            response.status_code = status
-            if created:
-                response['Location'] = '{}{}'.format(request.build_absolute_uri(), context.resource_id)
-            return response
+        ctx = Context.objects.filter(resource=set_rscr)
+        response = HttpResponse()
+        created = False
+
+        if len(ctx) == 0:
+            try:
+                new_context = Context.objects.create(resource=set_rscr,
+                                                 name=name,
+                                                 clmn_properties=column_ppt,
+                                                 reindex_frequency=reindex_frequency)
+                status = 201
+                created = True
+            except ValidationError as err:
+                response.content = err
+                status = 409
+        if len(ctx) == 1:
+            response.content = "La requête ne peut être traitée en l’état actuel."
+            status = 409
+
+        response.status_code = status
+        if created:
+            response['Location'] = '{}{}'.format(request.build_absolute_uri(), new_context.resource_id)
+        return response
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -733,6 +741,7 @@ class SearchModelView(View):
         return JsonResponse(utils.get_objects(user(), SearchModel), safe=False)
 
     def post(self, request):
+
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
@@ -747,12 +756,32 @@ class SearchModelView(View):
             return HttpResponseBadRequest()
 
         cfg = "config" in body_data and body_data["config"] or {}
+        ctx = "contexts" in body_data and body_data["contexts"] or []
 
-        search_model, created = SearchModel.objects.get_or_create(config=cfg, user=user(), name=name)
-        status = created and 201 or 409
+        created = False
         response = HttpResponse()
+
+        try:
+            search_model, created = SearchModel.objects.get_or_create(config=cfg, user=user(), name=name)
+        except ValidationError as err:
+            response.content = err
+
+        status = created and 201 or 409
         response.status_code = status
         if created:
+            search_model.context.clear()
+            ctx_clt = []
+            if len(ctx) > 0:
+                ctx_l = []
+                for c in ctx_clt:
+                    try:
+                        ctx = Context.objects.get(name=c)
+                    except Context.DoesNotExist:
+                        return HttpResponseBadRequest("Context Does Not Exist")
+                    else:
+                        ctx_l.append(ctx)
+                search_model.context.set(ctx_l)
+
             response['Location']  = '{}{}'.format(request.build_absolute_uri(), search_model.name)
         return response
 

@@ -87,6 +87,7 @@ def format_tokenizer(obj):
 def iter_ctx_from_search_model(mdl_name):
     SMC = SearchModel.context.through
     set = SMC.objects.filter(searchmodel__name=mdl_name)
+    print('set', set)
     return [s.context.name for s in set if s.context.name is not None]
 
 
@@ -169,7 +170,6 @@ def get_object_id(user, id, mdl, src_id=None):
     if mdl is Source:
         source = get_object_or_404(Source, id=id, user=user)
         l = format_source(source)
-
 
     return l
 

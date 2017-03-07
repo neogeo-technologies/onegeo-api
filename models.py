@@ -109,6 +109,7 @@ class Context(models.Model):
         for s in set_names_sm:
             if self.name == s.name:
                 raise ValidationError("Un context ne peut avoir le même nom qu'un model de recherche")
+        super().save(*args, **kwargs)
 
 
 class Filter(models.Model):
@@ -146,7 +147,9 @@ class SearchModel(models.Model):
         set_names_ctx = Context.objects.all()
         for c in set_names_ctx:
             if self.name == c.name:
-                raise ValidationError("Un context ne peut avoir le même nom qu'un model de recherche")
+                raise ValidationError("Un model de recherche ne peut avoir le même nom qu'un context")
+
+        super().save(*args, **kwargs)
 
 
 @receiver(post_save, sender=Source)
