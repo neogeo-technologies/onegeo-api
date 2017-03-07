@@ -760,14 +760,17 @@ class SearchModelView(View):
 
         created = False
         response = HttpResponse()
+        # response = JsonResponse()
 
         try:
             search_model, created = SearchModel.objects.get_or_create(config=cfg, user=user(), name=name)
         except ValidationError as err:
-            response.content = err
+            return JsonResponse(err.message, safe=False, status=409)
+
 
         status = created and 201 or 409
         response.status_code = status
+
         if created:
             search_model.context.clear()
             ctx_clt = []
@@ -819,7 +822,7 @@ class SearchModelIDView(View):
 
         ctx_clt = "contexts" in body_data and body_data["contexts"] or []
         config = "config" in body_data and body_data["config"] or {}
-        response = HttpResponse()
+        response = JsonResponse()
 
         if len(search_model) == 1:
 
@@ -845,14 +848,17 @@ class SearchModelIDView(View):
 
             if len(mdl) == 1:
                 status = 403
-                response.content = "Forbidden: Vous n'avez pas les permissions necessaires à l'acces de cette resource"
+                message = "Forbidden: Vous n'avez pas les permissions necessaires à l'acces de cette resource"
+                response.content = message
 
             elif len(mdl) == 0:
                 status = 204
-                response.content = "No Content: Requête traitée avec succès mais pas d’information à renvoyer."
+                message = "No Content: Requête traitée avec succès mais pas d’information à renvoyer."
+                response.content = message
 
 
         response.status_code = status
+        # return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         return response
 
     def delete(self, request, name):
