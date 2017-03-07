@@ -806,42 +806,49 @@ class SearchModelIDView(View):
         return response
 
     def put(self, request, name):
+
+        # Check user
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
 
+        # Check content-type
         if "application/json" not in request.content_type:
             return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
         name = (name.endswith('/') and name[:-1] or name)
-        # search_model = get_object_or_404(SearchModel, name=name)
-        search_model = SearchModel.objects.filter(name=name, user=user())
 
         ctx_clt = "contexts" in body_data and body_data["contexts"] or []
         config = "config" in body_data and body_data["config"] or {}
         response = HttpResponse()
 
+        # QS filter pour update() config
+        search_model = SearchModel.objects.filter(name=name, user=user())
         if len(search_model) == 1:
 
+            # Object SearchModel pour set() context
             sm = get_object_or_404(SearchModel, name=name)
-            sm.context.clear()
 
+            # Si contexts[] est dans data_body
             if len(ctx_clt) > 0:
+                sm.context.clear()
                 ctx_l = []
                 for c in ctx_clt:
                     try:
+                        # Check si les contexts sont correct
                         ctx = Context.objects.get(name=c)
                     except Context.DoesNotExist:
                         return HttpResponseBadRequest("Context Does Not Exist")
                     else:
                         ctx_l.append(ctx)
+                # Object SearchModel contiendra la nouvelle liste de contexts
                 sm.context.set(ctx_l)
 
             search_model.update(config=config)
             status = 200
-            message  = "OK: Requête traitée avec succès."
+            message = "OK: Requête traitée avec succès."
 
         elif len(search_model) == 0:
             mdl = SearchModel.objects.filter(name=name)
