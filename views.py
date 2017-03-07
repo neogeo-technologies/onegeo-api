@@ -861,6 +861,17 @@ class SearchModelIDView(View):
                 status = 204
                 message = "No Content: Requête traitée avec succès mais pas d’information à renvoyer."
 
+        body = {'actions': []}
+
+        for index in elastic_conn.get_indices_by_alias(name=name):
+            body['actions'].append({'remove': {'index': index, 'alias': name}})
+
+        for context in iter(ctx_clt):
+            for index in elastic_conn.get_indices_by_alias(name=context):
+                body['actions'].append({'add': {'index': index, 'alias': name}})
+
+        elastic_conn.update_aliases(body)
+
         response.status_code = status
         return JsonResponse(data={"message": message}, safe=False, status=status)
 

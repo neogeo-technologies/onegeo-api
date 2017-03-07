@@ -46,18 +46,19 @@ class ElasticWrapper(metaclass=Singleton):
     def create_or_replace_index(self, index, name, doc_type, body,
                                 collections=None, pipeline=None):
 
-        def reindex(index, name):
+        # def reindex(index, name):
 
-                indices = self.get_indices_by_alias(name)
-                if len(indices) < 1:
-                    self.delete_index(index)
-                    raise Exception('Hop hop hop.')
-                if len(indices) > 1:
-                    raise Exception('Hop hop hop.')
-                old = indices[0]
+        #         indices = self.get_indices_by_alias(name)
 
-                self.reindex(old, index)
-                self.switch_aliases(index, name)
+        #         if len(indices) < 1:
+        #             self.delete_index(index)
+        #             raise Exception('Hop hop hop.')
+        #         if len(indices) > 1:
+        #             raise Exception('Hop hop hop.')
+        #         old = indices[0]
+
+        #         self.reindex(old, index)
+        #         self.switch_aliases(index, name)
 
         def rebuild(index, name, doc_type, collections, pipeline):
             self.push_document(index, name, doc_type, collections, pipeline)
@@ -70,7 +71,8 @@ class ElasticWrapper(metaclass=Singleton):
             if collections:
                 rebuild(index, name, doc_type, collections, pipeline)
             else:
-                reindex(index, name)
+                raise Exception('TODO')
+                #reindex(index, name)
 
     def delete_index(self, index):
         self.conn.indices.delete(index=index)
@@ -117,9 +119,16 @@ class ElasticWrapper(metaclass=Singleton):
         body = {'actions': []}
 
         indices = self.get_indices_by_alias(name)
-        for i in range(len(indices)):
+
+        for old_index in iter(indices):
+            prev_aliases = self.get_aliases_by_index(old_index)
+            for prev_alias in prev_aliases:
+                if prev_alias != name:
+                    body['actions'].append(
+                            {'add': {'index': index, 'alias': prev_alias}})
+
             body['actions'].append(
-                            {'remove': {'index': indices[i], 'alias': name}})
+                            {'remove': {'index': old_index, 'alias': name}})
 
         self.conn.indices.put_alias(index=index, name=name)
         body['actions'].append({'add': {'index': index, 'alias': name}})
@@ -131,12 +140,21 @@ class ElasticWrapper(metaclass=Singleton):
 
     def get_indices_by_alias(self, name):
 
-            indices = []
-            if self.conn.indices.exists_alias(name=name):
-                res = self.conn.indices.get_alias(name=name)
-                for index, _ in res.items():
-                    indices.append(index)
-            return indices
+        indices = []
+        if self.conn.indices.exists_alias(name=name):
+            res = self.conn.indices.get_alias(name=name)
+            for index, _ in res.items():
+                indices.append(index)
+        return indices
+
+    def get_aliases_by_index(self, index):
+
+        aliases = []
+        if self.conn.indices.exists(index=index):
+            res = self.conn.indices.get_alias(index=index)
+            for alias, _ in res[index]['aliases'].items():
+                aliases.append(alias)
+        return aliases
 
     def update_aliases(self, body):
         self.conn.indices.update_aliases(body=body)
