@@ -819,6 +819,7 @@ class SearchModelIDView(View):
 
         ctx_clt = "contexts" in body_data and body_data["contexts"] or []
         config = "config" in body_data and body_data["config"] or {}
+        response = HttpResponse()
 
         if len(search_model) == 1:
 
@@ -844,11 +845,13 @@ class SearchModelIDView(View):
 
             if len(mdl) == 1:
                 status = 403
+                response.content = "Forbidden: Vous n'avez pas les permissions necessaires à l'acces de cette resource"
 
             elif len(mdl) == 0:
                 status = 204
+                response.content = "No Content: Requête traitée avec succès mais pas d’information à renvoyer."
 
-        response = HttpResponse()
+
         response.status_code = status
         return response
 
@@ -869,6 +872,7 @@ class SearchModelIDView(View):
             mdl = SearchModel.objects.filter(name=name)
             if len(mdl) == 1:
                 response.status_code = 403
+                response.content = "Forbidden: Vous n'avez pas les permissions necessaires à l'acces de cette resource"
             elif len(mdl) == 0:
                 response.status_code = 204
         else:
