@@ -765,7 +765,8 @@ class SearchModelView(View):
         try:
             search_model, created = SearchModel.objects.get_or_create(config=cfg, user=user(), name=name)
         except ValidationError as err:
-            return JsonResponse(err.message, safe=False, status=409)
+
+            return JsonResponse({"message": err.message}, safe=False, status=409)
 
 
         status = created and 201 or 409
