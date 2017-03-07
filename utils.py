@@ -85,11 +85,14 @@ def format_tokenizer(obj):
 
 
 def iter_ctx_from_search_model(mdl_name):
-    return [s.context.name for s in SearchModel.objects.filter(name=mdl_name) if s.context.name is not None]
+    SMC = SearchModel.context.through
+    set = SMC.objects.filter(searchmodel__name=mdl_name)
+    return [s.context.name for s in set if s.context.name is not None]
 
 
 def format_search_model(obj):
     l = iter_ctx_from_search_model(obj.name)
+    print("format", l)
     return {
         "location": "models/{}".format(obj.name),
         "name": obj.name,

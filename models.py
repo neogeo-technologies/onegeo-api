@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from onegeo_manager.source import PdfSource
+from django.core.exceptions import ValidationError
 # from onegeo_manager.index import Index
 # from onegeo_manager.context import PdfContext
 
@@ -103,6 +104,12 @@ class Context(models.Model):
     clmn_properties = JSONField("Columns")
     reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L, default="monthly", max_length=250)
 
+    def save(self, *args, **kwargs):
+        set_names_sm = SearchModel.objects.all()
+        for s in set_names_sm:
+            if self.name == s.name:
+                raise ValidationError("Un context ne peut avoir le même nom qu'un model de recherche")
+
 
 class Filter(models.Model):
 
@@ -134,6 +141,12 @@ class SearchModel(models.Model):
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
     context = models.ManyToManyField(Context, blank=True)
     config = JSONField("Config", blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        set_names_ctx = Context.objects.all()
+        for c in set_names_ctx:
+            if self.name == c.name:
+                raise ValidationError("Un context ne peut avoir le même nom qu'un model de recherche")
 
 
 @receiver(post_save, sender=Source)
