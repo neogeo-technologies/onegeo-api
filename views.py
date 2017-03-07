@@ -855,7 +855,7 @@ class SearchModelIDView(View):
                 message = "No Content: Requête traitée avec succès mais pas d’information à renvoyer."
 
         response.status_code = status
-        return JsonResponse({"message": message}, safe=False, status=status)
+        return JsonResponse(data={"message": message}, safe=False, status=status)
 
     def delete(self, request, name):
         user = utils.get_user_or_401(request)
