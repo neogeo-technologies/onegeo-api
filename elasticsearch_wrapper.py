@@ -124,7 +124,7 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn.indices.put_alias(index=index, name=name)
         body['actions'].append({'add': {'index': index, 'alias': name}})
 
-        self.conn.indices.update_aliases(body=body)
+        self.update_aliases(body)
 
         for i in range(len(indices)):
             self.delete_index(indices[i])
@@ -137,5 +137,9 @@ class ElasticWrapper(metaclass=Singleton):
                 for index, _ in res.items():
                     indices.append(index)
             return indices
+
+    def update_aliases(self, body):
+        self.conn.indices.update_aliases(body=body)
+
 
 elastic_conn = ElasticWrapper()
