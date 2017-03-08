@@ -640,6 +640,10 @@ class ActionView(View):
         except Context.DoesNotExist:
             return HttpResponseBadRequest()
 
+        if elastic_conn.is_a_task_running():
+            data = {"error": "Locked, acces à la ressource est impossible"}
+            return JsonResponse(data, status=423)
+
         action = data["type"]
 
         rscr = ctx.resource
@@ -881,6 +885,7 @@ class SearchModelIDView(View):
                 data = {"message": "No Content"}
 
         return JsonResponse(data, status=status)
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchView(View):
