@@ -244,44 +244,39 @@ class ContextIDView(View):
         list_ppt = context.clmn_properties
         ppt_update = utils.check_columns(list_ppt, list_ppt_clt)
 
-        if len(context) == 1:
+        if reindex_frequency:
+            context.update(resource=set_rscr,
+                           name=name,
+                           clmn_properties=ppt_update,
+                           reindex_frequency=reindex_frequency)
+        else:
+            context.update(resource=set_rscr,
+                           name=name,
+                           clmn_properties=ppt_update)
 
-            if reindex_frequency:
-                context.update(resource=set_rscr,
-                               name=name,
-                               clmn_properties=ppt_update,
-                               reindex_frequency=reindex_frequency)
-            else:
-                context.update(resource=set_rscr,
-                               name=name,
-                               clmn_properties=ppt_update)
-
-            status = 200
-        elif len(context) == 0:
-            status = 204
-
-
-        response = HttpResponse()
-        response.status_code = status
-        return response
+        return JsonResponse(data={}, status=200)
 
     def delete(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
+
         ctx_id = literal_eval(id)
-        response = HttpResponse()
         context = Context.objects.filter(resource_id=ctx_id, resource__source__user=user())
+
         if len(context) == 1:
             context.delete()
-            response.status_code = 200
+            status = 200
+            data = {}
         elif len(context) == 0:
             ctx = Context.objects.filter(resource_id=ctx_id)
             if len(ctx) == 1:
-                response.status_code = 403
+                status = 403
+                data = {"error": "Forbidden"}
             elif len(ctx) == 0:
-                response.status_code = 204
-        return response
+                data = {"message":"no content"}
+                status = 204
+        return JsonResponse(data, status=status)
 
 @method_decorator(csrf_exempt, name="dispatch")
 class FilterView(View):
@@ -298,7 +293,7 @@ class FilterView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -310,10 +305,13 @@ class FilterView(View):
 
         filter, created = Filter.objects.get_or_create(config=cfg, user=user(), name=name)
         status = created and 201 or 409
-        response = HttpResponse()
-        response.status_code = status
+
         if created:
-            response['Location']  = '{}{}'.format(request.build_absolute_uri(), filter.name)
+            response = JsonResponse(data={}, status=status)
+            response['Location'] = '{}{}'.format(request.build_absolute_uri(), filter.name)
+        if created is False:
+            data = {"error": "Conflict"}
+            response = JsonResponse(data=data, status=status)
         return response
 
 
@@ -325,14 +323,7 @@ class FilterIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        res = utils.get_object_id(user(), name, Filter)
-        if res is None:
-            response = JsonResponse({'Error': '401 Unauthorized'})
-            response.status_code = 403
-        else:
-            response = JsonResponse(res)
-            response.status_code = 200
-        return response
+        return JsonResponse(utils.get_object_id(user(), name, Filter))
 
     def put(self, request, name):
         user = utils.get_user_or_401(request)
@@ -340,7 +331,7 @@ class FilterIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -352,15 +343,17 @@ class FilterIDView(View):
         if len(filter) == 1:
             filter.update(config=cfg)
             status = 200
+            data = {}
         elif len(filter) == 0:
             flt = Filter.objects.filter(name=flt_name)
             if len(flt) == 1:
                 status = 403
+                data = {"error":"Forbidden"}
             elif len(flt) == 0:
                 status = 204
-        response = HttpResponse()
-        response.status_code = status
-        return response
+                data = {"message":"No content"}
+
+        return JsonResponse(data, status=status)
 
 
     def delete(self, request, name):
@@ -368,27 +361,30 @@ class FilterIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        response = HttpResponse()
-        flt_name = (name.endswith('/') and name[:-1] or name)
-        filter = Filter.objects.filter(name=flt_name, user=user())
+        name = (name.endswith('/') and name[:-1] or name)
+        filter = Filter.objects.filter(name=name, user=user())
 
         if len(filter) == 1:
             filter = filter[0]
             if not filter.reserved:
                 filter.delete()
-                response.status_code = 200
+                status = 200
+                data = {}
             else:
-                response.status_code = 405
+                status = 405
+                data = {"error":"Not Allowed"}
         elif len(filter) == 0:
-            flt = Filter.objects.filter(name=flt_name)
+            flt = Filter.objects.filter(name=name)
             if len(flt) == 1:
-                response.status_code = 403
+                status = 403
+                data = {"error":"Forbidden"}
             elif len(flt) == 0:
-                response.status_code = 204
+                status = 204
+                data = {"message":"No content"}
         else:
             return HttpResponseBadRequest()
 
-        return response
+        return JsonResponse(data, status=status)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -406,7 +402,7 @@ class AnalyzerView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
         name = utils.read_name(body_data)
@@ -424,7 +420,7 @@ class AnalyzerView(View):
                     analyzer.filter.add(flt)
                     analyzer.save()
                 except Filter.DoesNotExist:
-                    return HttpResponseBadRequest("Filter DoesNotExist")
+                    return JsonResponse({"error":"Filter DoesNotExist"}, status=400)
 
         if created and tokenizer is not None:
             try:
@@ -432,12 +428,15 @@ class AnalyzerView(View):
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
             except Tokenizer.DoesNotExist:
-                return HttpResponseBadRequest("Tokenizer DoesNotExist")
+                return JsonResponse({"error":"Tokenizer DoesNotExist"}, status=400)
         status = created and 201 or 409
-        response = HttpResponse()
-        response.status_code = status
+
         if created:
+            response = JsonResponse(data={}, status=status)
             response['Location'] = '{}{}'.format(request.build_absolute_uri(), analyzer.name)
+        if created is False:
+            data = {"error": "Conflict"}
+            response = JsonResponse(data=data, status=status)
         return response
 
 
@@ -448,15 +447,7 @@ class AnalyzerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/')and name[:-1] or name)
-
-        res = utils.get_object_id(user(), name, Analyzer)
-        if res is None:
-            response = JsonResponse({'Error': '401 Unauthorized'})
-            response.status_code = 403
-        else:
-            response = JsonResponse(res)
-            response.status_code = 200
-        return response
+        return JsonResponse(utils.get_object_id(user(), name, Analyzer))
 
     def put(self, request, name):
         user = utils.get_user_or_401(request)
@@ -464,7 +455,7 @@ class AnalyzerIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -478,17 +469,21 @@ class AnalyzerIDView(View):
             try:
                 tkn_chk = Tokenizer.objects.get(name=tokenizer)
             except Tokenizer.DoesNotExist:
-                return HttpResponseBadRequest("Tokenizer DoesNotExist")
+                return JsonResponse({"error":"Echec de la mise à jour Analyseur: Tokenizer DoesNotExist"}, status=400)
 
-        response = HttpResponse()
-        if analyzer.user == user():
+        if analyzer.user != user():
+            status = 403
+            data = {"error": "Forbidden"}
+        else:
             status = 200
+            data = {}
             if len(filters) > 0:
                 for f in filters:                  
                     try:
                         flt = Filter.objects.get(name=f)
                     except Filter.DoesNotExist:
-                        return HttpResponseBadRequest("Filter DoesNotExist")
+                        return JsonResponse({"error":"Echec de la mise à jour Analyseur: Filter DoesNotExist"}, status=400)
+
                 analyzer.filter.set([])
                 for f in filters:
                     analyzer.filter.add(f)
@@ -496,12 +491,8 @@ class AnalyzerIDView(View):
             if tokenizer:
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
-        elif analyzer.user != user():
-            status = 403
-        else:
-            return HttpResponseBadRequest()
-        response.status_code = status
-        return response
+
+        return JsonResponse(data, status=status)
 
     def delete(self, request, name):
         user = utils.get_user_or_401(request)
@@ -568,14 +559,7 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        res = utils.get_object_id(user(), name, Tokenizer)
-        if res is None:
-            response = JsonResponse({'Error': '401 Unauthorized'})
-            response.status_code = 403
-        else:
-            response = JsonResponse(res)
-            response.status_code = 200
-        return response
+        return JsonResponse(utils.get_object_id(user(), name, Tokenizer), safe=False)
 
     def put(self, request, name):
         user = utils.get_user_or_401(request)
@@ -595,11 +579,12 @@ class TokenizerIDView(View):
         if len(token) == 1:
             token.update(config=cfg)
             status = 200
+            data = {}
         elif len(token) == 0:
             status = 204
-        response = HttpResponse()
-        response.status_code = status
-        return response
+            data = {"message":"No content"}
+
+        return JsonResponse(data, status=status)
 
 
     def delete(self, request, name):
@@ -607,7 +592,7 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        response = HttpResponse()
+
 
         token = Tokenizer.objects.filter(name=name, user=user())
 
@@ -615,19 +600,22 @@ class TokenizerIDView(View):
             token = token[0]
             if not token.reserved:
                 token.delete()
-                response.status_code = 200
+                status = 200
+                data = {}
             else:
-                response.status_code = 405
+                status = 405
+                data = {"error": "Not Allowed"}
 
         elif len(token) == 0:
             flt = Filter.objects.filter(name=name)
             if len(flt) == 1:
-                response.status_code = 403
+                status = 403
+                data = {"error": "Forbidden"}
             elif len(flt) == 0:
-                response.status_code = 204
-        else:
-            return HttpResponseBadRequest()
-        return response
+                status = 204
+                data = {"message"}
+
+        return JsonResponse
 
 
 @method_decorator(csrf_exempt, name="dispatch")

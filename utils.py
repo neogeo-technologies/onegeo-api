@@ -142,7 +142,7 @@ def get_objects(user, mdl, src_id=None):
 
 
 def get_object_id(user, id, mdl, src_id=None):
-    l = None
+    l = {}
     d = {SearchModel : format_search_model,
          Tokenizer: format_tokenizer,
          Analyzer : format_analyzer,
