@@ -324,7 +324,7 @@ def format_json_get_create(request, created, status, obj_id):
 # Check si user() == obj.user -- A implementer pour filterID, analyserID, tokenizerID, SearchModelID
 def user_access(model, usr_req, name):
     try:
-        model.objects.get(name=name).user
+        obj = model.objects.get(name=name)
     except model.DoesNotExist:
         return None
     if model.objects.get(name=name).user != usr_req:

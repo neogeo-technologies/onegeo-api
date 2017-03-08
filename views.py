@@ -530,7 +530,10 @@ class TokenizerView(View):
 
         name = utils.read_name(body_data)
         if name is None:
-            return HttpResponseBadRequest()
+            return JsonResponse({"error": "Le nom du token est manquant dans la requete"}, status=400)
+        if Tokenizer.objects.filter(name=name).count() > 0:
+            return JsonResponse({"error": "Le nom du token doit etre unique"}, status=409)
+
         cfg = "config" in body_data and body_data["config"] or {}
         token, created = Tokenizer.objects.get_or_create(config=cfg, user=user(), name=name)
         status = created and 201 or 409
@@ -750,7 +753,9 @@ class SearchModelView(View):
 
         name = utils.read_name(body_data)
         if name is None:
-            return HttpResponseBadRequest()
+            return JsonResponse({"error": "Le nom du model de recherche est manquant dans la requete"}, status=400)
+        if SearchModel.objects.filter(name=name).count() > 0:
+            return JsonResponse({"error": "Le nom du model de recherche doit etre unique"}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
         ctx = "contexts" in body_data and body_data["contexts"] or []
