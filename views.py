@@ -69,14 +69,7 @@ class SourceView(View):
 
         sources, created = Source.objects.get_or_create(uri=np, user=user(), name=name, mode=mode)
         status = created and 201 or 409
-
-        if created:
-            response = JsonResponse(data={}, status=status)
-            response['Location'] = '{}{}'.format(request.build_absolute_uri(), sources.id)
-        if created is False:
-            data = {"error": "Conflict"}
-            response = JsonResponse(data=data, status=status)
-        return response
+        return utils.format_json_get_create(request, created, status, sources.id)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -158,7 +151,9 @@ class ContextView(View):
         if "resource" not in body_data:
             return JsonResponse({"error": "Resource field is missing"}, status=400)
 
-        name = body_data['name']
+        name = utils.read_name(body_data)
+        if name is None:
+            return JsonResponse({"error": "Le nom du context est manquant dans la requete"}, status=400)
         if Context.objects.filter(name = name).count() > 0:
             return JsonResponse({"error": "Le nom d'un context doit etre unique"}, status=409)
 
@@ -301,20 +296,15 @@ class FilterView(View):
 
         name = utils.read_name(body_data)
         if name is None:
-            return HttpResponseBadRequest()
+            return JsonResponse({"error": "Le nom du filtre est manquant dans la requete"}, status=400)
+        if Filter.objects.filter(name=name).count() > 0:
+            return JsonResponse({"error": "Le nom du filtre doit etre unique"}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
 
         filter, created = Filter.objects.get_or_create(config=cfg, user=user(), name=name)
         status = created and 201 or 409
-
-        if created:
-            response = JsonResponse(data={}, status=status)
-            response['Location'] = '{}{}'.format(request.build_absolute_uri(), filter.name)
-        if created is False:
-            data = {"error": "Conflict"}
-            response = JsonResponse(data=data, status=status)
-        return response
+        return utils.format_json_get_create(request, created, status, filter.name)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -325,6 +315,8 @@ class FilterIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
+        if Filter.objects.get(name=name).user != user():
+            return JsonResponse({"error": "Forbiden"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Filter))
 
     def put(self, request, name):
@@ -333,7 +325,7 @@ class FilterIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
+            return JsonResponse({"error": "Content-type incorrect"}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -409,7 +401,10 @@ class AnalyzerView(View):
         body_data = json.loads(data)
         name = utils.read_name(body_data)
         if name is None:
-            return HttpResponseBadRequest()
+            return JsonResponse({"error": "Le nom de l'analyseur est manquant dans la requete"}, status=400)
+        if Analyzer.objects.filter(name = name).count() > 0:
+            return JsonResponse({"error": "Le nom de l'analyseur doit etre unique"}, status=409)
+
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or None
         filters = "filters" in body_data and body_data["filters"] or []
@@ -432,14 +427,7 @@ class AnalyzerView(View):
             except Tokenizer.DoesNotExist:
                 return JsonResponse({"error":"Tokenizer DoesNotExist"}, status=400)
         status = created and 201 or 409
-
-        if created:
-            response = JsonResponse(data={}, status=status)
-            response['Location'] = '{}{}'.format(request.build_absolute_uri(), analyzer.name)
-        if created is False:
-            data = {"error": "Conflict"}
-            response = JsonResponse(data=data, status=status)
-        return response
+        return utils.format_json_get_create(request, created, status, analyzer.name)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -449,6 +437,8 @@ class AnalyzerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/')and name[:-1] or name)
+        if Analyzer.objects.get(name=name).user != user():
+            return JsonResponse({"error": "Forbiden"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Analyzer))
 
     def put(self, request, name):
@@ -503,22 +493,20 @@ class AnalyzerIDView(View):
         name = (name.endswith('/') and name[:-1] or name)
 
         analyzer = get_object_or_404(Analyzer, name=name)
-        response = HttpResponse()
 
         if analyzer.reserved:
-            response.status_code = 403
-            return response
+            return JsonResponse({"error":"Suppression impossible, status Reservé pour cet analyseur"}, status=403)
 
         if analyzer.user == user():
-            status = 200
             analyzer.delete()
+            status = 200
+            data = {}
 
         elif analyzer.user != user():
             status = 403
-        else:
-            return HttpResponseBadRequest()
-        response.status_code = status
-        return response
+            data = {"error":"Suppression impossible, vous n'etes pas l'usager de cet analyseur"}
+
+        return JsonResponse(data, status=status)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -561,6 +549,8 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
+        if Tokenizer.objects.get(name=name).user != user():
+            return JsonResponse({"error": "Forbiden"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Tokenizer), safe=False)
 
     def put(self, request, name):
@@ -797,6 +787,8 @@ class SearchModelIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
+        if SearchModel.objects.get(name=name).user != user():
+            return JsonResponse({"error": "Forbiden"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
     def put(self, request, name):
@@ -871,7 +863,6 @@ class SearchModelIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-
         name = (name.endswith('/') and name[:-1] or name)
         search_model = SearchModel.objects.filter(name=name, user=user())
 
@@ -894,23 +885,6 @@ class SearchModelIDView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchView(View):
 
-    def get_param(self, request, param):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        """
-            Retourne la valeur d'une clé param presente dans une requete GET ou POST
-        """
-        if request.method == 'GET':
-            if param in request.GET:
-                return request.GET[param]
-        elif request.method == 'POST':
-            try:
-                param_read = request.POST.get(param, request.GET.get(param))
-            except KeyError as e:
-                return None
-            return param_read
-
     def post(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -920,7 +894,7 @@ class SearchView(View):
 
         data = request.body.decode('utf-8')
 
-        mode = self.get_param(request, 'mode')
+        mode = utils.get_param(request, 'mode')
         if mode == 'throw':
             data = elastic_conn.search(index=name, body=data)
             if data:

@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.shortcuts import get_object_or_404
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError
 from django.db.models import Q
 
@@ -296,3 +296,36 @@ def check_columns(list_ppt, list_ppt_clt):
             if ppt['name'] == ppt_clt['name']:
                 ppt.update(ppt_clt)
     return list_ppt
+
+def get_param(request, param):
+    """
+        Retourne la valeur d'une clé param presente dans une requete GET ou POST
+    """
+    if request.method == 'GET':
+        if param in request.GET:
+            return request.GET[param]
+    elif request.method == 'POST':
+        try:
+            param_read = request.POST.get(param, request.GET.get(param))
+        except KeyError as e:
+            return None
+        return param_read
+
+# Format response Json apres les get_or_create()
+def format_json_get_create(request, created, status, obj_id):
+    if created:
+        response = JsonResponse(data={}, status=status)
+        response['Location'] = '{}{}'.format(request.build_absolute_uri(), obj_id)
+    if created is False:
+        data = {"error": "Conflict"}
+        response = JsonResponse(data=data, status=status)
+    return response
+
+# Check si user() == obj.user -- A implementer pour filterID, analyserID, tokenizerID, SearchModelID
+def user_access(model, usr_req, name):
+    try:
+        model.objects.get(name=name).user
+    except model.DoesNotExist:
+        return None
+    if model.objects.get(name=name).user != usr_req:
+        return None
