@@ -885,7 +885,11 @@ class SearchModelIDView(View):
             for index in elastic_conn.get_indices_by_alias(name=context):
                 body['actions'].append({'add': {'index': index, 'alias': name}})
 
-        elastic_conn.update_aliases(body)
+        if not elastic_conn.is_a_task_running():
+            elastic_conn.update_aliases(body)
+        else:
+            status = 423
+            message = "Locked: L'acces à la ressource est impossible"
 
         response.status_code = status
         data = {"message": message}
