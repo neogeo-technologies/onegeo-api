@@ -40,16 +40,23 @@ class SourceView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            data = {"error": "Content-type incorrect"}
+            return JsonResponse(data, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
+        field_missing = False
         if "uri" not in body_data:
-            return JsonResponse([{"Error": "URI field is missing"}], safe=False)
+            data = {"error": "URI field is missing"}
+            field_missing = True
         if "mode" not in body_data:
-            return JsonResponse([{"Error": "Mode field is missing"}], safe=False)
+            data = {"error": "Mode field is missing"}
+            field_missing = True
         if "name" not in body_data:
-            return JsonResponse([{"Error": "Name field is missing"}], safe=False)
+            data = {"error": "Name field is missing"}
+            field_missing = True
+        if field_missing is True:
+            return JsonResponse(data, status=400)
 
         uri = body_data["uri"]
         mode = body_data["mode"]
@@ -57,15 +64,15 @@ class SourceView(View):
 
         np = utils.check_uri(uri)
         if np is None:
-            return HttpResponseBadRequest()
+            data = {"error":"Chemin de l'URI incorrect"}
+            return JsonResponse(data, status=400)
 
         sources, created = Source.objects.get_or_create(uri=np, user=user(), name=name, mode=mode)
         status = created and 201 or 409
 
-        response = HttpResponse()
-        response.status_code = status
+        response = JsonResponse(data={}, status=status)
         if created:
-            response['Location']  = '{}{}'.format(request.build_absolute_uri(), sources.id)
+            response['Location'] = '{}{}'.format(request.build_absolute_uri(), sources.id)
         return response
 
 
@@ -84,19 +91,21 @@ class SourceIDView(View):
         if isinstance(user, HttpResponse):
             return user
         src_id = literal_eval(id)
-        response = HttpResponse()
 
         source = Source.objects.filter(id=src_id, user=user())
         if len(source) == 1:
             source.delete()
-            response.status_code = 200
+            data = {"message":"Success"}
+            status = 200
         elif len(source) == 0:
             src = Source.objects.filter(id=src_id)
             if len(src) == 1:
-                response.status_code = 403
+                data = {"error": "Forbidden"}
+                status = 403
             elif len(src) == 0:
-                response.status_code = 204
-        return response
+                data = {"message":"No Content"}
+                status = 204
+        return JsonResponse(data, status=status)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -873,7 +882,8 @@ class SearchModelIDView(View):
         elastic_conn.update_aliases(body)
 
         response.status_code = status
-        return JsonResponse(data={"message": message}, safe=False, status=status)
+        data = {"message": message}
+        return JsonResponse(data, status=status)
 
     def delete(self, request, name):
         user = utils.get_user_or_401(request)
