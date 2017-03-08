@@ -73,6 +73,8 @@ class SourceView(View):
         response = JsonResponse(data={}, status=status)
         if created:
             response['Location'] = '{}{}'.format(request.build_absolute_uri(), sources.id)
+        elif created is False:
+            data = {"error": "Conflict"}
         return response
 
 
