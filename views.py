@@ -70,11 +70,12 @@ class SourceView(View):
         sources, created = Source.objects.get_or_create(uri=np, user=user(), name=name, mode=mode)
         status = created and 201 or 409
 
-        response = JsonResponse(data={}, status=status)
         if created:
+            response = JsonResponse(data={}, status=status)
             response['Location'] = '{}{}'.format(request.build_absolute_uri(), sources.id)
-        elif created is False:
+        if created is False:
             data = {"error": "Conflict"}
+            response = JsonResponse(data=data, status=status)
         return response
 
 
@@ -149,16 +150,17 @@ class ContextView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
-        data = request.body.decode('utf-8')
+            return JsonResponse({"error": "Content-type incorrect"}, status=406)
 
-        body_data = json.loads(data)
+        body_data = json.loads(request.body.decode('utf-8'))
         if "name" not in body_data:
-            return JsonResponse([{"Error": "Name field is missing"}], safe=False)
+            return JsonResponse({"error": "Name field is missing"}, status=400)
         if "resource" not in body_data:
-            return JsonResponse([{"Error": "Resource field is missing"}], safe=False)
+            return JsonResponse({"error": "Resource field is missing"}, status=400)
 
         name = body_data['name']
+        if Context.objects.filter(name = name).count() > 0:
+            return JsonResponse({"error": "Le nom d'un context doit etre unique"}, status=409)
 
         reindex_frequency = "monthly"
         if "reindex_frequency" in body_data:
@@ -170,8 +172,10 @@ class ContextView(View):
         src_id = data.group(1)
         rsrc_id = data.group(2)
         set_src = get_object_or_404(Source, id=src_id)
-        set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
 
+        set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
+        if Context.objects.filter(resource__id = rsrc_id).count() > 0:
+            return JsonResponse({"error": "Cette resource est déja liée à un context"}, status=409)
 
         pdf = PdfSource(set_src.uri, name, set_src.mode)
         type = None
@@ -184,28 +188,14 @@ class ContextView(View):
         for property in context.iter_properties():
             column_ppt.append(property.all())
 
-        ctx = Context.objects.filter(resource=set_rscr)
-        response = HttpResponse()
-        created = False
 
-        if len(ctx) == 0:
-            try:
-                new_context = Context.objects.create(resource=set_rscr,
-                                                 name=name,
-                                                 clmn_properties=column_ppt,
-                                                 reindex_frequency=reindex_frequency)
-                status = 201
-                created = True
-            except ValidationError as err:
-                response.content = err
-                status = 409
-        if len(ctx) == 1:
-            response.content = "La requête ne peut être traitée en l’état actuel."
-            status = 409
+        context = Context.objects.create(resource=set_rscr,
+                                         name=name,
+                                         clmn_properties=column_ppt,
+                                         reindex_frequency=reindex_frequency)
 
-        response.status_code = status
-        if created:
-            response['Location'] = '{}{}'.format(request.build_absolute_uri(), new_context.resource_id)
+        response = JsonResponse(data={}, status=201)
+        response['Location'] = '{}{}'.format(request.build_absolute_uri(), context.resource_id)
         return response
 
 
@@ -229,13 +219,16 @@ class ContextIDView(View):
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
-        name = body_data['name']
+        if "name" in body_data:
+            name = body_data['name']
 
-        reindex_frequency = "monthly"
+        reindex_frequency = None
         if "reindex_frequency" in body_data:
             reindex_frequency = body_data['reindex_frequency']
 
-        column_ppt = body_data['columns']
+        list_ppt_clt = {}
+        if "columns" in body_data:
+            list_ppt_clt = body_data['columns']
 
         data = search('^\/sources\/(\d+)\/resources\/(\d+)$', body_data['resource'])
         if not data:
@@ -246,17 +239,28 @@ class ContextIDView(View):
         set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
 
         ctx_id = literal_eval(id)
-        context = Context.objects.filter(resource_id=ctx_id)
-        
+        context = get_object_or_404(Context, resource_id=ctx_id)
+
+        list_ppt = context.clmn_properties
+        ppt_update = utils.check_columns(list_ppt, list_ppt_clt)
+
         if len(context) == 1:
-            context.update(resource=set_rscr, 
-                           name=name, 
-                           clmn_properties=column_ppt,
-                           reindex_frequency=reindex_frequency)
+
+            if reindex_frequency:
+                context.update(resource=set_rscr,
+                               name=name,
+                               clmn_properties=ppt_update,
+                               reindex_frequency=reindex_frequency)
+            else:
+                context.update(resource=set_rscr,
+                               name=name,
+                               clmn_properties=ppt_update)
 
             status = 200
         elif len(context) == 0:
             status = 204
+
+
         response = HttpResponse()
         response.status_code = status
         return response
@@ -914,6 +918,35 @@ class SearchModelIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchView(View):
-    def get(self, request, name):
-        """Connect config elastic search"""
-        pass
+
+    def get_param(self, request, param):
+        """
+            Retourne la valeur d'une clé param presente dans une requete GET ou POST
+        """
+        if request.method == 'GET':
+            if param in request.GET:
+                return request.GET[param]
+        elif request.method == 'POST':
+            try:
+                param_read = request.POST.get(param, request.GET.get(param))
+            except KeyError as e:
+                return None
+            return param_read
+
+    def post(self, request, name):
+
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+
+        model = SearchModel.objects.filter(name=name)
+
+        data = request.body.decode('utf-8')
+
+        mode = self.get_param(request, 'mode')
+        if mode == 'throw':
+            data = elastic_conn.search(index=name, body=data)
+            if data:
+                return JsonResponse(data=data, safe=False, status=200)
+        else:
+            return JsonResponse(data={'message': 'todo'}, safe=False, status=501)

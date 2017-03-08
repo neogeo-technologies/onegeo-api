@@ -289,3 +289,10 @@ def get_user_or_401(request):
         response['WWW-Authenticate'] = 'Basic realm="%s"' % "Basic Auth Protected"
         return response
     return user
+
+def check_columns(list_ppt, list_ppt_clt):
+    for ppt in list_ppt:
+        for ppt_clt in list_ppt_clt:
+            if ppt['name'] == ppt_clt['name']:
+                ppt.update(ppt_clt)
+    return list_ppt
