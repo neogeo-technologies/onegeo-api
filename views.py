@@ -616,7 +616,7 @@ class TokenizerIDView(View):
                 status = 204
                 data = {"message" : "No content"}
 
-        return JsonResponse
+        return JsonResponse(data, status=status)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -692,9 +692,8 @@ class ActionView(View):
                                              body,               # Settings & Mapping
                                              **opts)
 
-        response = HttpResponse()
-        response.status_code = 202. # Ne garantie pas un résultat
-        return response
+        data = {"message":"Requete acceptée mais sans garentie de traitement"}
+        return JsonResponse(data, status=202)
 
     def retreive_analyzers(self, context):
 
@@ -751,7 +750,7 @@ class SearchModelView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -762,18 +761,12 @@ class SearchModelView(View):
         cfg = "config" in body_data and body_data["config"] or {}
         ctx = "contexts" in body_data and body_data["contexts"] or []
 
-        created = False
-        response = HttpResponse()
-
         try:
             search_model, created = SearchModel.objects.get_or_create(config=cfg, user=user(), name=name)
         except ValidationError as err:
-            return JsonResponse({"message": err.message}, safe=False, status=409)
-
+            return JsonResponse({"error": err.message}, status=409)
 
         status = created and 201 or 409
-        response.status_code = status
-
         if created:
             search_model.context.clear()
             ctx_clt = []
@@ -788,7 +781,11 @@ class SearchModelView(View):
                         ctx_l.append(ctx)
                 search_model.context.set(ctx_l)
 
-            response['Location']  = '{}{}'.format(request.build_absolute_uri(), search_model.name)
+            response = JsonResponse(data={}, status=status)
+            response['Location'] = '{}{}'.format(request.build_absolute_uri(), search_model.name)
+        if created is False:
+            data = {"error": "Conflict"}
+            response = JsonResponse(data=data, status=status)
         return response
 
 
@@ -800,14 +797,7 @@ class SearchModelIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        res = utils.get_object_id(user(), name, SearchModel)
-        if res is None:
-            response = JsonResponse({'Error': '401 Unauthorized'})
-            response.status_code = 403
-        else:
-            response = JsonResponse(res)
-            response.status_code = 200
-        return response
+        return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
     def put(self, request, name):
 
@@ -826,44 +816,38 @@ class SearchModelIDView(View):
 
         ctx_clt = "contexts" in body_data and body_data["contexts"] or []
         config = "config" in body_data and body_data["config"] or {}
-        response = HttpResponse()
 
-        # QS filter pour update() config
         search_model = SearchModel.objects.filter(name=name, user=user())
         if len(search_model) == 1:
 
-            # Object SearchModel pour set() context
             sm = get_object_or_404(SearchModel, name=name)
 
-            # Si contexts[] est dans data_body
             if len(ctx_clt) > 0:
                 sm.context.clear()
                 ctx_l = []
                 for c in ctx_clt:
                     try:
-                        # Check si les contexts sont correct
                         ctx = Context.objects.get(name=c)
                     except Context.DoesNotExist:
                         return HttpResponseBadRequest("Context Does Not Exist")
                     else:
                         ctx_l.append(ctx)
-                # Object SearchModel contiendra la nouvelle liste de contexts
                 sm.context.set(ctx_l)
 
             search_model.update(config=config)
             status = 200
-            message = "OK: Requête traitée avec succès."
+            data = {}
 
         elif len(search_model) == 0:
             mdl = SearchModel.objects.filter(name=name)
 
             if len(mdl) == 1:
                 status = 403
-                message = "Forbidden: Vous n'avez pas les permissions necessaires à l'acces de cette resource"
+                data = {"error":"Forbidden"}
 
             elif len(mdl) == 0:
                 status = 204
-                message = "No Content: Requête traitée avec succès mais pas d’information à renvoyer."
+                data = {"message":"No Content"}
 
         body = {'actions': []}
 
@@ -878,10 +862,8 @@ class SearchModelIDView(View):
             elastic_conn.update_aliases(body)
         else:
             status = 423
-            message = "Locked: L'acces à la ressource est impossible"
+            data = {"error":"Locked, acces à la ressource est impossible"}
 
-        response.status_code = status
-        data = {"message": message}
         return JsonResponse(data, status=status)
 
     def delete(self, request, name):
@@ -889,30 +871,33 @@ class SearchModelIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        response = HttpResponse()
+
         name = (name.endswith('/') and name[:-1] or name)
         search_model = SearchModel.objects.filter(name=name, user=user())
 
         if len(search_model) == 1:
             search_model[0].delete()
-            response.status_code = 200
+            status = 200
+            data = {}
 
         elif len(search_model) == 0:
             mdl = SearchModel.objects.filter(name=name)
             if len(mdl) == 1:
-                response.status_code = 403
-                response.content = "Forbidden: Vous n'avez pas les permissions necessaires à l'acces de cette resource"
+                status = 403
+                data = {"error": "Forbidden"}
             elif len(mdl) == 0:
-                response.status_code = 204
-        else:
-            return HttpResponseBadRequest()
+                status = 204
+                data = {"message": "No Content"}
 
-        return response
+        return JsonResponse(data, status=status)
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchView(View):
 
     def get_param(self, request, param):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
         """
             Retourne la valeur d'une clé param presente dans une requete GET ou POST
         """
@@ -927,7 +912,6 @@ class SearchView(View):
             return param_read
 
     def post(self, request, name):
-
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
