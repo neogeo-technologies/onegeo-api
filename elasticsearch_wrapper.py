@@ -20,6 +20,12 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
         self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
 
+    def is_a_task_running(self):
+        response = self.conn.list(actions='indices:*')
+        if not response['nodes']:
+            return False
+        return True
+
     def create_pipeline_if_not_exists(self, id):
 
         body = {'description': 'Pdf',
