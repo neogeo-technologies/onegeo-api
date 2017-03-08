@@ -165,5 +165,8 @@ class ElasticWrapper(metaclass=Singleton):
     def update_aliases(self, body):
         self.conn.indices.update_aliases(body=body)
 
+    def search(self, index, body):
+        return self.conn.search(index=index, body=body)
+
 
 elastic_conn = ElasticWrapper()
