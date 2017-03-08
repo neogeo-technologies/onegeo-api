@@ -21,7 +21,7 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
 
     def is_a_task_running(self):
-        response = self.conn.list(actions='indices:*')
+        response = self.conn.tasks.list(actions='indices:*')
         if not response['nodes']:
             return False
         return True
