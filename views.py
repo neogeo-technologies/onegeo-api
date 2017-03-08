@@ -245,14 +245,16 @@ class ContextIDView(View):
         ppt_update = utils.check_columns(list_ppt, list_ppt_clt)
 
         if reindex_frequency:
-            context.update(resource=set_rscr,
-                           name=name,
-                           clmn_properties=ppt_update,
-                           reindex_frequency=reindex_frequency)
+            context.resource = set_rscr
+            context.name = name
+            context.clmn_properties = ppt_update
+            context.reindex_frequency = reindex_frequency
+            context.save()
         else:
-            context.update(resource=set_rscr,
-                           name=name,
-                           clmn_properties=ppt_update)
+            context.resource = set_rscr
+            context.name = name
+            context.clmn_properties = ppt_update
+            context.save()
 
         return JsonResponse(data={}, status=200)
 
@@ -593,7 +595,6 @@ class TokenizerIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
 
-
         token = Tokenizer.objects.filter(name=name, user=user())
 
         if len(token) == 1:
@@ -613,7 +614,7 @@ class TokenizerIDView(View):
                 data = {"error": "Forbidden"}
             elif len(flt) == 0:
                 status = 204
-                data = {"message"}
+                data = {"message" : "No content"}
 
         return JsonResponse
 
