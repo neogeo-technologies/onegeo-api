@@ -535,6 +535,7 @@ class TokenizerView(View):
             return JsonResponse({"error": "Le nom du token doit etre unique"}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
+
         token, created = Tokenizer.objects.get_or_create(config=cfg, user=user(), name=name)
         status = created and 201 or 409
         response = HttpResponse()
@@ -588,26 +589,24 @@ class TokenizerIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
 
-        token = Tokenizer.objects.filter(name=name, user=user())
-
-        if len(token) == 1:
-            token = token[0]
-            if not token.reserved:
+        try:
+            token = Tokenizer.objects.get(name=name)
+        except Tokenizer.DoesNotExist:
+            status = 204
+            data = {"message": "No content"}
+        else:
+            if token.user != user():
+                status = 403
+                data = {"error": "Forbidden"}
+                return JsonResponse(data, status=status)
+            if token.reserved is False:
                 token.delete()
                 status = 200
                 data = {}
-            else:
+            if token.reserved is True:
                 status = 405
                 data = {"error": "Not Allowed"}
 
-        elif len(token) == 0:
-            flt = Filter.objects.filter(name=name)
-            if len(flt) == 1:
-                status = 403
-                data = {"error": "Forbidden"}
-            elif len(flt) == 0:
-                status = 204
-                data = {"message" : "No content"}
 
         return JsonResponse(data, status=status)
 
@@ -797,7 +796,7 @@ class SearchModelIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
         if SearchModel.objects.get(name=name).user != user():
-            return JsonResponse({"error": "Forbiden"}, status=403)
+            return JsonResponse({"error": "Forbidden"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
     def put(self, request, name):
