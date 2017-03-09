@@ -23,6 +23,9 @@ from . import utils
 from .elasticsearch_wrapper import elastic_conn
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
+msg_not_acceptable = "Le format demandé n'est pas pris en charge."
+
+
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -39,20 +42,20 @@ class SourceView(View):
             return user
 
         if "application/json" not in request.content_type:
-            data = {"error": "Content-type incorrect"}
+            data = {"error": msg_not_acceptable}
             return JsonResponse(data, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
         field_missing = False
         if "uri" not in body_data:
-            data = {"error": "URI field is missing"}
+            data = {"error": "Echec de la création de la source. Le chemin d'accés à la source est manquant."}
             field_missing = True
         if "mode" not in body_data:
-            data = {"error": "Mode field is missing"}
+            data = {"error": "Echec de la création de la source. Le type de source est manquant (ex:mode=pdf)."}
             field_missing = True
         if "name" not in body_data:
-            data = {"error": "Name field is missing"}
+            data = {"error": "Echec de la création de la source. Le nom de la source est manquant."}
             field_missing = True
         if field_missing is True:
             return JsonResponse(data, status=400)
@@ -63,7 +66,7 @@ class SourceView(View):
 
         np = utils.check_uri(uri)
         if np is None:
-            data = {"error": "Chemin de l'URI incorrect"}
+            data = {"error": "Echec de la création de la source. Le chemin d'accés à la source est incorrect."}
             return JsonResponse(data, status=400)
 
         sources, created = Source.objects.get_or_create(uri=np, user=user(), name=name, mode=mode)
@@ -89,15 +92,15 @@ class SourceIDView(View):
         source = Source.objects.filter(id=src_id, user=user())
         if len(source) == 1:
             source.delete()
-            data = {"message": "Success"}
+            data = {}
             status = 200
         elif len(source) == 0:
             src = Source.objects.filter(id=src_id)
             if len(src) == 1:
-                data = {"error": "Forbidden"}
+                data = {"error": "Echec de la suppression de la source: Vous n'etes pas l'usager de cette source."}
                 status = 403
             elif len(src) == 0:
-                data = {"message": "No Content"}
+                data = {"message": "Suppression impossible: Aucune source ne correspond à votre requête."}
                 status = 204
         return JsonResponse(data, status=status)
 
@@ -136,19 +139,19 @@ class ContextView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"error": "Content-type incorrect"}, status=406)
+            return JsonResponse({"error": msg_not_acceptable}, status=406)
 
         body_data = json.loads(request.body.decode('utf-8'))
         if "name" not in body_data:
-            return JsonResponse({"error": "Name field is missing"}, status=400)
+            return JsonResponse({"error": "Echec de la création du contexte. Le nom du contexte est manquant."}, status=400)
         if "resource" not in body_data:
-            return JsonResponse({"error": "Resource field is missing"}, status=400)
+            return JsonResponse({"error": "Echec de la création du contexte. Le chemin d'accés à la resource est manquant pour le context."}, status=400)
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Le nom du context est manquant dans la requete"}, status=400)
+            return JsonResponse({"error": "Echec de la création du contexte. Le nom du context est incorrect."}, status=400)
         if Context.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Le nom d'un context doit etre unique"}, status=409)
+            return JsonResponse({"error": "Echec de la création du contexte. Le nom d'un context doit etre unique"}, status=409)
 
         reindex_frequency = "monthly"
         if "reindex_frequency" in body_data:
@@ -163,7 +166,7 @@ class ContextView(View):
 
         set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
         if Context.objects.filter(resource__id=rsrc_id).count() > 0:
-            return JsonResponse({"error": "Cette resource est déja liée à un context"}, status=409)
+            return JsonResponse({"error": "Echec de la création du contexte. Cette resource est déja liée à un context"}, status=409)
 
         pdf = PdfSource(set_src.uri, name, set_src.mode)
         type = None
@@ -201,7 +204,7 @@ class ContextIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse([{"error": msg_not_acceptable}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -260,9 +263,9 @@ class ContextIDView(View):
             ctx = Context.objects.filter(resource_id=ctx_id)
             if len(ctx) == 1:
                 status = 403
-                data = {"error": "Forbidden"}
+                data = {"error": "Echec de la suppression du contexte. Vous n'etes pas l'usager de ce context"}
             elif len(ctx) == 0:
-                data = {"message": "no content"}
+                data = {"message": "Suppression impossible: Aucun contexte ne correspond à votre requête."}
                 status = 204
         return JsonResponse(data, status=status)
 
@@ -287,9 +290,9 @@ class FilterView(View):
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Le nom du filtre est manquant dans la requete"}, status=400)
+            return JsonResponse({"error": "Echec de la création du filtre: Le nom du filtre est incorrect."}, status=400)
         if Filter.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Le nom du filtre doit etre unique"}, status=409)
+            return JsonResponse({"error": "Echec de la création du filtre: Le nom du filtre doit etre unique."}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
 
@@ -306,7 +309,7 @@ class FilterIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
         if utils.user_access(name, Filter, user()) is False:
-            return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Filtre"}, status=403)
+            return JsonResponse({"error": "Accés au filtre impossible: L'usage de ce filtre est reservé."}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Filter))
 
     def put(self, request, name):
@@ -315,7 +318,7 @@ class FilterIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"error": "Content-type incorrect"}, status=406)
+            return JsonResponse({"error": msg_not_acceptable}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -332,10 +335,10 @@ class FilterIDView(View):
             flt = Filter.objects.filter(name=flt_name)
             if len(flt) == 1:
                 status = 403
-                data = {"error": "Forbidden"}
+                data = {"error": "Modification impossible: Vous n'etes pas l'usager de ce filtre"}
             elif len(flt) == 0:
                 status = 204
-                data = {"message": "No content"}
+                data = {"message": "Modification impossible: Aucun filtre ne correspond à votre requête."}
 
         return JsonResponse(data, status=status)
 
@@ -355,15 +358,15 @@ class FilterIDView(View):
                 data = {}
             else:
                 status = 405
-                data = {"error": "Not Allowed"}
+                data = {"error": "Suppression impossible: L'usage de ce filtre est réservé."}
         elif len(filter) == 0:
             flt = Filter.objects.filter(name=name)
             if len(flt) == 1:
                 status = 403
-                data = {"error": "Forbidden"}
+                data = {"error": "Suppression impossible: Vous n'etes pas l'usager de ce filtre."}
             elif len(flt) == 0:
                 status = 204
-                data = {"message": "No content"}
+                data = {"message": "Suppression impossible: Aucun filtre ne correspond à votre requête."}
         else:
             return HttpResponseBadRequest()
 
@@ -385,14 +388,14 @@ class AnalyzerView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
+            return JsonResponse({"error": msg_not_acceptable}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Le nom de l'analyseur est manquant dans la requete"}, status=400)
+            return JsonResponse({"error": "Echec de la création: Le nom de l'analyseur est manquant."}, status=400)
         if Analyzer.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Le nom de l'analyseur doit etre unique"}, status=409)
+            return JsonResponse({"error": "Echec de la création: Le nom de l'analyseur doit etre unique."}, status=409)
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or None
         filters = "filters" in body_data and body_data["filters"] or []
@@ -405,7 +408,7 @@ class AnalyzerView(View):
                     analyzer.filter.add(flt)
                     analyzer.save()
                 except Filter.DoesNotExist:
-                    return JsonResponse({"error": "Filter DoesNotExist"}, status=400)
+                    return JsonResponse({"error": "Echec de la création de l'analyseur: La liste des filtres est erronée."}, status=400)
 
         if created and tokenizer is not None:
             try:
@@ -413,7 +416,7 @@ class AnalyzerView(View):
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
             except Tokenizer.DoesNotExist:
-                return JsonResponse({"error": "Tokenizer DoesNotExist"}, status=400)
+                return JsonResponse({"error": "Echec de la création de l'analyseur: Le token est erronée"}, status=400)
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, analyzer.name)
 
@@ -426,7 +429,7 @@ class AnalyzerIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
         if utils.user_access(name, Analyzer, user()) is False:
-            return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à cet Analyseur"}, status=403)
+            return JsonResponse({"error": "Accés à l'analyseur impossible: L'usage de cet analyseur est reservé."}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Analyzer))
 
     def put(self, request, name):
@@ -435,7 +438,7 @@ class AnalyzerIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
+            return JsonResponse({"error": msg_not_acceptable}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -449,7 +452,7 @@ class AnalyzerIDView(View):
             try:
                 tkn_chk = Tokenizer.objects.get(name=tokenizer)
             except Tokenizer.DoesNotExist:
-                return JsonResponse({"error": "Echec de la mise à jour Analyseur: Tokenizer DoesNotExist"}, status=400)
+                return JsonResponse({"error": "Echec de la modification de l'analyseur: Le token est erronée"}, status=400)
 
         if analyzer.user != user():
             status = 403
@@ -462,7 +465,7 @@ class AnalyzerIDView(View):
                     try:
                         flt = Filter.objects.get(name=f)
                     except Filter.DoesNotExist:
-                        return JsonResponse({"error": "Echec de la mise à jour Analyseur: Filter DoesNotExist"},
+                        return JsonResponse({"error": "Echec de la modification de l'analyseur: La liste des filtres est erronée."},
                                             status=400)
 
                 analyzer.filter.set([])
@@ -484,7 +487,7 @@ class AnalyzerIDView(View):
         analyzer = get_object_or_404(Analyzer, name=name)
 
         if analyzer.reserved:
-            return JsonResponse({"error": "Suppression impossible, status Reservé pour cet analyseur"}, status=403)
+            return JsonResponse({"error": "Suppression impossible: status Reservé pour cet analyseur"}, status=403)
 
         if analyzer.user == user():
             analyzer.delete()
@@ -493,7 +496,7 @@ class AnalyzerIDView(View):
 
         elif analyzer.user != user():
             status = 403
-            data = {"error": "Suppression impossible, vous n'etes pas l'usager de cet analyseur"}
+            data = {"error": "Suppression impossible: vous n'etes pas l'usager de cet analyseur"}
 
         return JsonResponse(data, status=status)
 
@@ -512,25 +515,21 @@ class TokenizerView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse({"Error": msg_not_acceptable}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Le nom du token est manquant dans la requete"}, status=400)
+            return JsonResponse({"error": "Echec de la création du token: Le nom du token est manquant."}, status=400)
         if Tokenizer.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Le nom du token doit etre unique"}, status=409)
+            return JsonResponse({"error": "Echec de la création du token: Le nom du token doit etre unique."}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
 
         token, created = Tokenizer.objects.get_or_create(config=cfg, user=user(), name=name)
         status = created and 201 or 409
-        response = HttpResponse()
-        response.status_code = status
-        if created:
-            response['Location'] = '{}{}'.format(request.build_absolute_uri(), token.name)
-        return response
+        return utils.format_json_get_create(request, created, status, token.name)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -541,7 +540,7 @@ class TokenizerIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
         if utils.user_access(name, Tokenizer, user()) is False:
-            return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Token"}, status=403)
+            return JsonResponse({"error": "Accés au token impossible: L'usage de ce token est reservé."}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Tokenizer), safe=False)
 
     def put(self, request, name):
@@ -550,7 +549,7 @@ class TokenizerIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse({"Error": msg_not_acceptable}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -565,7 +564,7 @@ class TokenizerIDView(View):
             data = {}
         elif len(token) == 0:
             status = 204
-            data = {"message": "Aucun Token ne correspond a votre requete"}
+            data = {"message": "Modification impossible: Aucun token ne correspond à votre requête."}
 
         return JsonResponse(data, status=status)
 
@@ -579,11 +578,11 @@ class TokenizerIDView(View):
             token = Tokenizer.objects.get(name=name)
         except Tokenizer.DoesNotExist:
             status = 204
-            data = {"message": "No content"}
+            data = {"message": "Suppression impossible: Aucun token ne correspond à votre requête."}
         else:
             if token.user != user():
                 status = 403
-                data = {"error": "Forbidden, suppression du Token impossible"}
+                data = {"error": "Suppression impossible: Vous n'etes pas l'usager de ce token."}
                 return JsonResponse(data, status=status)
 
             if token.reserved is False:
@@ -592,7 +591,7 @@ class TokenizerIDView(View):
                 data = {}
             if token.reserved is True:
                 status = 405
-                data = {"error": "Not Allowed, "}
+                data = {"error": "Suppression impossible: L'usage de ce token est reservé."}
 
         return JsonResponse(data, status=status)
 
@@ -624,10 +623,10 @@ class ActionView(View):
         try:
             ctx = Context.objects.get(name=data["index"])
         except Context.DoesNotExist:
-            return HttpResponseBadRequest()
+            return JsonResponse({"error": "Le context est erroné"}, status=404)
 
         if elastic_conn.is_a_task_running():
-            data = {"error": "Locked, acces à la ressource est impossible"}
+            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
             return JsonResponse(data, status=423)
 
         action = data["type"]
@@ -730,15 +729,15 @@ class SearchModelView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"error": "Content-type incorrect"}], safe=False)
+            return JsonResponse({"error": msg_not_acceptable}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Le nom du model de recherche est manquant dans la requete"}, status=400)
+            return JsonResponse({"error": "Echec de la création du model de recherche: Le nom du model de recherche est incorrect."}, status=400)
         if SearchModel.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Le nom du model de recherche doit etre unique"}, status=409)
+            return JsonResponse({"error": "Echec de la création du model de recherche: Le nom du model de recherche doit etre unique."}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
         ctx = "contexts" in body_data and body_data["contexts"] or []
@@ -758,7 +757,8 @@ class SearchModelView(View):
                     try:
                         ctx = Context.objects.get(name=c)
                     except Context.DoesNotExist:
-                        return HttpResponseBadRequest("Context Does Not Exist")
+                        return JsonResponse({"error": "Echec de la création du model de recherche: La liste de contexte est erronée"},
+                                            status=400)
                     else:
                         ctx_l.append(ctx)
                 search_model.context.set(ctx_l)
@@ -779,7 +779,7 @@ class SearchModelIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
         if utils.user_access(name, SearchModel, user()) is False:
-            return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Model de Recherche"}, status=403)
+            return JsonResponse({"error": "Accés au model de recherche impossible: Son usage est reservé."}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
     def put(self, request, name):
@@ -791,7 +791,7 @@ class SearchModelIDView(View):
 
         # Check content-type
         if "application/json" not in request.content_type:
-            return JsonResponse([{"Error": "Content-type incorrect"}], safe=False)
+            return JsonResponse({"Error": msg_not_acceptable}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -812,7 +812,9 @@ class SearchModelIDView(View):
                     try:
                         ctx = Context.objects.get(name=c)
                     except Context.DoesNotExist:
-                        return HttpResponseBadRequest("Context Does Not Exist")
+                        return JsonResponse(
+                            {"error": "Echec de la modification du model de recherche: La liste de contexte est erronée"},
+                            status=400)
                     else:
                         ctx_l.append(ctx)
                 sm.context.set(ctx_l)
@@ -826,11 +828,11 @@ class SearchModelIDView(View):
 
             if len(mdl) == 1:
                 status = 403
-                data = {"error": "Forbidden"}
+                data = {"error": "Modification du model de recherche impossible: Son usage est reservé."}
 
             elif len(mdl) == 0:
                 status = 204
-                data = {"message": "No Content"}
+                data = {"message": "Modification du model de recherche impossible: Aucun model de recherche ne correspond."}
 
         body = {'actions': []}
 
@@ -845,7 +847,7 @@ class SearchModelIDView(View):
             elastic_conn.update_aliases(body)
         else:
             status = 423
-            data = {"error": "Locked, acces à la ressource est impossible"}
+            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
 
         return JsonResponse(data, status=status)
 
@@ -866,10 +868,10 @@ class SearchModelIDView(View):
             mdl = SearchModel.objects.filter(name=name)
             if len(mdl) == 1:
                 status = 403
-                data = {"error": "Forbidden"}
+                data = {"error": "Suppression du model de recherche impossible: Son usage est reservé."}
             elif len(mdl) == 0:
                 status = 204
-                data = {"message": "No Content"}
+                data = {"message": "Suppression du model de recherche impossible: Aucun model de recherche ne correspond."}
 
         return JsonResponse(data, status=status)
 

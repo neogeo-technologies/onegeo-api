@@ -317,7 +317,7 @@ def format_json_get_create(request, created, status, obj_id):
         response = JsonResponse(data={}, status=status)
         response['Location'] = '{}{}'.format(request.build_absolute_uri(), obj_id)
     if created is False:
-        data = {"error": "Conflict"}
+        data = {"error": "Echec de la création: L'élément est déjà existant."}
         response = JsonResponse(data=data, status=status)
     return response
 
