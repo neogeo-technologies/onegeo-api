@@ -305,7 +305,7 @@ class FilterIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, Filter, user()) is None:
+        if utils.user_access(name, Filter, user()) is False:
             return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Filtre"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Filter))
 
@@ -425,7 +425,7 @@ class AnalyzerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, Analyzer, user()) is None:
+        if utils.user_access(name, Analyzer, user()) is False:
             return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à cet Analyseur"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Analyzer))
 
@@ -540,7 +540,7 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, Tokenizer, user()) is None:
+        if utils.user_access(name, Tokenizer, user()) is False:
             return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Token"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Tokenizer), safe=False)
 
@@ -646,8 +646,7 @@ class ActionView(View):
         context = PdfContext(index, doc_type)
 
         for col_property in iter(ctx.clmn_properties):
-            context_name = col_property.pop('name')
-            context.update_property(context_name, **col_property)
+            context.update_property(**col_property)
 
         opts = {}
 
@@ -778,7 +777,7 @@ class SearchModelIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, SearchModel, user()) is None:
+        if utils.user_access(name, SearchModel, user()) is False:
             return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Model de Recherche"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
