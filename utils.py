@@ -321,11 +321,12 @@ def format_json_get_create(request, created, status, obj_id):
         response = JsonResponse(data=data, status=status)
     return response
 
+def format_json_delete():
+    pass
+
 # Check si user() == obj.user -- A implementer pour filterID, analyserID, tokenizerID, SearchModelID
-def user_access(model, usr_req, name):
-    try:
-        obj = model.objects.get(name=name)
-    except model.DoesNotExist:
-        return None
-    if model.objects.get(name=name).user != usr_req:
-        return None
+def user_access(name, model, usr_req):
+    obj = get_object_or_404(model, name=name)
+    if obj.user != usr_req:
+        obj = None
+    return obj

@@ -315,8 +315,8 @@ class FilterIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if Filter.objects.get(name=name).user != user():
-            return JsonResponse({"error": "Forbiden"}, status=403)
+        if utils.user_access(name, Filter, user()) is None:
+            return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Filtre"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Filter))
 
     def put(self, request, name):
@@ -437,8 +437,8 @@ class AnalyzerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/')and name[:-1] or name)
-        if Analyzer.objects.get(name=name).user != user():
-            return JsonResponse({"error": "Forbiden"}, status=403)
+        if utils.user_access(name, Analyzer, user()) is None:
+            return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à cet Analyseur"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Analyzer))
 
     def put(self, request, name):
@@ -553,8 +553,8 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if Tokenizer.objects.get(name=name).user != user():
-            return JsonResponse({"error": "Forbiden"}, status=403)
+        if utils.user_access(name, Tokenizer, user()) is None:
+            return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Token"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Tokenizer), safe=False)
 
     def put(self, request, name):
@@ -578,7 +578,7 @@ class TokenizerIDView(View):
             data = {}
         elif len(token) == 0:
             status = 204
-            data = {"message":"No content"}
+            data = {"message":"Aucun Token ne correspond a votre requete"}
 
         return JsonResponse(data, status=status)
 
@@ -597,15 +597,16 @@ class TokenizerIDView(View):
         else:
             if token.user != user():
                 status = 403
-                data = {"error": "Forbidden"}
+                data = {"error": "Forbidden, suppression du Token impossible"}
                 return JsonResponse(data, status=status)
+
             if token.reserved is False:
                 token.delete()
                 status = 200
                 data = {}
             if token.reserved is True:
                 status = 405
-                data = {"error": "Not Allowed"}
+                data = {"error": "Not Allowed, "}
 
 
         return JsonResponse(data, status=status)
@@ -795,8 +796,8 @@ class SearchModelIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if SearchModel.objects.get(name=name).user != user():
-            return JsonResponse({"error": "Forbidden"}, status=403)
+        if utils.user_access(name, SearchModel, user()) is None:
+            return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Model de Recherche"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
     def put(self, request, name):
