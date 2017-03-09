@@ -327,6 +327,6 @@ def format_json_delete():
 # Check si user() == obj.user -- A implementer pour filterID, analyserID, tokenizerID, SearchModelID
 def user_access(name, model, usr_req):
     obj = get_object_or_404(model, name=name)
-    if obj.user != usr_req:
-        obj = None
-    return obj
+    if obj.user == usr_req or obj.user is None:
+        return True
+    return False
