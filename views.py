@@ -663,7 +663,8 @@ class ActionView(View):
         context = PdfContext(index, doc_type)
 
         for col_property in iter(ctx.clmn_properties):
-            context.update_property(**col_property)
+            context_name = col_property.pop('name')
+            context.update_property(context_name, **col_property)
 
         opts = {}
 
