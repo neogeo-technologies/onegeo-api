@@ -60,16 +60,19 @@ class SourceView(View):
         if field_missing is True:
             return JsonResponse(data, status=400)
 
+        name = utils.read_name(body_data)
+        if name is None:
+            return JsonResponse({"error": "Echec de la création du contexte. Le nom du context est incorrect."},
+                                status=400)
         uri = body_data["uri"]
         mode = body_data["mode"]
-        name = body_data["name"]
 
         np = utils.check_uri(uri)
         if np is None:
             data = {"error": "Echec de la création de la source. Le chemin d'accés à la source est incorrect."}
             return JsonResponse(data, status=400)
 
-        sources, created = Source.objects.get_or_create(uri=np, user=user(), name=name, mode=mode)
+        sources, created = Source.objects.get_or_create(user=user(), uri=np, name=name, mode=mode)
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, sources.id)
 
