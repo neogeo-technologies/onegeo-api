@@ -12,7 +12,6 @@ from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, Sear
 from django.conf import settings
 from django.db import transaction
 
-
 from onegeo_manager.source import PdfSource
 from onegeo_manager.index import Index
 from onegeo_manager.context import PdfContext
@@ -25,9 +24,9 @@ from .elasticsearch_wrapper import elastic_conn
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
+
 @method_decorator(csrf_exempt, name="dispatch")
 class SourceView(View):
-
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -64,7 +63,7 @@ class SourceView(View):
 
         np = utils.check_uri(uri)
         if np is None:
-            data = {"error":"Chemin de l'URI incorrect"}
+            data = {"error": "Chemin de l'URI incorrect"}
             return JsonResponse(data, status=400)
 
         sources, created = Source.objects.get_or_create(uri=np, user=user(), name=name, mode=mode)
@@ -74,7 +73,6 @@ class SourceView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SourceIDView(View):
-
     def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -91,7 +89,7 @@ class SourceIDView(View):
         source = Source.objects.filter(id=src_id, user=user())
         if len(source) == 1:
             source.delete()
-            data = {"message":"Success"}
+            data = {"message": "Success"}
             status = 200
         elif len(source) == 0:
             src = Source.objects.filter(id=src_id)
@@ -99,14 +97,13 @@ class SourceIDView(View):
                 data = {"error": "Forbidden"}
                 status = 403
             elif len(src) == 0:
-                data = {"message":"No Content"}
+                data = {"message": "No Content"}
                 status = 204
         return JsonResponse(data, status=status)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ResourceView(View):
-
     def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -118,7 +115,6 @@ class ResourceView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ResourceIDView(View):
-
     def get(self, request, src_id, rsrc_id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -128,14 +124,11 @@ class ResourceIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextView(View):
-
-
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
         return JsonResponse(utils.get_objects(user(), Context), safe=False)
-
 
     def post(self, request):
         user = utils.get_user_or_401(request)
@@ -154,7 +147,7 @@ class ContextView(View):
         name = utils.read_name(body_data)
         if name is None:
             return JsonResponse({"error": "Le nom du context est manquant dans la requete"}, status=400)
-        if Context.objects.filter(name = name).count() > 0:
+        if Context.objects.filter(name=name).count() > 0:
             return JsonResponse({"error": "Le nom d'un context doit etre unique"}, status=409)
 
         reindex_frequency = "monthly"
@@ -169,7 +162,7 @@ class ContextView(View):
         set_src = get_object_or_404(Source, id=src_id)
 
         set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
-        if Context.objects.filter(resource__id = rsrc_id).count() > 0:
+        if Context.objects.filter(resource__id=rsrc_id).count() > 0:
             return JsonResponse({"error": "Cette resource est déja liée à un context"}, status=409)
 
         pdf = PdfSource(set_src.uri, name, set_src.mode)
@@ -183,7 +176,6 @@ class ContextView(View):
         for property in context.iter_properties():
             column_ppt.append(property.all())
 
-
         context = Context.objects.create(resource=set_rscr,
                                          name=name,
                                          clmn_properties=column_ppt,
@@ -196,7 +188,6 @@ class ContextView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextIDView(View):
-
     def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -271,13 +262,13 @@ class ContextIDView(View):
                 status = 403
                 data = {"error": "Forbidden"}
             elif len(ctx) == 0:
-                data = {"message":"no content"}
+                data = {"message": "no content"}
                 status = 204
         return JsonResponse(data, status=status)
 
+
 @method_decorator(csrf_exempt, name="dispatch")
 class FilterView(View):
-
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -309,13 +300,12 @@ class FilterView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class FilterIDView(View):
-
     def get(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, Filter, user()) is False:
+        if utils.user_access(name, Filter, user()) is None:
             return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Filtre"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Filter))
 
@@ -342,13 +332,12 @@ class FilterIDView(View):
             flt = Filter.objects.filter(name=flt_name)
             if len(flt) == 1:
                 status = 403
-                data = {"error":"Forbidden"}
+                data = {"error": "Forbidden"}
             elif len(flt) == 0:
                 status = 204
-                data = {"message":"No content"}
+                data = {"message": "No content"}
 
         return JsonResponse(data, status=status)
-
 
     def delete(self, request, name):
         user = utils.get_user_or_401(request)
@@ -366,15 +355,15 @@ class FilterIDView(View):
                 data = {}
             else:
                 status = 405
-                data = {"error":"Not Allowed"}
+                data = {"error": "Not Allowed"}
         elif len(filter) == 0:
             flt = Filter.objects.filter(name=name)
             if len(flt) == 1:
                 status = 403
-                data = {"error":"Forbidden"}
+                data = {"error": "Forbidden"}
             elif len(flt) == 0:
                 status = 204
-                data = {"message":"No content"}
+                data = {"message": "No content"}
         else:
             return HttpResponseBadRequest()
 
@@ -402,9 +391,8 @@ class AnalyzerView(View):
         name = utils.read_name(body_data)
         if name is None:
             return JsonResponse({"error": "Le nom de l'analyseur est manquant dans la requete"}, status=400)
-        if Analyzer.objects.filter(name = name).count() > 0:
+        if Analyzer.objects.filter(name=name).count() > 0:
             return JsonResponse({"error": "Le nom de l'analyseur doit etre unique"}, status=409)
-
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or None
         filters = "filters" in body_data and body_data["filters"] or []
@@ -417,7 +405,7 @@ class AnalyzerView(View):
                     analyzer.filter.add(flt)
                     analyzer.save()
                 except Filter.DoesNotExist:
-                    return JsonResponse({"error":"Filter DoesNotExist"}, status=400)
+                    return JsonResponse({"error": "Filter DoesNotExist"}, status=400)
 
         if created and tokenizer is not None:
             try:
@@ -425,7 +413,7 @@ class AnalyzerView(View):
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
             except Tokenizer.DoesNotExist:
-                return JsonResponse({"error":"Tokenizer DoesNotExist"}, status=400)
+                return JsonResponse({"error": "Tokenizer DoesNotExist"}, status=400)
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, analyzer.name)
 
@@ -436,8 +424,8 @@ class AnalyzerIDView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        name = (name.endswith('/')and name[:-1] or name)
-        if utils.user_access(name, Analyzer, user()) is False:
+        name = (name.endswith('/') and name[:-1] or name)
+        if utils.user_access(name, Analyzer, user()) is None:
             return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à cet Analyseur"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Analyzer))
 
@@ -461,7 +449,7 @@ class AnalyzerIDView(View):
             try:
                 tkn_chk = Tokenizer.objects.get(name=tokenizer)
             except Tokenizer.DoesNotExist:
-                return JsonResponse({"error":"Echec de la mise à jour Analyseur: Tokenizer DoesNotExist"}, status=400)
+                return JsonResponse({"error": "Echec de la mise à jour Analyseur: Tokenizer DoesNotExist"}, status=400)
 
         if analyzer.user != user():
             status = 403
@@ -470,11 +458,12 @@ class AnalyzerIDView(View):
             status = 200
             data = {}
             if len(filters) > 0:
-                for f in filters:                  
+                for f in filters:
                     try:
                         flt = Filter.objects.get(name=f)
                     except Filter.DoesNotExist:
-                        return JsonResponse({"error":"Echec de la mise à jour Analyseur: Filter DoesNotExist"}, status=400)
+                        return JsonResponse({"error": "Echec de la mise à jour Analyseur: Filter DoesNotExist"},
+                                            status=400)
 
                 analyzer.filter.set([])
                 for f in filters:
@@ -495,7 +484,7 @@ class AnalyzerIDView(View):
         analyzer = get_object_or_404(Analyzer, name=name)
 
         if analyzer.reserved:
-            return JsonResponse({"error":"Suppression impossible, status Reservé pour cet analyseur"}, status=403)
+            return JsonResponse({"error": "Suppression impossible, status Reservé pour cet analyseur"}, status=403)
 
         if analyzer.user == user():
             analyzer.delete()
@@ -504,14 +493,13 @@ class AnalyzerIDView(View):
 
         elif analyzer.user != user():
             status = 403
-            data = {"error":"Suppression impossible, vous n'etes pas l'usager de cet analyseur"}
+            data = {"error": "Suppression impossible, vous n'etes pas l'usager de cet analyseur"}
 
         return JsonResponse(data, status=status)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class TokenizerView(View):
-
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -541,19 +529,18 @@ class TokenizerView(View):
         response = HttpResponse()
         response.status_code = status
         if created:
-            response['Location']  = '{}{}'.format(request.build_absolute_uri(), token.name)
+            response['Location'] = '{}{}'.format(request.build_absolute_uri(), token.name)
         return response
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class TokenizerIDView(View):
-
     def get(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, Tokenizer, user()) is False:
+        if utils.user_access(name, Tokenizer, user()) is None:
             return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Token"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, Tokenizer), safe=False)
 
@@ -578,10 +565,9 @@ class TokenizerIDView(View):
             data = {}
         elif len(token) == 0:
             status = 204
-            data = {"message":"Aucun Token ne correspond a votre requete"}
+            data = {"message": "Aucun Token ne correspond a votre requete"}
 
         return JsonResponse(data, status=status)
-
 
     def delete(self, request, name):
         user = utils.get_user_or_401(request)
@@ -608,13 +594,11 @@ class TokenizerIDView(View):
                 status = 405
                 data = {"error": "Not Allowed, "}
 
-
         return JsonResponse(data, status=status)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class Directories(View):
-
     def get(self, request):
         user = utils.UserAuthenticate(request)
         if user() is None:
@@ -630,7 +614,6 @@ class Directories(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ActionView(View):
-
     def post(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -663,7 +646,8 @@ class ActionView(View):
         context = PdfContext(index, doc_type)
 
         for col_property in iter(ctx.clmn_properties):
-            context.update_property(**col_property)
+            context_name = col_property.pop('name')
+            context.update_property(context_name, **col_property)
 
         opts = {}
 
@@ -674,22 +658,22 @@ class ActionView(View):
 
         if action == "rebuild":
             opts.update({"collections": context.get_collection()})
-        
+
         if action == "reindex":
             pass  # Action par défaut
-        
+
         body = {'mappings': context.generate_elastic_mapping(),
                 'settings': {
                     'analysis': self.retreive_analysis(
-                                        self.retreive_analyzers(context))}}
+                        self.retreive_analyzers(context))}}
 
         elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
-                                             ctx.name,           # Alias de l'index
-                                             doc_type.name,      # Nom du type
-                                             body,               # Settings & Mapping
+                                             ctx.name,  # Alias de l'index
+                                             doc_type.name,  # Nom du type
+                                             body,  # Settings & Mapping
                                              **opts)
 
-        data = {"message":"Requete acceptée mais sans garentie de traitement"}
+        data = {"message": "Requete acceptée mais sans garentie de traitement"}
         return JsonResponse(data, status=202)
 
     def retreive_analyzers(self, context):
@@ -725,7 +709,7 @@ class ActionView(View):
                 filter = Filter.objects.get(name=filter_name)
                 if not filter.reserved:
                     analysis['filter'][filter.name] = filter.config
-            
+
             analysis['analyzer'][analyzer.name]['filter'] = filters_name
 
         return analysis
@@ -733,7 +717,6 @@ class ActionView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchModelView(View):
-
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -790,13 +773,12 @@ class SearchModelView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchModelIDView(View):
-
     def get(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, SearchModel, user()) is False:
+        if utils.user_access(name, SearchModel, user()) is None:
             return JsonResponse({"error": "Forbidden, vous ne pouvez acceder à ce Model de Recherche"}, status=403)
         return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
@@ -844,11 +826,11 @@ class SearchModelIDView(View):
 
             if len(mdl) == 1:
                 status = 403
-                data = {"error":"Forbidden"}
+                data = {"error": "Forbidden"}
 
             elif len(mdl) == 0:
                 status = 204
-                data = {"message":"No Content"}
+                data = {"message": "No Content"}
 
         body = {'actions': []}
 
@@ -863,7 +845,7 @@ class SearchModelIDView(View):
             elastic_conn.update_aliases(body)
         else:
             status = 423
-            data = {"error":"Locked, acces à la ressource est impossible"}
+            data = {"error": "Locked, acces à la ressource est impossible"}
 
         return JsonResponse(data, status=status)
 
@@ -894,7 +876,6 @@ class SearchModelIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchView(View):
-
     def post(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
