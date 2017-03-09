@@ -88,7 +88,6 @@ def format_tokenizer(obj):
 def iter_ctx_from_search_model(mdl_name):
     SMC = SearchModel.context.through
     set = SMC.objects.filter(searchmodel__name=mdl_name)
-    print('set', set)
     return [s.context.name for s in set if s.context.name is not None]
 
 
@@ -103,6 +102,7 @@ def format_search_model(obj):
     }
 
 
+# Formate la réponse Json selon le type de model pour un ensemble d'objets
 def get_objects(user, mdl, src_id=None):
     l = []
     d = {Tokenizer: format_tokenizer,
@@ -142,6 +142,7 @@ def get_objects(user, mdl, src_id=None):
     return l
 
 
+# Formate la réponse Json selon le type de model pour un objet identifié
 def get_object_id(user, id, mdl, src_id=None):
     l = {}
     d = {SearchModel : format_search_model,
@@ -312,6 +313,7 @@ def get_param(request, param):
             return None
         return param_read
 
+
 # Format response Json apres les get_or_create()
 def format_json_get_create(request, created, status, obj_id):
     if created:
@@ -323,13 +325,12 @@ def format_json_get_create(request, created, status, obj_id):
     return response
 
 
-# Suppression d'un élémént et formatage d'une réponse en Json --
-# Implementer pour source, context
+# Suppression d'un élément et formatage d'une réponse en Json --
+# Implementer pour sourceID, contextID, filterID, analyzerID, TokenizerID, SearchModelID
 def delete_func(id, user, model):
-
     # CF: https: // www.w3.org / Protocols / rfc2616 / rfc2616 - sec9.html
 
-    if model in [Source]:
+    if model is Source:
         obj = get_object_or_404(model, id=id)
 
         if obj.user == user:
@@ -340,7 +341,7 @@ def delete_func(id, user, model):
             data = {"error": "Echec de la suppression: Vous n'etes pas l'usager de cet élément."}
             status = 403
 
-    if model in [Context]:
+    if model is Context:
         # l'user n'est accessible qu'au travers de la source de la resource du context :)
         context = Context.objects.filter(resource_id=id, resource__source__user=user)
         if len(context) == 1:
