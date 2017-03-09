@@ -73,7 +73,7 @@ def format_analyzer(obj):
         "name": obj.name,
         "filters": iter_flt_from_anl(obj.name),
         "reserved": obj.reserved,
-        "tokenizer": obj.tokenizer and obj.tokenizer.name or ""} 
+        "tokenizer": obj.tokenizer and obj.tokenizer.name or ""}
 
 
 def format_tokenizer(obj):
@@ -327,7 +327,6 @@ def format_json_delete():
 # Check si user() == obj.user -- A implementer pour filterID, analyserID, tokenizerID, SearchModelID
 def user_access(name, model, usr_req):
     obj = get_object_or_404(model, name=name)
-    if obj.user == usr_req or obj.user is None:
-
-        return True
-    return False
+    if obj.user != usr_req:
+        obj = None
+    return obj
