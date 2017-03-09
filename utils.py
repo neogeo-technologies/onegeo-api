@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError
 from django.db.models import Q
+from django.core.exceptions import FieldDoesNotExist
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
@@ -321,10 +322,61 @@ def format_json_get_create(request, created, status, obj_id):
         response = JsonResponse(data=data, status=status)
     return response
 
-def format_json_delete():
-    pass
 
-# Check si user() == obj.user -- A implementer pour filterID, analyserID, tokenizerID, SearchModelID
+# Suppression d'un élémént et formatage d'une réponse en Json --
+# Implementer pour source, context
+def delete_func(id, user, model):
+
+    # CF: https: // www.w3.org / Protocols / rfc2616 / rfc2616 - sec9.html
+
+    if model in [Source]:
+        obj = get_object_or_404(model, id=id)
+
+        if obj.user == user:
+            obj.delete()
+            data = {}
+            status = 204
+        else:
+            data = {"error": "Echec de la suppression: Vous n'etes pas l'usager de cet élément."}
+            status = 403
+
+    if model in [Context]:
+        # l'user n'est accessible qu'au travers de la source de la resource du context :)
+        context = Context.objects.filter(resource_id=id, resource__source__user=user)
+        if len(context) == 1:
+            context.delete()
+            data = {}
+            status = 204
+        elif len(context) == 0 and Context.objects.filter(resource_id=id).count() > 0:
+            data = {"error": "Echec de la suppression: Vous n'etes pas l'usager de cet élément."}
+            status = 403
+
+    if model in [Filter, Analyzer, Tokenizer, SearchModel]:
+
+        obj = get_object_or_404(model, name=id)
+        if obj.user == user:
+            # On a besoin de verifier le champs reserved à False si existant dans le model.
+            try:
+                model._meta.get_field("reserved")
+            except FieldDoesNotExist:
+                obj.delete()
+                status = 200
+                data = {}
+            else:
+                if not obj.reserved:
+                    obj.delete()
+                    status = 200
+                    data = {}
+                else:
+                    status = 405
+                    data = {"error": "Suppression impossible: L'usage de cet élément est réservé."}
+        else:
+            status = 403
+            data = {"error": "Suppression impossible: Vous n'etes pas l'usager de cet élément."}
+
+    return JsonResponse(data, status=status)
+
+# Check si user() == obj.user -- Implementé pour filterID, analyserID, tokenizerID, SearchModelID
 def user_access(name, model, usr_req):
     obj = get_object_or_404(model, name=name)
     if obj.user == usr_req or obj.user is None:

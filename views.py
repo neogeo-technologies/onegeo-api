@@ -87,22 +87,9 @@ class SourceIDView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        src_id = literal_eval(id)
+        id = literal_eval(id)
 
-        source = Source.objects.filter(id=src_id, user=user())
-        if len(source) == 1:
-            source.delete()
-            data = {}
-            status = 200
-        elif len(source) == 0:
-            src = Source.objects.filter(id=src_id)
-            if len(src) == 1:
-                data = {"error": "Echec de la suppression de la source: Vous n'etes pas l'usager de cette source."}
-                status = 403
-            elif len(src) == 0:
-                data = {"message": "Suppression impossible: Aucune source ne correspond à votre requête."}
-                status = 204
-        return JsonResponse(data, status=status)
+        return utils.delete_func(id, user(), Source)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -252,22 +239,9 @@ class ContextIDView(View):
         if isinstance(user, HttpResponse):
             return user
 
-        ctx_id = literal_eval(id)
-        context = Context.objects.filter(resource_id=ctx_id, resource__source__user=user())
+        id = literal_eval(id)
 
-        if len(context) == 1:
-            context.delete()
-            status = 200
-            data = {}
-        elif len(context) == 0:
-            ctx = Context.objects.filter(resource_id=ctx_id)
-            if len(ctx) == 1:
-                status = 403
-                data = {"error": "Echec de la suppression du contexte. Vous n'etes pas l'usager de ce context"}
-            elif len(ctx) == 0:
-                data = {"message": "Suppression impossible: Aucun contexte ne correspond à votre requête."}
-                status = 204
-        return JsonResponse(data, status=status)
+        return utils.delete_func(id, user(), Context)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -296,7 +270,7 @@ class FilterView(View):
 
         cfg = "config" in body_data and body_data["config"] or {}
 
-        filter, created = Filter.objects.get_or_create(config=cfg, user=user(), name=name)
+        filter, created = Filter.objects.get_or_create(config=cfg, user=user(), name=name, reserved=True)
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, filter.name)
 
@@ -346,31 +320,8 @@ class FilterIDView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-
         name = (name.endswith('/') and name[:-1] or name)
-        filter = Filter.objects.filter(name=name, user=user())
-
-        if len(filter) == 1:
-            filter = filter[0]
-            if not filter.reserved:
-                filter.delete()
-                status = 200
-                data = {}
-            else:
-                status = 405
-                data = {"error": "Suppression impossible: L'usage de ce filtre est réservé."}
-        elif len(filter) == 0:
-            flt = Filter.objects.filter(name=name)
-            if len(flt) == 1:
-                status = 403
-                data = {"error": "Suppression impossible: Vous n'etes pas l'usager de ce filtre."}
-            elif len(flt) == 0:
-                status = 204
-                data = {"message": "Suppression impossible: Aucun filtre ne correspond à votre requête."}
-        else:
-            return HttpResponseBadRequest()
-
-        return JsonResponse(data, status=status)
+        return utils.delete_func(name, user(), Filter)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -484,21 +435,7 @@ class AnalyzerIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
 
-        analyzer = get_object_or_404(Analyzer, name=name)
-
-        if analyzer.reserved:
-            return JsonResponse({"error": "Suppression impossible: status Reservé pour cet analyseur"}, status=403)
-
-        if analyzer.user == user():
-            analyzer.delete()
-            status = 200
-            data = {}
-
-        elif analyzer.user != user():
-            status = 403
-            data = {"error": "Suppression impossible: vous n'etes pas l'usager de cet analyseur"}
-
-        return JsonResponse(data, status=status)
+        return utils.delete_func(name, user(), Analyzer)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -574,26 +511,7 @@ class TokenizerIDView(View):
             return user
         name = (name.endswith('/') and name[:-1] or name)
 
-        try:
-            token = Tokenizer.objects.get(name=name)
-        except Tokenizer.DoesNotExist:
-            status = 204
-            data = {"message": "Suppression impossible: Aucun token ne correspond à votre requête."}
-        else:
-            if token.user != user():
-                status = 403
-                data = {"error": "Suppression impossible: Vous n'etes pas l'usager de ce token."}
-                return JsonResponse(data, status=status)
-
-            if token.reserved is False:
-                token.delete()
-                status = 200
-                data = {}
-            if token.reserved is True:
-                status = 405
-                data = {"error": "Suppression impossible: L'usage de ce token est reservé."}
-
-        return JsonResponse(data, status=status)
+        return utils.delete_func(name, user(), Tokenizer)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -857,23 +775,7 @@ class SearchModelIDView(View):
             return user
 
         name = (name.endswith('/') and name[:-1] or name)
-        search_model = SearchModel.objects.filter(name=name, user=user())
-
-        if len(search_model) == 1:
-            search_model[0].delete()
-            status = 200
-            data = {}
-
-        elif len(search_model) == 0:
-            mdl = SearchModel.objects.filter(name=name)
-            if len(mdl) == 1:
-                status = 403
-                data = {"error": "Suppression du model de recherche impossible: Son usage est reservé."}
-            elif len(mdl) == 0:
-                status = 204
-                data = {"message": "Suppression du model de recherche impossible: Aucun model de recherche ne correspond."}
-
-        return JsonResponse(data, status=status)
+        return utils.delete_func(name, user(), SearchModel)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
