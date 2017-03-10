@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
 from django.conf import settings
 from django.db import transaction
+from django.contrib.auth.decorators import login_required
 
 from onegeo_manager.source import PdfSource
 from onegeo_manager.index import Index
@@ -30,13 +31,16 @@ msg_not_acceptable = "Le format demandé n'est pas pris en charge."
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SourceView(View):
+
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
         return JsonResponse(utils.get_objects(user(), Source), safe=False)
 
+
     def post(self, request):
+        print(request.META)
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
@@ -273,7 +277,7 @@ class FilterView(View):
 
         cfg = "config" in body_data and body_data["config"] or {}
 
-        filter, created = Filter.objects.get_or_create(config=cfg, user=user(), name=name, reserved=True)
+        filter, created = Filter.objects.get_or_create(config=cfg, user=user(), name=name)
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, filter.name)
 
