@@ -24,8 +24,9 @@ urlpatterns = [
     url(r"^tokenizers/(\S+)?$", TokenizerIDView.as_view()),
     url(r"^action/?$", ActionView.as_view()),
     url(r"^models/(\S+)/search/?$", SearchView.as_view()),
-    url(r"^models/(\S+)?$", SearchModelIDView.as_view()),
     url(r"^models/?$", SearchModelView.as_view()),
+    url(r"^models/(\S+)?$", SearchModelIDView.as_view()),
+
 ]
 
 
