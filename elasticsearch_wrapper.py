@@ -98,7 +98,10 @@ class ElasticWrapper(metaclass=Singleton):
                 if pipeline is not None:
                     params.update({'pipeline': pipeline})
 
-                self.conn.index(**params)
+                try:
+                    self.conn.index(**params)
+                except ElasticExceptions.RequestError as err:
+                    self.delete_index(index)
 
             self.switch_aliases(index, name)
 
@@ -163,7 +166,10 @@ class ElasticWrapper(metaclass=Singleton):
         return aliases
 
     def update_aliases(self, body):
-        self.conn.indices.update_aliases(body=body)
+        try:
+            self.conn.indices.update_aliases(body=body)
+        except ElasticExceptions.RequestError as err:
+            raise ValueError(str(err))
 
     def search(self, index, body):
         return self.conn.search(index=index, body=body)

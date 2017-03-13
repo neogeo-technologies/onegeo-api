@@ -599,14 +599,17 @@ class ActionView(View):
 
         search_model_l = utils.iter_mdl_from_ctx_name(ctx.name)
         status = 202
-        data = {"message": "Requete acceptée mais sans garentie de traitement"}
+        data = {"message": "Requete acceptée mais sans garantie de traitement"}
         for smn in search_model_l:
             try:
+                print(0)
                 utils.refresh_search_model(smn, [ctx])
+                print(1)
             except RuntimeError:
                 status = 423
                 data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
-
+            except ValueError:
+                pass
 
         return JsonResponse(data, status=status)
 
@@ -784,6 +787,9 @@ class SearchModelIDView(View):
         except RuntimeError:
             status = 423
             data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+        except ValueError:
+            pass
+
         # body = {'actions': []}
         #
         # for index in elastic_conn.get_indices_by_alias(name=name):
