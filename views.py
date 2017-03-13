@@ -40,7 +40,6 @@ class SourceView(View):
 
 
     def post(self, request):
-        print(request.META)
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user

@@ -93,7 +93,6 @@ def iter_ctx_from_search_model(mdl_name):
 
 def format_search_model(obj):
     l = iter_ctx_from_search_model(obj.name)
-    print("format", l)
     return {
         "location": "models/{}".format(obj.name),
         "name": obj.name,
