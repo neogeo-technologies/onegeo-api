@@ -13,6 +13,8 @@ from django.db import IntegrityError
 from django.db.models import Q
 from django.core.exceptions import FieldDoesNotExist
 
+from .elasticsearch_wrapper import elastic_conn
+
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
@@ -90,6 +92,10 @@ def iter_ctx_from_search_model(mdl_name):
     set = SMC.objects.filter(searchmodel__name=mdl_name)
     return [s.context.name for s in set if s.context.name is not None]
 
+def iter_mdl_from_ctx_name(ctx_name):
+    SMC = SearchModel.context.through
+    set = SMC.objects.filter(context__name=ctx_name)
+    return [s.searchmodel.name for s in set if s.searchmodel.name is not None]
 
 def format_search_model(obj):
     l = iter_ctx_from_search_model(obj.name)
@@ -392,13 +398,29 @@ def clean_my_obj(obj):
     else:
         return obj
 
-def refresh_search_model(fct):
-    """USAGE views.py/functions:
-        @utils.refresh_search_model
-    """
-    @functools.wraps(fct)  # Permet de transmettre les attributs
-    def wrapper_fct(*args, **kwargs):
-        set_sm = SearchModel.objects.all()
-        set_sm.update()
-        return fct(*args, **kwargs)
-    return wrapper_fct
+def refresh_search_model(name_model, ctx_clt):
+    body = {'actions': []}
+
+    for index in elastic_conn.get_indices_by_alias(name=name_model):
+        body['actions'].append({'remove': {'index': index, 'alias': name_model}})
+
+    for context in iter(ctx_clt):
+        for index in elastic_conn.get_indices_by_alias(name=context):
+            body['actions'].append({'add': {'index': index, 'alias': name_model}})
+
+    if not elastic_conn.is_a_task_running():
+        elastic_conn.update_aliases(body)
+    else:
+        raise RuntimeError
+
+
+
+#     """USAGE views.py/functions:
+#         @utils.refresh_search_model
+#     """
+#     @functools.wraps(fct)  # Permet de transmettre les attributs
+#     def wrapper_fct(*args, **kwargs):
+#         set_sm = SearchModel.objects.all()
+#         set_sm.update()
+#         return fct(*args, **kwargs)
+#     return wrapper_fct

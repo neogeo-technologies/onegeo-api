@@ -538,7 +538,6 @@ class Directories(View):
 @method_decorator(csrf_exempt, name="dispatch")
 class ActionView(View):
 
-    @utils.refresh_search_model
     def post(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -598,8 +597,18 @@ class ActionView(View):
                                              body,  # Settings & Mapping
                                              **opts)
 
+        search_model_l = utils.iter_mdl_from_ctx_name(ctx.name)
+        status = 202
         data = {"message": "Requete acceptée mais sans garentie de traitement"}
-        return JsonResponse(data, status=202)
+        for smn in search_model_l:
+            try:
+                utils.refresh_search_model(smn, [ctx])
+            except RuntimeError:
+                status = 423
+                data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+
+
+        return JsonResponse(data, status=status)
 
     def retreive_analyzers(self, context):
 
@@ -770,20 +779,25 @@ class SearchModelIDView(View):
                 status = 204
                 data = {"message": "Modification du model de recherche impossible: Aucun model de recherche ne correspond."}
 
-        body = {'actions': []}
-
-        for index in elastic_conn.get_indices_by_alias(name=name):
-            body['actions'].append({'remove': {'index': index, 'alias': name}})
-
-        for context in iter(ctx_clt):
-            for index in elastic_conn.get_indices_by_alias(name=context):
-                body['actions'].append({'add': {'index': index, 'alias': name}})
-
-        if not elastic_conn.is_a_task_running():
-            elastic_conn.update_aliases(body)
-        else:
+        try:
+            utils.refresh_search_model(name, ctx_clt)
+        except RuntimeError:
             status = 423
             data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+        # body = {'actions': []}
+        #
+        # for index in elastic_conn.get_indices_by_alias(name=name):
+        #     body['actions'].append({'remove': {'index': index, 'alias': name}})
+        #
+        # for context in iter(ctx_clt):
+        #     for index in elastic_conn.get_indices_by_alias(name=context):
+        #         body['actions'].append({'add': {'index': index, 'alias': name}})
+        #
+        # if not elastic_conn.is_a_task_running():
+        #     elastic_conn.update_aliases(body)
+        # else:
+        #     status = 423
+        #     data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
 
         return JsonResponse(data, status=status)
 
