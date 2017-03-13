@@ -391,3 +391,14 @@ def clean_my_obj(obj):
                          for k, v in obj.items() if k is not None and v is not None)
     else:
         return obj
+
+def refresh_search_model(fct):
+    """USAGE views.py/functions:
+        @utils.refresh_search_model
+    """
+    @functools.wraps(fct)  # Permet de transmettre les attributs
+    def wrapper_fct(*args, **kwargs):
+        set_sm = SearchModel.objects.all()
+        set_sm.update()
+        return fct(*args, **kwargs)
+    return wrapper_fct

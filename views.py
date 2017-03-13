@@ -537,6 +537,8 @@ class Directories(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ActionView(View):
+
+    @utils.refresh_search_model
     def post(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -613,7 +615,6 @@ class ActionView(View):
 
         analysis = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
 
-        analyzer_set = Analyzer.objects.filter()
         for analyzer_name in analyzers:
             analyzer = Analyzer.objects.get(name=analyzer_name)
 
@@ -783,7 +784,6 @@ class SearchModelIDView(View):
         else:
             status = 423
             data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
-
 
         return JsonResponse(data, status=status)
 
