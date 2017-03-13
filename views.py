@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
 from django.conf import settings
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.contrib.auth.decorators import login_required
 
 from onegeo_manager.source import PdfSource
@@ -613,6 +613,7 @@ class ActionView(View):
 
         analysis = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
 
+        analyzer_set = Analyzer.objects.filter()
         for analyzer_name in analyzers:
             analyzer = Analyzer.objects.get(name=analyzer_name)
 
@@ -749,9 +750,13 @@ class SearchModelIDView(View):
                         ctx_l.append(ctx)
                 sm.context.set(ctx_l)
 
-            search_model.update(config=config)
-            status = 200
-            data = {}
+            if elastic_conn.is_a_task_running():
+                status = 423
+                data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+            else:
+                search_model.update(config=config)
+                status = 200
+                data = {}
 
         elif len(search_model) == 0:
             mdl = SearchModel.objects.filter(name=name)
@@ -778,6 +783,7 @@ class SearchModelIDView(View):
         else:
             status = 423
             data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+
 
         return JsonResponse(data, status=status)
 
