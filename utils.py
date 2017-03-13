@@ -55,11 +55,11 @@ def format_context(s, r, c):
 
 
 def format_filter(obj):
-    return {
+    return clean_my_obj({
         "location": "filters/{}".format(obj.name),
         "name": obj.name,
-        "config": obj.config,
-        "reserved": obj.reserved}
+        "config": obj.config or None,
+        "reserved": obj.reserved})
 
 
 def iter_flt_from_anl(anl_name):
@@ -69,20 +69,20 @@ def iter_flt_from_anl(anl_name):
 
 
 def format_analyzer(obj):
-    return {
+    return clean_my_obj({
         "location": "analyzers/{}".format(obj.name),
         "name": obj.name,
-        "filters": iter_flt_from_anl(obj.name),
+        "filters": iter_flt_from_anl(obj.name) or None,
         "reserved": obj.reserved,
-        "tokenizer": obj.tokenizer and obj.tokenizer.name or ""}
+        "tokenizer": obj.tokenizer and obj.tokenizer.name or None})
 
 
 def format_tokenizer(obj):
-    return {
+    return clean_my_obj({
         "location": "tokenizers/{}".format(obj.name),
         "name": obj.name,
-        "config": obj.config,
-        "reserved": obj.reserved}
+        "config": obj.config or None,
+        "reserved": obj.reserved})
 
 
 def iter_ctx_from_search_model(mdl_name):
@@ -382,3 +382,12 @@ def user_access(name, model, usr_req):
     if obj.user == usr_req or obj.user is None:
         return True
     return False
+
+def clean_my_obj(obj):
+    if isinstance(obj, (list, tuple, set)):
+        return type(obj)(clean_my_obj(x) for x in obj if x is not None)
+    elif isinstance(obj, dict):
+        return type(obj)((clean_my_obj(k), clean_my_obj(v))
+                         for k, v in obj.items() if k is not None and v is not None)
+    else:
+        return obj
