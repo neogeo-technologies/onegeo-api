@@ -616,21 +616,27 @@ class ActionView(View):
         for analyzer_name in analyzers:
             analyzer = Analyzer.objects.get(name=analyzer_name)
 
+            plug_anal = analyzer.filter.through
             if analyzer.reserved:
-                continue
+                if plug_anal.objects.filter(analyzer__name=analyzer_name) and analyzer.tokenizer:
+                    pass
+                else:
+                    continue
 
             analysis['analyzer'][analyzer.name] = {'type': 'custom'}
 
             tokenizer = analyzer.tokenizer
+
             if tokenizer:
                 analysis['analyzer'][analyzer.name]['tokenizer'] = tokenizer.name
-                if not tokenizer.reserved:
+                if tokenizer.config:
                     analysis['tokenizer'][tokenizer.name] = tokenizer.config
 
             filters_name = utils.iter_flt_from_anl(analyzer.name)
+
             for filter_name in iter(filters_name):
                 filter = Filter.objects.get(name=filter_name)
-                if not filter.reserved:
+                if filter.config:
                     analysis['filter'][filter.name] = filter.config
 
             analysis['analyzer'][analyzer.name]['filter'] = filters_name
