@@ -12,6 +12,7 @@ from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, Sear
 from django.conf import settings
 from django.db import transaction, IntegrityError
 from django.contrib.auth.decorators import login_required
+from django.core import serializers
 
 from onegeo_manager.source import PdfSource
 from onegeo_manager.index import Index
@@ -172,10 +173,13 @@ class ContextView(View):
         for property in context.iter_properties():
             column_ppt.append(property.all())
 
-        context = Context.objects.create(resource=set_rscr,
-                                         name=name,
-                                         clmn_properties=column_ppt,
-                                         reindex_frequency=reindex_frequency)
+        try:
+            context = Context.objects.create(resource=set_rscr,
+                                             name=name,
+                                             clmn_properties=column_ppt,
+                                             reindex_frequency=reindex_frequency)
+        except ValidationError as e:
+            return JsonResponse(data={"error":e.message}, status=409)
 
         response = JsonResponse(data={}, status=201)
         response['Location'] = '{}{}'.format(request.build_absolute_uri(), context.resource_id)
@@ -684,8 +688,8 @@ class SearchModelView(View):
 
         try:
             search_model, created = SearchModel.objects.get_or_create(config=cfg, user=user(), name=name)
-        except ValidationError as err:
-            return JsonResponse({"error": err.message}, status=409)
+        except ValidationError as e:
+            return JsonResponse({"error": e.message}, status=409)
 
         status = created and 201 or 409
         if created:
