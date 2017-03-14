@@ -398,15 +398,28 @@ def clean_my_obj(obj):
     else:
         return obj
 
-def refresh_search_model(name_model, ctx_clt):
+def refresh_search_model(name_model, ctx_l):
+    """
+    Mise à jour des index d'un modele de recherche et des anciens dict index/name_model.
+
+    """
     body = {'actions': []}
 
-    for index in elastic_conn.get_indices_by_alias(name=name_model):
-        body['actions'].append({'remove': {'index': index, 'alias': name_model}})
+    indices_by_alias_l = elastic_conn.get_indices_by_alias(name=name_model)
+    if len(indices_by_alias_l) == 0:
+        raise ValueError("la liste d'indices par alias est vide pour {}".format(name_model))
+    else:
+        for index in indices_by_alias_l:
+            body['actions'].append({'remove': {'index': index, 'alias': name_model}})
 
-    for context in iter(ctx_clt):
-        for index in elastic_conn.get_indices_by_alias(name=context):
-            body['actions'].append({'add': {'index': index, 'alias': name_model}})
+    for context in iter(ctx_l):
+        indices_by_alias_l = elastic_conn.get_indices_by_alias(name=context)
+        if len(indices_by_alias_l) == 0:
+            raise ValueError("la liste d'indices par alias est vide pour {}".format(context.name))
+        else:
+            for index in indices_by_alias_l:
+                body['actions'].append({'add': {'index': index, 'alias': name_model}})
+
 
     if not elastic_conn.is_a_task_running():
         elastic_conn.update_aliases(body)
