@@ -744,6 +744,23 @@ class SearchModelIDView(View):
         ctx_clt = "contexts" in body_data and body_data["contexts"] or []
         config = "config" in body_data and body_data["config"] or {}
 
+        if elastic_conn.is_a_task_running():
+            status = 423
+            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+            return JsonResponse(data, status=status)
+
+        try:
+            utils.refresh_search_model(name, ctx_clt)
+        except RuntimeError:
+            status = 423
+            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+            return JsonResponse(data, status=status)
+        except ValueError:
+            status = 423
+            data = {"error": "La liste d'indices par alias est vide"}
+            return JsonResponse(data, status=status)
+
+
         search_model = SearchModel.objects.filter(name=name, user=user())
         if len(search_model) == 1:
 
@@ -763,9 +780,6 @@ class SearchModelIDView(View):
                         ctx_l.append(ctx)
                 sm.context.set(ctx_l)
 
-            if elastic_conn.is_a_task_running():
-                status = 423
-                data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
             else:
                 search_model.update(config=config)
                 status = 200
@@ -782,11 +796,6 @@ class SearchModelIDView(View):
                 status = 204
                 data = {"message": "Modification du model de recherche impossible: Aucun model de recherche ne correspond."}
 
-        try:
-            utils.refresh_search_model(name, ctx_clt)
-        except (RuntimeError, ValueError):
-            status = 423
-            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
 
         return JsonResponse(data, status=status)
 

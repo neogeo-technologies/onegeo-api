@@ -13,6 +13,7 @@ from django.db import IntegrityError
 from django.db.models import Q
 from django.core.exceptions import FieldDoesNotExist
 
+
 from .elasticsearch_wrapper import elastic_conn
 
 
@@ -262,6 +263,11 @@ class UserAuthenticate:
         if isinstance(user, HttpResponse):
             return user
         my_user= user()
+
+        DEPLOIMENT APACHE/WSGI:
+        -----------------------
+        fichier conf apache2 : 'WSGIPassAuthorization ON'
+        ------------------------------------------------
     """
 
     def __init__(self, request):
@@ -398,9 +404,15 @@ def clean_my_obj(obj):
     else:
         return obj
 
+
+class MultiTaskError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
 def refresh_search_model(name_model, ctx_l):
     """
-    Mise à jour des index d'un modele de recherche et des anciens dict index/name_model.
+    Mise à jour des index d'un modele de recherche et des anciens dictionnaires index/name_model.
 
     """
     body = {'actions': []}
@@ -420,20 +432,8 @@ def refresh_search_model(name_model, ctx_l):
             for index in indices_by_alias_l:
                 body['actions'].append({'add': {'index': index, 'alias': name_model}})
 
-
     if not elastic_conn.is_a_task_running():
         elastic_conn.update_aliases(body)
     else:
         raise RuntimeError
 
-
-
-#     """USAGE views.py/functions:
-#         @utils.refresh_search_model
-#     """
-#     @functools.wraps(fct)  # Permet de transmettre les attributs
-#     def wrapper_fct(*args, **kwargs):
-#         set_sm = SearchModel.objects.all()
-#         set_sm.update()
-#         return fct(*args, **kwargs)
-#     return wrapper_fct
