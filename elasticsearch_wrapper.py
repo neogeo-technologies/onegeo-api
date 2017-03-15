@@ -102,6 +102,10 @@ class ElasticWrapper(metaclass=Singleton):
                     self.conn.index(**params)
                 except ElasticExceptions.RequestError as err:
                     self.delete_index(index)
+                except ElasticExceptions.SerializationError as err:
+                    continue
+                except:
+                   self.delete_index(index)
 
             self.switch_aliases(index, name)
 
