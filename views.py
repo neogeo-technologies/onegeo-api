@@ -764,7 +764,7 @@ class SearchModelIDView(View):
         search_model = SearchModel.objects.filter(name=name, user=user())
         if len(search_model) == 1:
 
-            sm = get_object_or_404(SearchModel, name=name)
+            sm = get_object_or_404(SearchModel, name=name) #get object pour sm.context.set
 
             if len(ctx_clt) > 0:
                 sm.context.clear()
@@ -780,7 +780,6 @@ class SearchModelIDView(View):
                         ctx_l.append(ctx)
                 sm.context.set(ctx_l)
 
-            else:
                 search_model.update(config=config)
                 status = 200
                 data = {}
@@ -796,7 +795,7 @@ class SearchModelIDView(View):
                 status = 204
                 data = {"message": "Modification du model de recherche impossible: Aucun model de recherche ne correspond."}
 
-
+        print(status)
         return JsonResponse(data, status=status)
 
     def delete(self, request, name):

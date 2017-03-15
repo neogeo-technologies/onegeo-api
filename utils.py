@@ -419,7 +419,8 @@ def refresh_search_model(name_model, ctx_l):
 
     indices_by_alias_l = elastic_conn.get_indices_by_alias(name=name_model)
     if len(indices_by_alias_l) == 0:
-        raise ValueError("la liste d'indices par alias est vide pour {}".format(name_model))
+        pass
+        # raise ValueError("la liste d'indices par alias est vide pour {}".format(name_model))
     else:
         for index in indices_by_alias_l:
             body['actions'].append({'remove': {'index': index, 'alias': name_model}})
