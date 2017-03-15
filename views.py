@@ -5,14 +5,13 @@ from uuid import uuid4
 from django.views.generic import View
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
 from django.conf import settings
-from django.db import transaction, IntegrityError
-from django.contrib.auth.decorators import login_required
-from django.core import serializers
+from django.db import transaction
+
 
 from onegeo_manager.source import PdfSource
 from onegeo_manager.index import Index
@@ -25,9 +24,7 @@ from . import utils
 from .elasticsearch_wrapper import elastic_conn
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-msg_not_acceptable = "Le format demandé n'est pas pris en charge."
-
-
+MSG_406 = "Le format demandé n'est pas pris en charge."
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -46,7 +43,7 @@ class SourceView(View):
             return user
 
         if "application/json" not in request.content_type:
-            data = {"error": msg_not_acceptable}
+            data = {"error": MSG_406}
             return JsonResponse(data, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -133,7 +130,7 @@ class ContextView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"error": msg_not_acceptable}, status=406)
+            return JsonResponse({"error": MSG_406}, status=406)
 
         body_data = json.loads(request.body.decode('utf-8'))
         if "name" not in body_data:
@@ -201,7 +198,7 @@ class ContextIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse([{"error": msg_not_acceptable}], safe=False)
+            return JsonResponse([{"error": MSG_406}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -302,7 +299,7 @@ class FilterIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"error": msg_not_acceptable}, status=406)
+            return JsonResponse({"error": MSG_406}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -349,7 +346,7 @@ class AnalyzerView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"error": msg_not_acceptable}, status=406)
+            return JsonResponse({"error": MSG_406}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
         name = utils.read_name(body_data)
@@ -399,7 +396,7 @@ class AnalyzerIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"error": msg_not_acceptable}, status=406)
+            return JsonResponse({"error": MSG_406}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -462,7 +459,7 @@ class TokenizerView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"Error": msg_not_acceptable}, status=406)
+            return JsonResponse({"Error": MSG_406}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -496,7 +493,7 @@ class TokenizerIDView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"Error": msg_not_acceptable}, status=406)
+            return JsonResponse({"Error": MSG_406}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -601,22 +598,8 @@ class ActionView(View):
                                              body,  # Settings & Mapping
                                              **opts)
 
-        search_model_l = utils.iter_mdl_from_ctx_name(ctx.name)
         status = 202
         data = {"message": "Requete acceptée mais sans garantie de traitement"}
-        for smn in search_model_l:
-            try:
-                utils.refresh_search_model(smn, [ctx.name])
-            except RuntimeError:
-                status = 423
-                data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
-            except ValueError:
-                status = 423
-                data = {"error": "La liste d'indices par alias est vide"}
-                return JsonResponse(data, status=status)
-
-
-
         return JsonResponse(data, status=status)
 
     def retreive_analyzers(self, context):
@@ -679,7 +662,7 @@ class SearchModelView(View):
             return user
 
         if "application/json" not in request.content_type:
-            return JsonResponse({"error": msg_not_acceptable}, status=406)
+            return JsonResponse({"error": MSG_406}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -741,7 +724,7 @@ class SearchModelIDView(View):
 
         # Check content-type
         if "application/json" not in request.content_type:
-            return JsonResponse({"Error": msg_not_acceptable}, status=406)
+            return JsonResponse({"Error": MSG_406}, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -761,17 +744,12 @@ class SearchModelIDView(View):
             status = 423
             data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
             return JsonResponse(data, status=status)
-        except ValueError:
-            status = 423
-            data = {"error": "La liste d'indices par alias est vide"}
-            return JsonResponse(data, status=status)
 
 
         search_model = SearchModel.objects.filter(name=name, user=user())
         if len(search_model) == 1:
 
             sm = get_object_or_404(SearchModel, name=name) #get object pour sm.context.set
-
 
             sm.context.clear()
             ctx_l = []
