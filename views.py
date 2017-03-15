@@ -606,7 +606,7 @@ class ActionView(View):
         data = {"message": "Requete acceptée mais sans garantie de traitement"}
         for smn in search_model_l:
             try:
-                utils.refresh_search_model(smn, [ctx])
+                utils.refresh_search_model(smn, [ctx.name])
             except RuntimeError:
                 status = 423
                 data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
@@ -772,23 +772,23 @@ class SearchModelIDView(View):
 
             sm = get_object_or_404(SearchModel, name=name) #get object pour sm.context.set
 
-            if len(ctx_clt) > 0:
-                sm.context.clear()
-                ctx_l = []
-                for c in ctx_clt:
-                    try:
-                        ctx = Context.objects.get(name=c)
-                    except Context.DoesNotExist:
-                        return JsonResponse(
-                            {"error": "Echec de la modification du model de recherche: La liste de contexte est erronée"},
-                            status=400)
-                    else:
-                        ctx_l.append(ctx)
-                sm.context.set(ctx_l)
 
-                search_model.update(config=config)
-                status = 200
-                data = {}
+            sm.context.clear()
+            ctx_l = []
+            for c in ctx_clt:
+                try:
+                    ctx = Context.objects.get(name=c)
+                except Context.DoesNotExist:
+                    return JsonResponse(
+                        {"error": "Echec de la modification du model de recherche: La liste de contexte est erronée"},
+                        status=400)
+                else:
+                    ctx_l.append(ctx)
+            sm.context.set(ctx_l)
+
+            search_model.update(config=config)
+            status = 200
+            data = {}
 
         elif len(search_model) == 0:
             mdl = SearchModel.objects.filter(name=name)
