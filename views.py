@@ -607,9 +607,15 @@ class ActionView(View):
         for smn in search_model_l:
             try:
                 utils.refresh_search_model(smn, [ctx])
-            except (RuntimeError, ValueError):
+            except RuntimeError:
                 status = 423
                 data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+            except ValueError:
+                status = 423
+                data = {"error": "La liste d'indices par alias est vide"}
+                return JsonResponse(data, status=status)
+
+
 
         return JsonResponse(data, status=status)
 
@@ -795,7 +801,6 @@ class SearchModelIDView(View):
                 status = 204
                 data = {"message": "Modification du model de recherche impossible: Aucun model de recherche ne correspond."}
 
-        print(status)
         return JsonResponse(data, status=status)
 
     def delete(self, request, name):
