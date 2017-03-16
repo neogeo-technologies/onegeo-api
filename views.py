@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
 from django.conf import settings
-from django.db import transaction
+from django.db import transaction, IntegrityError
 
 
 from onegeo_manager.source import PdfSource
@@ -73,7 +73,11 @@ class SourceView(View):
             data = {"error": "Echec de la création de la source. Le chemin d'accés à la source est incorrect."}
             return JsonResponse(data, status=400)
 
-        sources, created = Source.objects.get_or_create(user=user(), uri=np, name=name, mode=mode)
+
+        sources, created = Source.objects.get_or_create(uri=np,defaults={'user': user(),
+                                                                         'name':name,
+                                                                         'mode':mode})
+
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, sources.id)
 
@@ -776,7 +780,7 @@ class SearchModelIDView(View):
                 data = {"error": "Modification du model de recherche impossible: Son usage est reservé."}
 
             elif len(mdl) == 0:
-                status = 204
+                status = 204 # Code erreur 404 pour une resource inexistante mais cas impossible cf sm = get_object_or_404(SearchModel, name=name)
                 data = {"message": "Modification du model de recherche impossible: Aucun model de recherche ne correspond."}
 
         return JsonResponse(data, status=status)
