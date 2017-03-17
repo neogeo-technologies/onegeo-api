@@ -186,9 +186,9 @@ def read_name(body_data):
     if "name" not in body_data or body_data["name"] == "":
         return None
     try:
-        name = search("^\w{2,30}$", body_data["name"])
+        name = search("^\w[a-z0-9]{2,30}$", body_data["name"])
         name = name.group(0)
-    except IntegrityError:
+    except AttributeError:
         return None
     return name
 
@@ -372,12 +372,12 @@ def delete_func(id, user, model):
                 model._meta.get_field("reserved")
             except FieldDoesNotExist:
                 obj.delete()
-                status = 200
+                status = 204
                 data = {}
             else:
                 if not obj.reserved:
                     obj.delete()
-                    status = 200
+                    status = 204
                     data = {}
                 else:
                     status = 405

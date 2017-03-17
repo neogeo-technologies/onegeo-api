@@ -422,18 +422,17 @@ class AnalyzerIDView(View):
         else:
             status = 200
             data = {}
-            if len(filters) > 0:
-                for f in filters:
-                    try:
-                        flt = Filter.objects.get(name=f)
-                    except Filter.DoesNotExist:
-                        return JsonResponse({"error": "Echec de la modification de l'analyseur: La liste des filtres est erronée."},
-                                            status=400)
-
-                analyzer.filter.set([])
-                for f in filters:
-                    analyzer.filter.add(f)
-                analyzer.save()
+            # On s'assure que tous les filtres existent
+            for f in filters:
+                try:
+                    flt = Filter.objects.get(name=f)
+                except Filter.DoesNotExist:
+                    return JsonResponse({"error": "Echec de la modification de l'analyseur: La liste des filtres est erronée."},
+                                        status=400)
+            # Si tous corrects, on met à jour depuis un set vide
+            analyzer.filter.set([])
+            for f in filters:
+                analyzer.filter.add(f)
             if tokenizer:
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
