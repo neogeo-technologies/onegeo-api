@@ -281,7 +281,8 @@ class FilterView(View):
 
         cfg = "config" in body_data and body_data["config"] or {}
 
-        filter, created = Filter.objects.get_or_create(config=cfg, user=user(), name=name)
+        filter, created = Filter.objects.get_or_create(name=name, defaults={"config":cfg,
+                                                                           "user":user()})
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, filter.name)
 

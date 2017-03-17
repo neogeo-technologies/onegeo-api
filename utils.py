@@ -186,7 +186,7 @@ def read_name(body_data):
     if "name" not in body_data or body_data["name"] == "":
         return None
     try:
-        name = search("^\w[a-z0-9]{2,30}$", body_data["name"])
+        name = search("^[a-z0-9_]{2,30}$", body_data["name"])
         name = name.group(0)
     except AttributeError:
         return None
