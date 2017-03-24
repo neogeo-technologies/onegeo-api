@@ -9,7 +9,6 @@ from django.contrib.auth.models import User
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, JsonResponse
-from django.db import IntegrityError
 from django.db.models import Q
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 
@@ -53,7 +52,7 @@ def format_source_id(s):
          "mode": s.mode,
          "name": s.name,
          "location": "/sources/{}".format(s.id),
-         "resources": [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by("name"))]
+         # "resources": [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by("name"))]
          }
     return d
 
