@@ -120,6 +120,7 @@ def format_search_model(obj):
 
 def format_task(obj):
     return {
+        "id": obj.pk,
         "location": "tasks/{}".format(obj.pk),
         "success": obj.success,
         "dates": {"start": obj.start_date, "stop": obj.stop_date}
