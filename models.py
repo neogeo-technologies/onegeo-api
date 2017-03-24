@@ -157,7 +157,7 @@ class SearchModel(models.Model):
 
 class Task(models.Model):
 
-    start_date = models.DateTimeField("Start", default=timezone.now())
+    start_date = models.DateTimeField("Start", default=timezone.now)
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
     success = models.NullBooleanField("Success")
     user = models.ForeignKey(User, blank=True, null=True)
@@ -177,7 +177,7 @@ def on_save_source(sender, instance, *args, **kwargs):
         except:
             tsk.update(success=False)
         finally:
-            tsk.update(stop_date=timezone.now())
+            tsk.update(stop_date=timezone.now)
 
     Task.objects.create(source=instance, user=instance.user)
     tsk = Task.objects.filter(source=instance)
