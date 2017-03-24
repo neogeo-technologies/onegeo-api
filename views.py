@@ -1,3 +1,4 @@
+import json
 from ast import literal_eval
 from re import search
 from uuid import uuid4
@@ -12,16 +13,13 @@ from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, Sear
 from django.conf import settings
 from django.db import transaction, IntegrityError
 
-
-from onegeo_manager.source import PdfSource
+from onegeo_manager.source import Source as OnegeoSource
 from onegeo_manager.index import Index
-from onegeo_manager.context import PdfContext
-
-import json
+from onegeo_manager.context import Context as OnegeoContext
 
 from . import utils
-
 from .elasticsearch_wrapper import elastic_conn
+
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 MSG_406 = "Le format demandé n'est pas pris en charge."
@@ -183,13 +181,13 @@ class ContextView(View):
         if Context.objects.filter(resource__id=rsrc_id).count() > 0:
             return JsonResponse({"error": "Echec de la création du contexte. Cette resource est déja liée à un context"}, status=409)
 
-        pdf = PdfSource(set_src.uri, name, set_src.mode)
+        pdf = OnegeoSource(set_src.uri, name, set_src.mode)
         type = None
         index = Index(set_rscr.name)
         for e in iter(pdf.get_types()):
             if e.name == set_rscr.name:
                 type = e
-        context = PdfContext(index, type)
+        context = OnegeoContext(index, type)
         column_ppt = []
         for property in context.iter_properties():
             column_ppt.append(property.all())
@@ -584,7 +582,7 @@ class ActionView(View):
         rscr = ctx.resource
         src = rscr.source
 
-        pdf = PdfSource(src.uri, src.name, src.mode)
+        pdf = OnegeoSource(src.uri, src.name, src.mode)
 
         doc_type = None
         index = Index(rscr.name)
@@ -592,7 +590,7 @@ class ActionView(View):
             if e.name == rscr.name:
                 doc_type = e
 
-        context = PdfContext(index, doc_type)
+        context = OnegeoContext(index, doc_type)
 
         for col_property in iter(ctx.clmn_properties):
             context_name = col_property.pop('name')

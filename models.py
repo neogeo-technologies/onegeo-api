@@ -8,10 +8,8 @@ from django.contrib.postgres.fields import JSONField
 from django.conf import settings
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from onegeo_manager.source import PdfSource
+from onegeo_manager.source import Source as OnegeoSource
 from django.core.exceptions import ValidationError
-# from onegeo_manager.index import Index
-# from onegeo_manager.context import PdfContext
 
 from .elasticsearch_wrapper import elastic_conn
 
@@ -38,7 +36,10 @@ def does_uri_exist(uri):
 
 class Source(models.Model):
 
-    MODE_L = (("pdf","pdf"),)
+    MODE_L = (
+        ("pdf", "pdf"),
+        ("wfs", "wfs"),)
+
     user = models.ForeignKey(User)
     uri = models.CharField("URI", max_length=2048, unique=True)
     name = models.CharField("Name", max_length=250)
@@ -48,13 +49,12 @@ class Source(models.Model):
         super().__init__(*args, **kwargs)
         self.__src = None
 
-
     def save(self, *args, **kwargs):
 
         if not does_uri_exist(self.uri):
             raise Exception()  # TODO
 
-        self.__src = PdfSource(self.uri, self.name, self.mode)
+        self.__src = OnegeoSource(self.uri, self.name, self.mode)
 
         super().save(*args, **kwargs)
 
@@ -64,12 +64,12 @@ class Source(models.Model):
 
     class Meta:
         verbose_name = "Source"
-        unique_together = (('uri', 'user'),)
+        unique_together = (("uri", "user"),)
 
     @property
     def s_uri(self):
-        dir_name = search('(\S+)\/(\S+)', self.uri)
-        return 'file:///{}'.format(dir_name.group(2))
+        dir_name = search("(\S+)\/(\S+)", self.uri)
+        return "file:///{}".format(dir_name.group(2))
 
 
 class Resource(models.Model):
@@ -94,7 +94,7 @@ class Resource(models.Model):
 
 
 class Context(models.Model):
-    
+
     RF_L = (
         ("daily", "daily"),
         ("weekly", "weekly"),
@@ -152,13 +152,15 @@ class SearchModel(models.Model):
 
         super().save(*args, **kwargs)
 
+
 class Task(models.Model):
 
-    start_date = models.DateTimeField('Start', default=datetime.now)
-    stop_date = models.DateTimeField('Stop', null=True, blank=True)
+    start_date = models.DateTimeField("Start", default=datetime.now)
+    stop_date = models.DateTimeField("Stop", null=True, blank=True)
     success = models.BooleanField("Success", default=True)
     user = models.ForeignKey(User, blank=True, null=True)
     source = models.OneToOneField(Source)
+
 
 @receiver(post_save, sender=Source)
 def on_save_source(sender, instance, *args, **kwargs):
