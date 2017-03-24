@@ -3,7 +3,7 @@ from base64 import b64decode
 from pathlib import Path
 from re import search
 
-from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
+from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel, Task
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -43,7 +43,18 @@ def format_source(s):
          'mode': s.mode,
          'name': s.name,
          'location': '/sources/{}'.format(s.id),
-         'resources': [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by('name'))]}
+         # 'resources': [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by('name'))]
+         }
+    return d
+
+def format_source_id(s):
+    d = {'id': s.id,
+         'uri': s.s_uri,
+         'mode': s.mode,
+         'name': s.name,
+         'location': '/sources/{}'.format(s.id),
+         'resources': [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by('name'))]
+         }
     return d
 
 
@@ -107,6 +118,13 @@ def format_search_model(obj):
         "contexts": l
     }
 
+def format_task(obj):
+    return {
+        "location": "tasks/{}".format(obj.pk),
+        "success": obj.success,
+        "dates": {"start": obj.start_date, "stop": obj.stop_date}
+    }
+
 
 # Formate la réponse Json selon le type de model pour un ensemble d'objets
 def get_objects(user, mdl, src_id=None):
@@ -123,6 +141,11 @@ def get_objects(user, mdl, src_id=None):
     if mdl is SearchModel:
         search_model = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by('name')
         for sm in search_model:
+            l.append(format_search_model(sm))
+
+    if mdl is Task:
+        task = Task.objects.filter(Q(user=user) | Q(user=None)).order_by('name')
+        for sm in task:
             l.append(format_search_model(sm))
 
     if mdl is Context:
@@ -177,7 +200,7 @@ def get_object_id(user, id, mdl, src_id=None):
 
     if mdl is Source:
         source = get_object_or_404(Source, id=id, user=user)
-        l = format_source(source)
+        l = format_source_id(source)
 
     return l
 

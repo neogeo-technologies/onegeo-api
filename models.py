@@ -1,5 +1,6 @@
 from pathlib import Path
 from re import search
+from datetime import datetime
 
 from django.contrib.auth.models import User
 from django.db import models
@@ -153,14 +154,15 @@ class SearchModel(models.Model):
 
 class Task(models.Model):
 
-    desc = models.CharField("Nom de l'opération", max_length=256)
-    is_running = models.BooleanField("Tâche en cours", default=True)
-    start_date = models.DateTimeField('Start', null=True, blank=True)
+    start_date = models.DateTimeField('Start', default=datetime.now)
     stop_date = models.DateTimeField('Stop', null=True, blank=True)
     success = models.BooleanField("Success", default=True)
+    user = models.ForeignKey(User, blank=True, null=True)
+    source = models.OneToOneField(Source)
 
 @receiver(post_save, sender=Source)
 def on_save_source(sender, instance, *args, **kwargs):
+    Task.objects.create(source=instance, user=instance.user)
     for res in instance.src.get_types():
         resource = Resource.objects.create(source=instance, name=res.name, columns=res.columns)
         resource.set_rsrc(res)

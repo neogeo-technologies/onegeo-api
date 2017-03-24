@@ -8,7 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
-from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel
+from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel, Task
 from django.conf import settings
 from django.db import transaction, IntegrityError
 
@@ -89,7 +89,26 @@ class SourceIDView(View):
         if isinstance(user, HttpResponse):
             return user
         src_id = literal_eval(id)
-        return JsonResponse(utils.get_object_id(user(), src_id, Source), safe=False)
+
+        # test running task
+        try:
+            task = Task.objects.get(source__id = src_id)
+        except Task.DoesNotExist:
+            pass
+
+        if task.stop_date is not None and task.success is True:
+            return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
+
+        if task.stop_date is not None and task.success is False:
+            data = {"error": "Echec de l'accès à la source. La tâche a échouée."}
+            return JsonResponse(data, status=400)
+
+        if task.stop_date is not None and task.success is None:
+            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+            return JsonResponse(data, status=423)
+
+        data = {"error": "Message cryptique"}
+        return JsonResponse(data, status=418)
 
     def delete(self, request, id):
         user = utils.get_user_or_401(request)
@@ -106,9 +125,10 @@ class ResourceView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-
         src_id = literal_eval(id)
+
         return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
+
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -812,3 +832,12 @@ class SearchView(View):
                 return JsonResponse(data=data, safe=False, status=200)
         else:
             return JsonResponse(data={'message': 'todo'}, safe=False, status=501)
+
+@method_decorator(csrf_exempt, name="dispatch")
+class TaskView(View):
+
+    def get(self, request):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+        return JsonResponse(utils.get_objects(user(), Task), safe=False)
