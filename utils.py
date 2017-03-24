@@ -179,7 +179,7 @@ def get_object_id(user, id, mdl, src_id=None):
          Tokenizer: format_tokenizer,
          Analyzer : format_analyzer,
          Filter : format_filter}
-
+    print(mdl)
     if mdl in d:
         obj = get_object_or_404(mdl, name=id)
         if obj.user == user or obj.user is None:
@@ -200,6 +200,7 @@ def get_object_id(user, id, mdl, src_id=None):
         l = format_resource(source, rsrc)
 
     if mdl is Source:
+
         source = get_object_or_404(Source, id=id, user=user)
         l = format_source_id(source)
 

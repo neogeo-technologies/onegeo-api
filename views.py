@@ -88,7 +88,7 @@ class SourceIDView(View):
             return user
         src_id = literal_eval(id)
 
-        return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
+        return JsonResponse(utils.get_object_id(user(), src_id, Source), safe=False)
 
 
     def delete(self, request, id):

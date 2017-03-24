@@ -157,7 +157,7 @@ class Task(models.Model):
 
     start_date = models.DateTimeField("Start", default=datetime.now)
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
-    success = models.BooleanField("Success", default=None)
+    success = models.NullBooleanField("Success")
     user = models.ForeignKey(User, blank=True, null=True)
     source = models.OneToOneField(Source)
 
