@@ -144,9 +144,9 @@ def get_objects(user, mdl, src_id=None):
             l.append(format_search_model(sm))
 
     if mdl is Task:
-        task = Task.objects.filter(Q(user=user) | Q(user=None)).order_by('name')
-        for sm in task:
-            l.append(format_search_model(sm))
+        task = Task.objects.filter(Q(user=user) | Q(user=None))
+        for tsk in task:
+            l.append(format_task(tsk))
 
     if mdl is Context:
         src = Source.objects.filter(user=user)
