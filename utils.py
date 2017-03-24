@@ -199,9 +199,12 @@ def get_object_id(user, id, mdl, src_id=None):
         l = format_resource(source, rsrc)
 
     if mdl is Source:
-
         source = get_object_or_404(Source, id=id, user=user)
         l = format_source_id(source)
+
+    if mdl is Task:
+        task = get_object_or_404(Task, id=id, user=user)
+        l = format_task(task)
 
     return l
 

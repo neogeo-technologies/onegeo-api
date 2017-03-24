@@ -121,8 +121,11 @@ class ResourceView(View):
             data = {"error": "Echec de l'accès à la source. La tâche a échouée."}
             return JsonResponse(data, status=400)
 
-        if task.stop_date is not None and task.success is None:
-            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+        if task.stop_date is None and task.success is None:
+
+            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution",
+                    "task": "taks/{}".format(Task.objects.get(source__id=src_id).id)}
+
             return JsonResponse(data, status=423)
 
         data = {"error": "Message cryptique"}
@@ -851,3 +854,14 @@ class TaskView(View):
         if isinstance(user, HttpResponse):
             return user
         return JsonResponse(utils.get_objects(user(), Task), safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class TaskIDView(View):
+
+    def get(self, request, id):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+        tsk_id = literal_eval(id)
+        return JsonResponse(utils.get_object_id(user(), tsk_id, Task), safe=False)
