@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError
 from django.db.models import Q
-from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 
 
 from .elasticsearch_wrapper import elastic_conn
@@ -23,37 +23,37 @@ PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 def format_resource(s, r):
     try:
         ctx = Context.objects.get(resource_id=r.id)
-        d = {'id': r.id,
-             'location': '/sources/{}/resources/{}'.format(s.id, r.id),
-             'name': r.name,
-             'columns': r.columns,
-             'context': format_context(s, r, ctx)["location"]}
+        d = {"id": r.id,
+             "location": "/sources/{}/resources/{}".format(s.id, r.id),
+             "name": r.name,
+             "columns": r.columns,
+             "context": format_context(s, r, ctx)["location"]}
     except Context.DoesNotExist:
-        d = {'id': r.id,
-             'location': '/sources/{}/resources/{}'.format(s.id, r.id),
-             'name': r.name,
-             'columns': r.columns
+        d = {"id": r.id,
+             "location": "/sources/{}/resources/{}".format(s.id, r.id),
+             "name": r.name,
+             "columns": r.columns
              }
     return d
 
 
 def format_source(s):
-    d = {'id': s.id,
-         'uri': s.s_uri,
-         'mode': s.mode,
-         'name': s.name,
-         'location': '/sources/{}'.format(s.id),
-         # 'resources': [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by('name'))]
+    d = {"id": s.id,
+         "uri": s.s_uri,
+         "mode": s.mode,
+         "name": s.name,
+         "location": "/sources/{}".format(s.id),
+         # "resources": [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by("name"))]
          }
     return d
 
 def format_source_id(s):
-    d = {'id': s.id,
-         'uri': s.s_uri,
-         'mode': s.mode,
-         'name': s.name,
-         'location': '/sources/{}'.format(s.id),
-         'resources': [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by('name'))]
+    d = {"id": s.id,
+         "uri": s.s_uri,
+         "mode": s.mode,
+         "name": s.name,
+         "location": "/sources/{}".format(s.id),
+         "resources": [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by("name"))]
          }
     return d
 
@@ -78,7 +78,7 @@ def format_filter(obj):
 
 def iter_flt_from_anl(anl_name):
     AnalyserFilters = Analyzer.filter.through
-    set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by('id')
+    set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by("id")
     return [s.filter.name for s in set if s.filter.name is not None]
 
 
@@ -134,12 +134,12 @@ def get_objects(user, mdl, src_id=None):
          Filter: format_filter}
 
     if mdl in d:
-        obj = mdl.objects.filter(Q(user=user) | Q(user=None)).order_by('reserved', 'name')
+        obj = mdl.objects.filter(Q(user=user) | Q(user=None)).order_by("reserved", "name")
         for o in obj:
             l.append(d[mdl](o))
 
     if mdl is SearchModel:
-        search_model = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by('name')
+        search_model = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by("name")
         for sm in search_model:
             l.append(format_search_model(sm))
 
@@ -159,12 +159,12 @@ def get_objects(user, mdl, src_id=None):
 
     if mdl is Resource and src_id is not None:
         source = Source.objects.get(id=src_id, user=user)
-        rsrc = Resource.objects.filter(source=source, source__user=user).order_by('name')
+        rsrc = Resource.objects.filter(source=source, source__user=user).order_by("name")
         for r in rsrc:
             l.append(format_resource(source, r))
 
     if mdl is Source:
-        src = Source.objects.filter(user=user).order_by('name')
+        src = Source.objects.filter(user=user).order_by("name")
         for s in src:
             l.append(format_source(s))
 
@@ -223,11 +223,11 @@ def uri_shortcut(b):
     """
     p = Path(b.startswith("file://") and b[7:] or b)
     if not p.exists():
-        raise ConnectionError('Given path does not exist.')
+        raise ConnectionError("Given path does not exist.")
     l = []
     for x in p.iterdir():
         if x.is_dir():
-            l.append('file:///{}'.format(x.name))
+            l.append("file:///{}".format(x.name))
     return l
 
 
@@ -240,7 +240,7 @@ def check_uri(b):
     """
     p = Path(PDF_BASE_DIR)
     if not p.exists():
-        raise ConnectionError('Given path does not exist.')
+        raise ConnectionError("Given path does not exist.")
     for x in p.iterdir():
         if x.is_dir() and x.name == b[8:]:
             return x.as_uri()
@@ -260,11 +260,11 @@ def basic_authenticate(fct):
     """
     @functools.wraps(fct)  # Permet de transmettre les attributs
     def wrapper_fct(*args, **kwargs):
-        if 'HTTP_AUTHORIZATION' in args[0].request.META:
-            auth = args[0].request.META['HTTP_AUTHORIZATION'].split()
+        if "HTTP_AUTHORIZATION" in args[0].request.META:
+            auth = args[0].request.META["HTTP_AUTHORIZATION"].split()
             if len(auth) == 2:
                 if auth[0].lower() == "basic":
-                    uname, passwd = b64decode(auth[1]).decode("utf-8").split(':')
+                    uname, passwd = b64decode(auth[1]).decode("utf-8").split(":")
                     user = authenticate(username=uname, password=passwd)
                     if user:
                         return fct(*args, **kwargs)
@@ -273,7 +273,7 @@ def basic_authenticate(fct):
 
         response = HttpResponse()
         response.status_code = 401
-        response['WWW-Authenticate'] = 'Basic realm="%s"' % "Basic Auth Protected"
+        response["WWW-Authenticate"] = "Basic realm='%s'" % "Basic Auth Protected"
         return response
 
     return wrapper_fct
@@ -297,11 +297,11 @@ class UserAuthenticate:
         self.request = request
 
     def __enter__(self):
-        if 'HTTP_AUTHORIZATION' in self.request.META:
-            auth = self.request.META['HTTP_AUTHORIZATION'].split()
+        if "HTTP_AUTHORIZATION" in self.request.META:
+            auth = self.request.META["HTTP_AUTHORIZATION"].split()
             if len(auth) == 2:
                 if auth[0].lower() == "basic":
-                    uname, passwd = b64decode(auth[1]).decode("utf-8").split(':')
+                    uname, passwd = b64decode(auth[1]).decode("utf-8").split(":")
                     user = authenticate(username=uname, password=passwd)
                     if user:
                         return User.objects.get(username=uname)
@@ -322,14 +322,14 @@ def get_user_or_401(request):
     if user() is None:
         response = HttpResponse()
         response.status_code = 401
-        response['WWW-Authenticate'] = 'Basic realm="%s"' % "Basic Auth Protected"
+        response["WWW-Authenticate"] = 'Basic realm="%s"' % "Basic Auth Protected"
         return response
     return user
 
 def check_columns(list_ppt, list_ppt_clt):
     for ppt in list_ppt:
         for ppt_clt in list_ppt_clt:
-            if ppt['name'] == ppt_clt['name']:
+            if ppt["name"] == ppt_clt["name"]:
                 ppt.update(ppt_clt)
     return list_ppt
 
@@ -337,10 +337,10 @@ def get_param(request, param):
     """
         Retourne la valeur d'une clé param presente dans une requete GET ou POST
     """
-    if request.method == 'GET':
+    if request.method == "GET":
         if param in request.GET:
             return request.GET[param]
-    elif request.method == 'POST':
+    elif request.method == "POST":
         try:
             param_read = request.POST.get(param, request.GET.get(param))
         except KeyError as e:
@@ -352,14 +352,14 @@ def get_param(request, param):
 def format_json_get_create(request, created, status, obj_id):
     if created:
         response = JsonResponse(data={}, status=status)
-        response['Location'] = '{}{}'.format(request.build_absolute_uri(), obj_id)
+        response["Location"] = "{}{}".format(request.build_absolute_uri(), obj_id)
     if created is False:
         data = {"error": "Echec de la création: L'élément est déjà existant."}
         response = JsonResponse(data=data, status=status)
     return response
 
 
-# Suppression d'un élément et formatage d'une réponse en Json --
+# Suppression d"un élément et formatage d'une réponse en Json --
 # Implementer pour sourceID, contextID, filterID, analyzerID, TokenizerID, SearchModelID
 def delete_func(id, user, model):
     # CF: https: // www.w3.org / Protocols / rfc2616 / rfc2616 - sec9.html
@@ -411,13 +411,34 @@ def delete_func(id, user, model):
 
     return JsonResponse(data, status=status)
 
+class JsonError(Exception):
+    def __init__(self, message, status):
+        # super().__init__(message, status)
+        self.message = message
+        self.status = status
 
 # Check si user() == obj.user -- Implementé pour filterID, analyserID, tokenizerID, SearchModelID
 def user_access(name, model, usr_req):
-    obj = get_object_or_404(model, name=name)
-    if obj.user == usr_req or obj.user is None:
-        return True
-    return False
+    try:
+        obj = model.objects.get(name=name)
+    except ObjectDoesNotExist:
+        data = "Aucun objet %s ne correspond à la requête." % model
+        status = 404
+        raise JsonError(message=data, status=status)
+    if model._meta.get_field("user"):
+        try:
+            obj = model.objects.get(name=name, user=usr_req)
+        except ObjectDoesNotExist:
+            data = "Vous n'etes pas l'usager de cet élément."
+            status = 403
+            raise JsonError(message=data, status=status)
+
+# Check si user() == obj.user
+# def user_access(name, model, usr_req):
+#     obj = get_object_or_404(model, name=name)
+#     if obj.user == usr_req or obj.user is None:
+#         return True
+#     return False
 
 
 def clean_my_obj(obj):
@@ -440,15 +461,15 @@ def refresh_search_model(mdl_name, ctx_name_l):
     Mise à jour des index d'un modele de recherche et des anciens dictionnaires index/name_model.
 
     """
-    body = {'actions': []}
+    body = {"actions": []}
 
 
     for index in elastic_conn.get_indices_by_alias(name=mdl_name):
-        body['actions'].append({'remove': {'index': index, 'alias': mdl_name}})
+        body["actions"].append({"remove": {"index": index, "alias": mdl_name}})
 
     for context in iter(ctx_name_l):
         for index in elastic_conn.get_indices_by_alias(name=context):
-            body['actions'].append({'add': {'index': index, 'alias': mdl_name}})
+            body["actions"].append({"add": {"index": index, "alias": mdl_name}})
 
     if not elastic_conn.is_a_task_running():
         elastic_conn.update_aliases(body)

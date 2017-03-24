@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel, Task
 from django.conf import settings
-from django.db import transaction, IntegrityError
+from django.db import transaction
 
 from onegeo_manager.source import Source as OnegeoSource
 from onegeo_manager.index import Index
@@ -88,25 +88,8 @@ class SourceIDView(View):
             return user
         src_id = literal_eval(id)
 
-        # test running task
-        try:
-            task = Task.objects.get(source__id = src_id)
-        except Task.DoesNotExist:
-            pass
+        return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
 
-        if task.stop_date is not None and task.success is True:
-            return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
-
-        if task.stop_date is not None and task.success is False:
-            data = {"error": "Echec de l'accès à la source. La tâche a échouée."}
-            return JsonResponse(data, status=400)
-
-        if task.stop_date is not None and task.success is None:
-            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
-            return JsonResponse(data, status=423)
-
-        data = {"error": "Message cryptique"}
-        return JsonResponse(data, status=418)
 
     def delete(self, request, id):
         user = utils.get_user_or_401(request)
@@ -124,6 +107,26 @@ class ResourceView(View):
         if isinstance(user, HttpResponse):
             return user
         src_id = literal_eval(id)
+
+        # test running task
+        try:
+            task = Task.objects.get(source__id=src_id)
+        except Task.DoesNotExist:
+            pass
+
+        if task.stop_date is not None and task.success is True:
+            return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
+
+        if task.stop_date is not None and task.success is False:
+            data = {"error": "Echec de l'accès à la source. La tâche a échouée."}
+            return JsonResponse(data, status=400)
+
+        if task.stop_date is not None and task.success is None:
+            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+            return JsonResponse(data, status=423)
+
+        data = {"error": "Message cryptique"}
+        return JsonResponse(data, status=418)
 
         return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
 
@@ -312,8 +315,11 @@ class FilterIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, Filter, user()) is False:
-            return JsonResponse({"error": "Accés au filtre impossible: L'usage de ce filtre est reservé."}, status=403)
+        try:
+            utils.user_access(name, Filter, user())
+        except utils.JsonError as e:
+            return JsonResponse(data={"error": e.message}, status=e.status)
+
         return JsonResponse(utils.get_object_id(user(), name, Filter))
 
     def put(self, request, name):
@@ -408,9 +414,11 @@ class AnalyzerIDView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, Analyzer, user()) is False:
-            return JsonResponse({"error": "Accés à l'analyseur impossible: L'usage de cet analyseur est reservé."}, status=403)
+        try:
+            utils.user_access(name, Analyzer, user())
+        except utils.JsonError as e:
+            return JsonResponse(data={"error": e.message}, status=e.status)
+
         return JsonResponse(utils.get_object_id(user(), name, Analyzer))
 
     def put(self, request, name):
@@ -439,7 +447,7 @@ class AnalyzerIDView(View):
             status = 403
             data = {"error": "Forbidden"}
         else:
-            status = 200
+            status = 204
             data = {}
             # On s'assure que tous les filtres existent
             for f in filters:
@@ -505,8 +513,12 @@ class TokenizerIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, Tokenizer, user()) is False:
-            return JsonResponse({"error": "Accés au token impossible: L'usage de ce token est reservé."}, status=403)
+
+        try:
+            utils.user_access(name, Tokenizer, user())
+        except utils.JsonError as e:
+            return JsonResponse(data={"error": e.message}, status=e.status)
+
         return JsonResponse(utils.get_object_id(user(), name, Tokenizer), safe=False)
 
     def put(self, request, name):
@@ -522,17 +534,15 @@ class TokenizerIDView(View):
         cfg = "config" in body_data and body_data["config"] or {}
 
         name = (name.endswith('/') and name[:-1] or name)
-        token = Tokenizer.objects.filter(name=name, user=user())
 
-        if len(token) == 1:
-            token.update(config=cfg)
-            status = 200
-            data = {}
-        elif len(token) == 0:
-            status = 204
-            data = {"message": "Modification impossible: Aucun token ne correspond à votre requête."}
+        try:
+            utils.user_access(name, Tokenizer, user())
+        except utils.JsonError as e:
+            return JsonResponse(data={"error": e.message}, status=e.status)
 
-        return JsonResponse(data, status=status)
+        Tokenizer.objects.filter(name=name).update(config=cfg)
+
+        return JsonResponse(data={}, status=204)
 
     def delete(self, request, name):
         user = utils.get_user_or_401(request)
@@ -733,8 +743,10 @@ class SearchModelIDView(View):
         if isinstance(user, HttpResponse):
             return user
         name = (name.endswith('/') and name[:-1] or name)
-        if utils.user_access(name, SearchModel, user()) is False:
-            return JsonResponse({"error": "Accés au model de recherche impossible: Son usage est reservé."}, status=403)
+        try:
+            utils.user_access(name, SearchModel, user())
+        except utils.JsonError as e:
+            return JsonResponse(data={"error": e.message}, status=e.status)
         return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
     def put(self, request, name):
@@ -787,7 +799,7 @@ class SearchModelIDView(View):
             sm.context.set(ctx_l)
 
             search_model.update(config=config)
-            status = 200
+            status = 204
             data = {}
 
         elif len(search_model) == 0:
@@ -797,9 +809,9 @@ class SearchModelIDView(View):
                 status = 403
                 data = {"error": "Modification du model de recherche impossible: Son usage est reservé."}
 
-            elif len(mdl) == 0:
-                status = 204 # Code erreur 404 pour une resource inexistante mais cas impossible cf sm = get_object_or_404(SearchModel, name=name)
-                data = {"message": "Modification du model de recherche impossible: Aucun model de recherche ne correspond."}
+            # elif len(mdl) == 0:
+            #     status = 204 # Code erreur 404 pour une resource inexistante mais cas impossible cf sm = get_object_or_404(SearchModel, name=name)
+            #     data = {"message": "Modification du model de recherche impossible: Aucun model de recherche ne correspond."}
 
         return JsonResponse(data, status=status)
 
