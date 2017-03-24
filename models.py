@@ -1,15 +1,17 @@
+from datetime import datetime
 from pathlib import Path
 from re import search
-from datetime import datetime
+from threading import Thread
 
-from django.contrib.auth.models import User
 from django.db import models
-from django.contrib.postgres.fields import JSONField
-from django.conf import settings
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
-from onegeo_manager.source import Source as OnegeoSource
+from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.contrib.auth.models import User
+from django.contrib.postgres.fields import JSONField
+
+from onegeo_manager.source import Source as OnegeoSource
 
 from .elasticsearch_wrapper import elastic_conn
 
@@ -21,7 +23,7 @@ def retrieve(b):
     p = Path(b.startswith("file://") and b[7:] or b)
 
     if not p.exists():
-        raise ConnectionError('Given path does not exist.')
+        raise ConnectionError("Given path does not exist.")
 
     return [x.as_uri() for x in p.iterdir() if x.is_dir()]
 
@@ -164,11 +166,24 @@ class Task(models.Model):
 
 @receiver(post_save, sender=Source)
 def on_save_source(sender, instance, *args, **kwargs):
-    Task.objects.create(source=instance, user=instance.user)
-    for res in instance.src.get_types():
-        resource = Resource.objects.create(source=instance, name=res.name, columns=res.columns)
-        resource.set_rsrc(res)
 
+    def create_resources(instance, tsk):
+
+        try:
+            for res in instance.src.get_types():
+                resource = Resource.objects.create(source=instance, name=res.name, columns=res.columns)
+                resource.set_rsrc(res)
+            tsk.update(success=True)
+        except:
+            tsk.update(success=False)
+        finally:
+            tsk.update(stop_date=datetime.now())
+
+    Task.objects.create(source=instance, user=instance.user)
+    tsk = Task.objects.filter(source=instance)
+
+    thread = Thread(target=create_resources, args=(instance, tsk))
+    thread.start()
 
 @receiver(post_delete, sender=Context)
 def on_delete_context(sender, instance, *args, **kwargs):

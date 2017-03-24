@@ -178,7 +178,7 @@ def get_object_id(user, id, mdl, src_id=None):
          Tokenizer: format_tokenizer,
          Analyzer : format_analyzer,
          Filter : format_filter}
-    print(mdl)
+
     if mdl in d:
         obj = get_object_or_404(mdl, name=id)
         if obj.user == user or obj.user is None:
@@ -476,4 +476,3 @@ def refresh_search_model(mdl_name, ctx_name_l):
         elastic_conn.update_aliases(body)
     else:
         raise RuntimeError
-
