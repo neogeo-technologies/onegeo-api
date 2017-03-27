@@ -128,8 +128,8 @@ class ResourceView(View):
 
             return JsonResponse(data, status=423)
 
-        data = {"error": "Message cryptique"}
-        return JsonResponse(data, status=418)
+        # data = {"error": "Message cryptique"}
+        # return JsonResponse(data, status=418)
 
         return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
 
