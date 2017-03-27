@@ -38,9 +38,10 @@ def does_uri_exist(uri):
 
 class Source(models.Model):
 
+
     MODE_L = (
-        ("pdf", "pdf"),
-        ("wfs", "wfs"),)
+        ("pdf", "Répertoire contenant des fichiers PDF"),
+        ("wfs", "Service OGC:WFS"),)
 
     user = models.ForeignKey(User)
     uri = models.CharField("URI", max_length=2048, unique=True)
@@ -157,7 +158,7 @@ class SearchModel(models.Model):
 
 class Task(models.Model):
 
-    start_date = models.DateTimeField("Start", default=timezone.now())
+    start_date = models.DateTimeField("Start", auto_now_add=True)
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
     success = models.NullBooleanField("Success")
     user = models.ForeignKey(User, blank=True, null=True)

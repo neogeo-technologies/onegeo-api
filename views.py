@@ -580,8 +580,11 @@ class Directories(View):
 @method_decorator(csrf_exempt, name="dispatch")
 class SupportedModes(View):
     def get(self, request):
-        return JsonResponse({"pdf": "Répertoire contenant des fichiers PDF",
-                             "wfs": "Service OGC:WFS"}, safe=False)
+
+        result = {}
+        for entry in Source.MODE_L:
+            result[entry[0]] = entry[1]
+        return JsonResponse(result, safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
