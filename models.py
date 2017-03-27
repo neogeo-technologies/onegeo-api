@@ -53,7 +53,7 @@ class Source(models.Model):
 
     def save(self, *args, **kwargs):
 
-        if not does_uri_exist(self.uri):
+        if self.mode == 'pdf' and not does_uri_exist(self.uri):
             raise Exception()  # TODO
 
         self.__src = OnegeoSource(self.uri, self.name, self.mode)

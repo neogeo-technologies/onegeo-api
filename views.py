@@ -14,9 +14,9 @@ from django.conf import settings
 from django.db import transaction
 
 from onegeo_manager.source import Source as OnegeoSource
-from onegeo_manager.index import Index
+from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.context import Context as OnegeoContext
-from onegeo_manager.type import PdfType as OnegeoType
+from onegeo_manager.type import Type as OnegeoType
 
 from . import utils
 from .elasticsearch_wrapper import elastic_conn
@@ -67,15 +67,17 @@ class SourceView(View):
         uri = body_data["uri"]
         mode = body_data["mode"]
 
-        np = utils.check_uri(uri)
-        if np is None:
-            data = {"error": "Echec de la création de la source. Le chemin d'accés à la source est incorrect."}
-            return JsonResponse(data, status=400)
+        if mode == 'pdf':
+            np = utils.check_uri(uri)
+            if np is None:
+                data = {"error": "Echec de la création de la source. Le chemin d'accés à la source est incorrect."}
+                return JsonResponse(data, status=400)
+        else:
+            np = uri
 
-
-        sources, created = Source.objects.get_or_create(uri=np,defaults={'user': user(),
-                                                                         'name':name,
-                                                                         'mode':mode})
+        sources, created = Source.objects.get_or_create(uri=np, defaults={'user': user(),
+                                                                          'name': name,
+                                                                          'mode': mode})
 
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, sources.id)
@@ -196,7 +198,7 @@ class ContextView(View):
             onegeo_type.add_column(column["name"], column_type=column["type"],
                                    occurs=tuple(column["occurs"]), count=column["count"])
 
-        onegeo_index = Index(set_rscr.name)
+        onegeo_index = OnegeoIndex(set_rscr.name)
         onegeo_context = OnegeoContext(onegeo_index, onegeo_type)
         column_ppt = []
         for property in onegeo_context.iter_properties():
@@ -576,6 +578,13 @@ class Directories(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
+class SupportedModes(View):
+    def get(self, request):
+        return JsonResponse({"pdf": "Répertoire contenant des fichiers PDF",
+                             "wfs": "Service OGC:WFS"}, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class ActionView(View):
 
     def post(self, request):
@@ -607,7 +616,7 @@ class ActionView(View):
             onegeo_type.add_column(column["name"], column_type=column["type"],
                                    occurs=tuple(column["occurs"]), count=column["count"])
 
-        onegeo_index = Index(rscr.name)
+        onegeo_index = OnegeoIndex(rscr.name)
         onegeo_context = OnegeoContext(onegeo_index, onegeo_type)
 
         for col_property in iter(ctx.clmn_properties):

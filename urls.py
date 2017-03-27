@@ -5,12 +5,13 @@ from .views import (SourceView, SourceIDView, ResourceView,
                     AnalyzerView, AnalyzerIDView, TokenizerView,
                     TokenizerIDView, ActionView, SearchModelView,
                     SearchModelIDView, SearchView, TaskView,
-                    TaskIDView)
+                    TaskIDView, SupportedModes)
 
 
 app_name = "api"
 urlpatterns = [
     url(r"^sources_directories/?$", Directories.as_view()),
+    url(r"^supported_modes/?$", SupportedModes.as_view()),
     url(r"^sources/(\d+)/resources/(\d+)/?$", ResourceIDView.as_view()),
     url(r"^sources/(\d+)/resources/?$", ResourceView.as_view()),
     url(r"^sources/(\d+)/?$", SourceIDView.as_view()),
