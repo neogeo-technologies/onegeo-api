@@ -1,6 +1,6 @@
-import asyncio
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as ElasticExceptions
+from PySignal import ClassSignal
 from threading import Thread
 from uuid import uuid4
 
@@ -9,12 +9,12 @@ from django.conf import settings
 from .tools import Singleton
 
 
-import json
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-
-
 class ElasticWrapper(metaclass=Singleton):
+
+    index_deleted = ClassSignal()
+    index_error = ClassSignal()
+    index_failed = ClassSignal()
+    index_succeed = ClassSignal()
 
     def __init__(self):
         self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
@@ -52,20 +52,6 @@ class ElasticWrapper(metaclass=Singleton):
     def create_or_replace_index(self, index, name, doc_type, body,
                                 collections=None, pipeline=None):
 
-        # def reindex(index, name):
-
-        #         indices = self.get_indices_by_alias(name)
-
-        #         if len(indices) < 1:
-        #             self.delete_index(index)
-        #             raise Exception('Hop hop hop.')
-        #         if len(indices) > 1:
-        #             raise Exception('Hop hop hop.')
-        #         old = indices[0]
-
-        #         self.reindex(old, index)
-        #         self.switch_aliases(index, name)
-
         def rebuild(index, name, doc_type, collections, pipeline):
             self.push_document(index, name, doc_type, collections, pipeline)
 
@@ -78,10 +64,14 @@ class ElasticWrapper(metaclass=Singleton):
                 rebuild(index, name, doc_type, collections, pipeline)
             else:
                 raise Exception('TODO')
-                #reindex(index, name)
 
     def delete_index(self, index):
-        self.conn.indices.delete(index=index)
+        try:
+            self.conn.indices.delete(index=index)
+        except:
+            raise
+        else:
+            self.index_deleted.emit(index=index)
 
     def delete_index_by_alias(self, name):
         indices = self.get_indices_by_alias(name)
@@ -89,7 +79,7 @@ class ElasticWrapper(metaclass=Singleton):
             self.delete_index(index)
 
     def push_document(self, index, name, doc_type, collections, pipeline):
-              
+
         def callback(index, name, doc_type, collections, pipeline):
 
             for document in collections:
@@ -101,30 +91,21 @@ class ElasticWrapper(metaclass=Singleton):
                 try:
                     self.conn.index(**params)
                 except ElasticExceptions.RequestError as err:
+                    self.index_failed.emit(index=index, alias=name, error=err)
                     self.delete_index(index)
                 except ElasticExceptions.SerializationError as err:
+                    self.index_error.emit(index=index, alias=name,
+                                          document=document, error=err)
                     continue
-                except:
-                   self.delete_index(index)
+                except Exception as err:
+                    self.index_failed.emit(index=index, alias=name, error=err)
+                    self.delete_index(index)
 
             self.switch_aliases(index, name)
+            self.index_succeed.emit(index=index, alias=name)
 
         thread = Thread(target=callback, args=(index, name, doc_type, collections, pipeline))
         thread.start()
-
-    # def push_mapping(self, index, doc_type, body):
-
-    #     params = {'index': index, 'doc_type': doc_type, 'body': body}
-    #     self.conn.indices.put_mapping(**params)
-
-    # def push_settings(self, index, body):
-
-    #     self.conn.indices.put_settings(body=body, index=index)
-
-    def reindex(self, source, dest):
-
-        body = {'source': {'index': source}, 'dest': {'index': dest}}
-        res = self.conn.reindex(body=body)
 
     def switch_aliases(self, index, name):
         """Permute l'alias vers le nouvel index. """
@@ -132,22 +113,26 @@ class ElasticWrapper(metaclass=Singleton):
         body = {'actions': []}
 
         indices = self.get_indices_by_alias(name)
-
         for old_index in iter(indices):
+
             prev_aliases = self.get_aliases_by_index(old_index)
             for prev_alias in prev_aliases:
-                if prev_alias != name:
-                    body['actions'].append(
-                            {'add': {'index': index, 'alias': prev_alias}})
 
-            body['actions'].append(
-                            {'remove': {'index': old_index, 'alias': name}})
+                if prev_alias != name:
+                    body['actions'].append({'add': {
+                                                'index': index,
+                                                'alias': prev_alias}})
+
+            body['actions'].append({'remove': {
+                                        'index': old_index,
+                                        'alias': name}})
 
         self.conn.indices.put_alias(index=index, name=name)
-        body['actions'].append({'add': {'index': index, 'alias': name}})
+        body['actions'].append({'add': {
+                                    'index': index,
+                                    'alias': name}})
 
         self.update_aliases(body)
-
         for i in range(len(indices)):
             self.delete_index(indices[i])
 
