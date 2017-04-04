@@ -586,14 +586,14 @@ class ActionView(View):
 
     def post(self, request):
 
-        def on_index_success():
-            print("success")
+        def on_index_success(*args, **kwargs):
+            print("Success on create_or_replace_index: ", *args, **kwargs)
 
-        def on_index_failure():
-            pass
+        def on_index_failure(*args, **kwargs):
+            print("Fail on create_or_replace_index: ", *args, **kwargs)
 
-        def on_index_error():
-            pass
+        def on_index_error(*args, **kwargs):
+            print("Error on create_or_replace_index: ", *args, **kwargs)
 
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -648,14 +648,15 @@ class ActionView(View):
                     'analysis': self.retreive_analysis(
                         self.retreive_analyzers(onegeo_context))}}
 
-        elastic_conn.index_succeed.connect(on_index_success)
-
-
         elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
                                              ctx.name,  # Alias de l'index
                                              ctx.name,  # Nom du type
                                              body,  # Settings & Mapping
                                              **opts)
+
+        elastic_conn.create_or_replace_index.connect(on_index_success)
+        elastic_conn.create_or_replace_index.connect(on_index_failure)
+        elastic_conn.create_or_replace_index.connect(on_index_error)
 
         status = 202
         data = {"message": "Requete acceptée mais sans garantie de traitement"}
