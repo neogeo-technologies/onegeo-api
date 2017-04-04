@@ -157,12 +157,19 @@ class SearchModel(models.Model):
 
 
 class Task(models.Model):
+    T_L = (("source","source"),
+           ("context","context"))
 
     start_date = models.DateTimeField("Start", auto_now_add=True)
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
     success = models.NullBooleanField("Success")
     user = models.ForeignKey(User, blank=True, null=True)
-    source = models.OneToOneField(Source)
+    model_type = models.CharField("Model relation type", choices=T_L, default="source", max_length=250)
+    model_type_id = models.IntegerField("Id model relation linked", blank=True, null=True)
+
+
+    class Meta:
+        unique_together = (("model_type", "model_type_id"),)
 
 
 @receiver(post_save, sender=Source)

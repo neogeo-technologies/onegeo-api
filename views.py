@@ -111,9 +111,8 @@ class ResourceView(View):
             return user
         src_id = literal_eval(id)
 
-        # test running task
         try:
-            task = Task.objects.get(source__id=src_id)
+            task = Task.objects.get(model_type_id=src_id, model_type="source")
         except Task.DoesNotExist:
             pass
 
@@ -125,14 +124,9 @@ class ResourceView(View):
             return JsonResponse(data, status=400)
 
         if task.stop_date is None and task.success is None:
-
             data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution",
                     "task": "taks/{}".format(Task.objects.get(source__id=src_id).id)}
-
             return JsonResponse(data, status=423)
-
-        # data = {"error": "Message cryptique"}
-        # return JsonResponse(data, status=418)
 
         return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
 
@@ -199,7 +193,7 @@ class ContextView(View):
                                    occurs=tuple(column["occurs"]), count=column["count"])
 
         onegeo_index = OnegeoIndex(set_rscr.name)
-        onegeo_context = OnegeoContext(onegeo_index, onegeo_type)
+        onegeo_context = OnegeoContext(name, onegeo_index, onegeo_type)
         column_ppt = []
         for property in onegeo_context.iter_properties():
             column_ppt.append(property.all())
@@ -620,7 +614,7 @@ class ActionView(View):
                                    occurs=tuple(column["occurs"]), count=column["count"])
 
         onegeo_index = OnegeoIndex(rscr.name)
-        onegeo_context = OnegeoContext(onegeo_index, onegeo_type)
+        onegeo_context = OnegeoContext(ctx.name, onegeo_index, onegeo_type)
 
         for col_property in iter(ctx.clmn_properties):
             context_name = col_property.pop('name')
@@ -644,9 +638,11 @@ class ActionView(View):
                     'analysis': self.retreive_analysis(
                         self.retreive_analyzers(onegeo_context))}}
 
+        elastic_conn.success.connect("Success on task")
+
         elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
                                              ctx.name,  # Alias de l'index
-                                             onegeo_type.name,  # Nom du type
+                                             ctx.name,  # Nom du type
                                              body,  # Settings & Mapping
                                              **opts)
 
