@@ -166,7 +166,8 @@ class Task(models.Model):
     success = models.NullBooleanField("Success")
     user = models.ForeignKey(User, blank=True, null=True)
     model_type = models.CharField("Model relation type", choices=T_L, default="source", max_length=250)
-    model_type_id = models.IntegerField("Id model relation linked", blank=True, null=True)
+    model_type_id = models.IntegerField("Id model relation linked")
+    description = models.CharField("Description", max_length=250)
 
 
     class Meta:
@@ -188,8 +189,8 @@ def on_save_source(sender, instance, *args, **kwargs):
         finally:
             tsk.update(stop_date=timezone.now())
 
-    Task.objects.create(source=instance, user=instance.user)
-    tsk = Task.objects.filter(source=instance)
+    Task.objects.get_or_create(model_type="source", user=instance.user, model_type_id=instance.id)
+    tsk = Task.objects.filter(model_type_id=instance.id)
 
     thread = Thread(target=create_resources, args=(instance, tsk))
     thread.start()

@@ -585,6 +585,16 @@ class SupportedModes(View):
 class ActionView(View):
 
     def post(self, request):
+
+        def on_index_success():
+            print("success")
+
+        def on_index_failure():
+            pass
+
+        def on_index_error():
+            pass
+
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
@@ -638,7 +648,8 @@ class ActionView(View):
                     'analysis': self.retreive_analysis(
                         self.retreive_analyzers(onegeo_context))}}
 
-        elastic_conn.success.connect("Success on task")
+        elastic_conn.index_succeed.connect(on_index_success)
+
 
         elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
                                              ctx.name,  # Alias de l'index
