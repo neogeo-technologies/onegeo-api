@@ -16,7 +16,7 @@ from django.db import transaction
 from onegeo_manager.source import Source as OnegeoSource
 from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.context import Context as OnegeoContext
-from onegeo_manager.type import Type as OnegeoType
+from onegeo_manager.resource import Resource as OnegeoResource
 
 from . import utils
 from .elasticsearch_wrapper import elastic_conn
@@ -185,15 +185,15 @@ class ContextView(View):
             return JsonResponse({"error": "Echec de la création du contexte. Cette resource est déja liée à un context"}, status=409)
 
         onegeo_source = OnegeoSource(set_src.uri, name, set_src.mode)
-        onegeo_type = OnegeoType(onegeo_source, set_rscr.name)
+        onegeo_resource = OnegeoResource(onegeo_source, set_rscr.name)
         for column in iter(set_rscr.columns):
-            if onegeo_type.is_existing_column(column["name"]):
+            if onegeo_resource.is_existing_column(column["name"]):
                 continue
-            onegeo_type.add_column(column["name"], column_type=column["type"],
-                                   occurs=tuple(column["occurs"]), count=column["count"])
+            onegeo_resource.add_column(column["name"], column_type=column["type"],
+                                       occurs=tuple(column["occurs"]), count=column["count"])
 
         onegeo_index = OnegeoIndex(set_rscr.name)
-        onegeo_context = OnegeoContext(name, onegeo_index, onegeo_type)
+        onegeo_context = OnegeoContext(name, onegeo_index, onegeo_resource)
         column_ppt = []
         for property in onegeo_context.iter_properties():
             column_ppt.append(property.all())
@@ -616,15 +616,15 @@ class ActionView(View):
         src = rscr.source
 
         onegeo_source = OnegeoSource(src.uri, src.name, src.mode)
-        onegeo_type = OnegeoType(onegeo_source, rscr.name)
+        onegeo_resource = OnegeoResource(onegeo_source, rscr.name)
         for column in iter(rscr.columns):
-            if onegeo_type.is_existing_column(column["name"]):
+            if onegeo_resource.is_existing_column(column["name"]):
                 continue
-            onegeo_type.add_column(column["name"], column_type=column["type"],
-                                   occurs=tuple(column["occurs"]), count=column["count"])
+            onegeo_resource.add_column(column["name"], column_type=column["type"],
+                                       occurs=tuple(column["occurs"]), count=column["count"])
 
         onegeo_index = OnegeoIndex(rscr.name)
-        onegeo_context = OnegeoContext(ctx.name, onegeo_index, onegeo_type)
+        onegeo_context = OnegeoContext(ctx.name, onegeo_index, onegeo_resource)
 
         for col_property in iter(ctx.clmn_properties):
             context_name = col_property.pop('name')
@@ -869,6 +869,7 @@ class SearchView(View):
                 return JsonResponse(data=data, safe=False, status=200)
         else:
             return JsonResponse(data={'message': 'todo'}, safe=False, status=501)
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 class TaskView(View):

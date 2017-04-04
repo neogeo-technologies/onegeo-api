@@ -72,8 +72,10 @@ class Source(models.Model):
 
     @property
     def s_uri(self):
-        dir_name = search("(\S+)\/(\S+)", self.uri)
-        return "file:///{}".format(dir_name.group(2))
+        if self.mode == "pdf":
+            dir_name = search("(\S+)\/(\S+)", self.uri)
+            return "file:///{}".format(dir_name.group(2))
+        return self.uri
 
 
 class Resource(models.Model):
@@ -180,7 +182,7 @@ def on_save_source(sender, instance, *args, **kwargs):
     def create_resources(instance, tsk):
 
         try:
-            for res in instance.src.get_types():
+            for res in instance.src.get_resources():
                 resource = Resource.objects.create(source=instance, name=res.name, columns=res.columns)
                 resource.set_rsrc(res)
             tsk.update(success=True)
