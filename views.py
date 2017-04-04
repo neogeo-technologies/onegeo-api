@@ -125,7 +125,7 @@ class ResourceView(View):
 
         if task.stop_date is None and task.success is None:
             data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution",
-                    "task": "taks/{}".format(Task.objects.get(source__id=src_id).id)}
+                    "task": "task/{}".format(task.id)}
             return JsonResponse(data, status=423)
 
         return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
