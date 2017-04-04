@@ -40,6 +40,7 @@ class Source(models.Model):
 
 
     MODE_L = (
+        ("geonet", "API de recherche de GeoNetWork"),
         ("pdf", "Répertoire contenant des fichiers PDF"),
         ("wfs", "Service OGC:WFS"),)
 
