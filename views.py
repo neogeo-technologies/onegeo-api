@@ -24,7 +24,7 @@ from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, Sear
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_406 = "Le format demandé n'est pas pris en charge."
+MSG_406 = "Le format demandé n'est pas pris en charge. "
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -50,20 +50,20 @@ class SourceView(View):
 
         field_missing = False
         if "uri" not in body_data:
-            data = {"error": "Echec de la création de la source. Le chemin d'accés à la source est manquant."}
+            data = {"error": "Echec de création de la source. Le chemin d'accès à la source est manquant. "}
             field_missing = True
         if "mode" not in body_data:
-            data = {"error": "Echec de la création de la source. Le type de source est manquant (ex:mode=pdf)."}
+            data = {"error": "Echec de création de la source. Le type de la source est manquant. "}
             field_missing = True
         if "name" not in body_data:
-            data = {"error": "Echec de la création de la source. Le nom de la source est manquant."}
+            data = {"error": "Echec de création de la source. Le nom de la source est manquant. "}
             field_missing = True
         if field_missing is True:
             return JsonResponse(data, status=400)
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de la création du contexte. Le nom du context est incorrect."},
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. Le nom du contexte est incorrect. "},
                                 status=400)
         uri = body_data["uri"]
         mode = body_data["mode"]
@@ -71,7 +71,7 @@ class SourceView(View):
         if mode == 'pdf':
             np = utils.check_uri(uri)
             if np is None:
-                data = {"error": "Echec de la création de la source. Le chemin d'accés à la source est incorrect."}
+                data = {"error": "Echec de création de la source. Le chemin d'accès à la source est incorrect. "}
                 return JsonResponse(data, status=400)
         else:
             np = uri
@@ -109,24 +109,24 @@ class ResourceView(View):
     def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
-            return usersucceed
+            return user
         src_id = literal_eval(id)
 
         try:
-            task = Task.objects.get(model_type_id=src_id, model_type="source")
+            tsk = Task.objects.get(model_type_id=src_id, model_type="source")
         except Task.DoesNotExist:
             pass
 
-        if task.stop_date is not None and task.success is True:
+        if tsk.stop_date is not None and tsk.success is True:
             return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
 
-        if task.stop_date is not None and task.success is False:
-            data = {"error": "Echec de l'accès à la source. La tâche a échouée."}
+        if tsk.stop_date is not None and tsk.success is False:
+            data = {"error": tsk.description}
             return JsonResponse(data, status=400)
 
-        if task.stop_date is None and task.success is None:
-            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution",
-                    "task": "task/{}".format(task.id)}
+        if tsk.stop_date is None and tsk.success is None:
+            data = {"error": tsk.description,
+                    "task": "task/{}".format(tsk.id)}
             return JsonResponse(data, status=423)
 
         return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
@@ -160,15 +160,15 @@ class ContextView(View):
 
         body_data = json.loads(request.body.decode('utf-8'))
         if "name" not in body_data:
-            return JsonResponse({"error": "Echec de la création du contexte. Le nom du contexte est manquant."}, status=400)
+            return JsonResponse({"error": "Echec la création du contexte d'indexation. Le nom du contexte est manquant. "}, status=400)
         if "resource" not in body_data:
-            return JsonResponse({"error": "Echec de la création du contexte. Le chemin d'accés à la resource est manquant pour le context."}, status=400)
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. Le chemin d'accès est manquant. "}, status=400)
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de la création du contexte. Le nom du context est incorrect."}, status=400)
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. Le nom du context est incorrect. "}, status=400)
         if Context.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Echec de la création du contexte. Le nom d'un context doit etre unique"}, status=409)
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. Un contexte portant le même nom existe déjà. "}, status=409)
 
         reindex_frequency = "monthly"
         if "reindex_frequency" in body_data:
@@ -183,7 +183,7 @@ class ContextView(View):
 
         set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
         if Context.objects.filter(resource__id=rsrc_id).count() > 0:
-            return JsonResponse({"error": "Echec de la création du contexte. Cette resource est déja liée à un context"}, status=409)
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. Une ressource ne peut être liée à plusieurs contextes d'indexation. "}, status=409)
 
         onegeo_source = OnegeoSource(set_src.uri, name, set_src.mode)
         onegeo_resource = OnegeoResource(onegeo_source, set_rscr.name)
@@ -300,9 +300,9 @@ class FilterView(View):
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de la création du filtre: Le nom du filtre est incorrect."}, status=400)
+            return JsonResponse({"error": "Echec de création du filtre. Le nom du filtre est manquant. "}, status=400)
         if Filter.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Echec de la création du filtre: Le nom du filtre doit etre unique."}, status=409)
+            return JsonResponse({"error": "Echec de création du filtre. Un filtre portant le même nom existe déjà. "}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
 
@@ -349,10 +349,10 @@ class FilterIDView(View):
             flt = Filter.objects.filter(name=flt_name)
             if len(flt) == 1:
                 status = 403
-                data = {"error": "Modification impossible: Vous n'etes pas l'usager de ce filtre"}
+                data = {"error": "Echec de mise à jour du filtre. Vous ne disposez pas des autorisations requises. "}
             elif len(flt) == 0:
                 status = 204
-                data = {"message": "Modification impossible: Aucun filtre ne correspond à votre requête."}
+                data = {"message": "Echec de mise à jour du filtre. Aucun filtre ne correspond à votre requête. "}
 
         return JsonResponse(data, status=status)
 
@@ -384,9 +384,9 @@ class AnalyzerView(View):
         body_data = json.loads(data)
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de la création: Le nom de l'analyseur est manquant."}, status=400)
+            return JsonResponse({"error": "Echec de création de l'analyseur. Le nom de l'analyseur est manquant."}, status=400)
         if Analyzer.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Echec de la création: Le nom de l'analyseur doit etre unique."}, status=409)
+            return JsonResponse({"error": "Echec de la création de l'analyseur. Un analyseur portant le même nom existe déjà. "}, status=409)
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or None
         filters = "filters" in body_data and body_data["filters"] or []
@@ -399,7 +399,7 @@ class AnalyzerView(View):
                     analyzer.filter.add(flt)
                     analyzer.save()
                 except Filter.DoesNotExist:
-                    return JsonResponse({"error": "Echec de la création de l'analyseur: La liste des filtres est erronée."}, status=400)
+                    return JsonResponse({"error": "Echec de création de l'analyseur. La liste contient un ou plusieurs filtres n'existant pas. "}, status=400)
 
         if created and tokenizer is not None:
             try:
@@ -407,7 +407,7 @@ class AnalyzerView(View):
                 analyzer.tokenizer = tkn_chk
                 analyzer.save()
             except Tokenizer.DoesNotExist:
-                return JsonResponse({"error": "Echec de la création de l'analyseur: Le token est erronée"}, status=400)
+                return JsonResponse({"error": "Echec de création de l'analyseur: Le tokenizer n'existe pas. "}, status=400)
         status = created and 201 or 409
         return utils.format_json_get_create(request, created, status, analyzer.name)
 
@@ -445,7 +445,7 @@ class AnalyzerIDView(View):
             try:
                 tkn_chk = Tokenizer.objects.get(name=tokenizer)
             except Tokenizer.DoesNotExist:
-                return JsonResponse({"error": "Echec de la modification de l'analyseur: Le token est erronée"}, status=400)
+                return JsonResponse({"error": "Echec de mise à jour de l'analyseur: Le tokenizer n'existe pas. "}, status=400)
 
         if analyzer.user != user():
             status = 403
@@ -458,7 +458,7 @@ class AnalyzerIDView(View):
                 try:
                     flt = Filter.objects.get(name=f)
                 except Filter.DoesNotExist:
-                    return JsonResponse({"error": "Echec de la modification de l'analyseur: La liste des filtres est erronée."},
+                    return JsonResponse({"error": "Echec de mise à jour de l'analyseur. La liste contient un ou plusieurs filtres n'existant pas. "},
                                         status=400)
             # Si tous corrects, on met à jour depuis un set vide
             analyzer.filter.set([])
@@ -499,9 +499,9 @@ class TokenizerView(View):
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de la création du token: Le nom du token est manquant."}, status=400)
+            return JsonResponse({"error": "Echec de création du tokenizer. Le nom du tokenizer est manquant. "}, status=400)
         if Tokenizer.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Echec de la création du token: Le nom du token doit etre unique."}, status=409)
+            return JsonResponse({"error": "Echec de création du tokenizer. Un tokenizer portant le même nom existe déjà. "}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
 
@@ -596,10 +596,10 @@ class ActionView(View):
         try:
             ctx = Context.objects.get(name=data["index"])
         except Context.DoesNotExist:
-            return JsonResponse({"error": "Le context est erroné"}, status=404)
+            return JsonResponse({"error": "Le contexte d'indexation n'existe pas. "}, status=404)
 
         if elastic_conn.is_a_task_running():
-            data = {"error": "Accés verouillé: une autre tâche est en cours d'exécution"}
+            data = {"error": "Toute modification est temporairement verouillée. Une autre tâche est en cours d'exécution. Veuillez réessayer plus tard. "}
             return JsonResponse(data, status=423)
 
         action = data["type"]
@@ -640,12 +640,14 @@ class ActionView(View):
                     'analysis': self.retreive_analysis(
                         self.retreive_analyzers(onegeo_context))}}
 
-        tsk = Task.objects.create(model_type="context",
+        description = "Les données sont en cours d'indexation. Cette opération peut être longue. "
+        tsk = Task.objects.create(model_type="context", description=description,
                                   user=user(), model_type_id=ctx.name)
 
         def on_index_success():
             tsk.success = True
             tsk.stop_date = timezone.now()
+            tsk.description = ""
             tsk.save()
 
         def on_index_failure(err):
@@ -663,7 +665,7 @@ class ActionView(View):
                                              **opts)
 
         status = 202
-        data = {"message": "Requete acceptée mais sans garantie de traitement"}
+        data = {"message": tsk.description}
         return JsonResponse(data, status=status)
 
     def retreive_analyzers(self, context):
@@ -732,9 +734,9 @@ class SearchModelView(View):
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de la création du model de recherche: Le nom du model de recherche est incorrect."}, status=400)
+            return JsonResponse({"error": "Echec de création du modèle de recherche. Le nom du modèle de recherche est manquant. "}, status=400)
         if SearchModel.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Echec de la création du model de recherche: Le nom du model de recherche doit etre unique."}, status=409)
+            return JsonResponse({"error": "Echec de création du modèle de recherche. Un modèle portant le même nom existe déjà. "}, status=409)
 
         cfg = "config" in body_data and body_data["config"] or {}
         ctx = "contexts" in body_data and body_data["contexts"] or []
@@ -754,7 +756,7 @@ class SearchModelView(View):
                     try:
                         ctx = Context.objects.get(name=c)
                     except Context.DoesNotExist:
-                        return JsonResponse({"error": "Echec de la création du model de recherche: La liste de contexte est erronée"},
+                        return JsonResponse({"error": "Echec de création du modèle de recherche. La liste de contexte est erronée. "},
                                             status=400)
                     else:
                         ctx_l.append(ctx)

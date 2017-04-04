@@ -115,7 +115,7 @@ class Context(models.Model):
         set_names_sm = SearchModel.objects.all()
         for s in set_names_sm:
             if self.name == s.name:
-                raise ValidationError("Un context ne peut avoir le même nom qu'un model de recherche")
+                raise ValidationError("Un contexte d'indexation ne peut avoir le même nom qu'un modèle de recherche.")
         super().save(*args, **kwargs)
 
 
@@ -154,7 +154,7 @@ class SearchModel(models.Model):
         set_names_ctx = Context.objects.all()
         for c in set_names_ctx:
             if self.name == c.name:
-                raise ValidationError("Un model de recherche ne peut avoir le même nom qu'un context")
+                raise ValidationError("Un modèle de recherche ne peut avoir le même nom qu'un contexte d'indexation.")
 
         super().save(*args, **kwargs)
 
@@ -181,15 +181,22 @@ def on_save_source(sender, instance, *args, **kwargs):
             for res in instance.src.get_resources():
                 resource = Resource.objects.create(source=instance, name=res.name, columns=res.columns)
                 resource.set_rsrc(res)
-            tsk.update(success=True)
-        except:
-            tsk.update(success=False)
+            tsk.success = True
+            tsk.description = ""
+        except Exception as err:
+            tsk.success = False
+            tsk.description = str(err)  # TODO
         finally:
-            tsk.update(stop_date=timezone.now())
+            tsk.stop_date = timezone.now()
+            tsk.save()
+
+    description = "Création des ressources en cours. " \
+                  "Cette opération peut prendre plusieurs minutes."
 
     tsk = Task.objects.create(model_type="source",
                               user=instance.user,
-                              model_type_id=instance.id)
+                              model_type_id=instance.id,
+                              description=description)
 
     thread = Thread(target=create_resources, args=(instance, tsk))
     thread.start()
