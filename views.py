@@ -9,9 +9,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
-from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel, Task
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from onegeo_manager.source import Source as OnegeoSource
 from onegeo_manager.index import Index as OnegeoIndex
@@ -20,6 +20,7 @@ from onegeo_manager.resource import Resource as OnegeoResource
 
 from . import utils
 from .elasticsearch_wrapper import elastic_conn
+from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel, Task
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
@@ -108,7 +109,7 @@ class ResourceView(View):
     def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
-            return user
+            return usersucceed
         src_id = literal_eval(id)
 
         try:
@@ -586,15 +587,6 @@ class ActionView(View):
 
     def post(self, request):
 
-        def on_index_success(*args, **kwargs):
-            print("Success on create_or_replace_index: ", *args, **kwargs)
-
-        def on_index_failure(*args, **kwargs):
-            print("Fail on create_or_replace_index: ", *args, **kwargs)
-
-        def on_index_error(*args, **kwargs):
-            print("Error on create_or_replace_index: ", *args, **kwargs)
-
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
@@ -648,15 +640,27 @@ class ActionView(View):
                     'analysis': self.retreive_analysis(
                         self.retreive_analyzers(onegeo_context))}}
 
+        tsk = Task.objects.create(model_type="context",
+                                  user=user(), model_type_id=ctx.name)
+
+        def on_index_success():
+            tsk.success = True
+            tsk.stop_date = timezone.now()
+            tsk.save()
+
+        def on_index_failure(err):
+            tsk.success = False
+            tsk.stop_date = timezone.now()
+            tsk.description = str(err)
+            tsk.save()
+
+        opts.update({"succeed": on_index_success, "failed": on_index_failure})
+
         elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
                                              ctx.name,  # Alias de l'index
                                              ctx.name,  # Nom du type
                                              body,  # Settings & Mapping
                                              **opts)
-
-        elastic_conn.create_or_replace_index.connect(on_index_success)
-        elastic_conn.create_or_replace_index.connect(on_index_failure)
-        elastic_conn.create_or_replace_index.connect(on_index_error)
 
         status = 202
         data = {"message": "Requete acceptée mais sans garantie de traitement"}

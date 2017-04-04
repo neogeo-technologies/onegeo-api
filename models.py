@@ -167,13 +167,9 @@ class Task(models.Model):
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
     success = models.NullBooleanField("Success")
     user = models.ForeignKey(User, blank=True, null=True)
-    model_type = models.CharField("Model relation type", choices=T_L, default="source", max_length=250)
-    model_type_id = models.IntegerField("Id model relation linked")
+    model_type = models.CharField("Model relation type", choices=T_L, max_length=250)
+    model_type_id = models.CharField("Id model relation linked", max_length=250)
     description = models.CharField("Description", max_length=250)
-
-
-    class Meta:
-        unique_together = (("model_type", "model_type_id"),)
 
 
 @receiver(post_save, sender=Source)
@@ -191,11 +187,13 @@ def on_save_source(sender, instance, *args, **kwargs):
         finally:
             tsk.update(stop_date=timezone.now())
 
-    Task.objects.get_or_create(model_type="source", user=instance.user, model_type_id=instance.id)
-    tsk = Task.objects.filter(model_type_id=instance.id)
+    tsk = Task.objects.create(model_type="source",
+                              user=instance.user,
+                              model_type_id=instance.id)
 
     thread = Thread(target=create_resources, args=(instance, tsk))
     thread.start()
+
 
 @receiver(post_delete, sender=Context)
 def on_delete_context(sender, instance, *args, **kwargs):

@@ -1,6 +1,5 @@
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as ElasticExceptions
-from PySignal import ClassSignal
 from threading import Thread
 from uuid import uuid4
 
@@ -10,11 +9,6 @@ from .tools import Singleton
 
 
 class ElasticWrapper(metaclass=Singleton):
-
-    index_deleted = ClassSignal()
-    index_error = ClassSignal()
-    index_failed = ClassSignal()
-    index_succeed = ClassSignal()
 
     def __init__(self):
         self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
@@ -50,10 +44,14 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn.ingest.put_pipeline(id=id, body=body)
 
     def create_or_replace_index(self, index, name, doc_type, body,
-                                collections=None, pipeline=None):
+                                collections=None, pipeline=None,
+                                succeed=None, failed=None):
 
-        def rebuild(index, name, doc_type, collections, pipeline):
-            self.push_document(index, name, doc_type, collections, pipeline)
+        def rebuild(index, name, doc_type,
+                    collections, pipeline,
+                    succeed=None, failed=None):
+            self.push_document(index, name, doc_type, collections, pipeline,
+                               succeed=succeed, failed=failed)
 
         try:
             self.conn.indices.create(index=index, body=body)
@@ -61,26 +59,25 @@ class ElasticWrapper(metaclass=Singleton):
             raise
         else:
             if collections:
-                rebuild(index, name, doc_type, collections, pipeline)
+                rebuild(index, name, doc_type,
+                        collections, pipeline,
+                        succeed=succeed, failed=failed)
             else:
                 raise Exception('TODO')
 
     def delete_index(self, index):
-        try:
-            self.conn.indices.delete(index=index)
-        except:
-            raise
-        else:
-            self.index_deleted.emit(index=index)
+        self.conn.indices.delete(index=index)
 
     def delete_index_by_alias(self, name):
         indices = self.get_indices_by_alias(name)
         for index in iter(indices):
             self.delete_index(index)
 
-    def push_document(self, index, name, doc_type, collections, pipeline):
+    def push_document(self, index, name, doc_type,
+                      collections, pipeline,
+                      succeed=None, failed=None):
 
-        def callback(index, name, doc_type, collections, pipeline):
+        def target(index, name, doc_type, collections, pipeline, succeed=None, failed=None):
 
             for document in collections:
                 params = {'body': document, 'doc_type': doc_type,
@@ -90,21 +87,19 @@ class ElasticWrapper(metaclass=Singleton):
 
                 try:
                     self.conn.index(**params)
-                except ElasticExceptions.RequestError as err:
-                    self.index_failed.emit(index=index, alias=name, error=err)
-                    self.delete_index(index)
-                except ElasticExceptions.SerializationError as err:
-                    self.index_error.emit(index=index, alias=name,
-                                          document=document, error=err)
+                except ElasticExceptions.SerializationError:
                     continue
                 except Exception as err:
-                    self.index_failed.emit(index=index, alias=name, error=err)
                     self.delete_index(index)
+                    return failed(err)
 
             self.switch_aliases(index, name)
-            self.index_succeed.emit(index=index, alias=name)
+            return succeed()
 
-        thread = Thread(target=callback, args=(index, name, doc_type, collections, pipeline))
+        thread = Thread(target=target,
+                        args=(index, name, doc_type,collections, pipeline),
+                        kwargs={'succeed': succeed, 'failed': failed})
+
         thread.start()
 
     def switch_aliases(self, index, name):
