@@ -5,7 +5,8 @@ from .views import (SourceView, SourceIDView, ResourceView,
                     AnalyzerView, AnalyzerIDView, TokenizerView,
                     TokenizerIDView, ActionView, SearchModelView,
                     SearchModelIDView, SearchView, TaskView,
-                    TaskIDView, SupportedModes)
+                    TaskIDView, SupportedModes,
+                    ContextIDTaskView, ContextIDTaskIDView)
 
 
 app_name = "api"
@@ -16,8 +17,16 @@ urlpatterns = [
     url(r"^sources/(\d+)/resources/?$", ResourceView.as_view()),
     url(r"^sources/(\d+)/?$", SourceIDView.as_view()),
     url(r"^sources/?$", SourceView.as_view()),
-    url(r"^contexts/?$", ContextView.as_view()),
+
+
+    url(r"^contexts/(\d+)/tasks/?$", ContextIDTaskView.as_view()),
+
+    url(r"^contexts/(\d+)/tasks/(\d+)/?$", ContextIDTaskIDView.as_view()),
+
     url(r"^contexts/(\d+)/?$", ContextIDView.as_view()),
+
+    url(r"^contexts/?$", ContextView.as_view()),
+
     url(r"^filters/?$", FilterView.as_view()),
     url(r"^filters/(\S+)/?$", FilterIDView.as_view()),
     url(r"^analyzers/?$", AnalyzerView.as_view()),

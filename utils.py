@@ -118,8 +118,17 @@ def format_search_model(obj):
     }
 
 def format_task(obj):
+
+    status = None
+    if obj.success is None:
+        status = 'running'
+    else:
+        status = 'done'
+
     return {
         "id": obj.pk,
+        "status": status,
+        "description": obj.description,
         "location": "tasks/{}".format(obj.pk),
         "success": obj.success,
         "dates": {"start": obj.start_date, "stop": obj.stop_date}
@@ -172,7 +181,8 @@ def get_objects(user, mdl, src_id=None):
 
 
 # Formate la réponse Json selon le type de model pour un objet identifié
-def get_object_id(user, id, mdl, src_id=None):
+def get_object_id(user, id, mdl, mdl_id=None):
+
     l = {}
     d = {SearchModel : format_search_model,
          Tokenizer: format_tokenizer,
@@ -184,7 +194,12 @@ def get_object_id(user, id, mdl, src_id=None):
         if obj.user == user or obj.user is None:
             l = d[mdl](obj)
 
-    if mdl is Context:
+    #if mdl is Context and mdl_id is not None:
+    #    ctx = get_object_or_404(Context, id=mdl_id, user=user)
+    #    task = get_object_or_404(Task, id=id, model_type="context", model_type_id=ctx.pk, user=user)
+    #    l = format_task(task)
+
+    if mdl is Context and mdl_id is None:
         src = Source.objects.filter(user=user)
         for s in src:
             rsrc = Resource.objects.filter(source=s, source__user=user)
@@ -193,8 +208,8 @@ def get_object_id(user, id, mdl, src_id=None):
                     ctx = Context.objects.get(resource_id=r.id, resource__source__user=user)
                     l = format_context(s, r, ctx)
 
-    if mdl is Resource and src_id is not None:
-        source = get_object_or_404(Source, id=src_id, user=user)
+    if mdl is Resource and mdl_id is not None:
+        source = get_object_or_404(Source, id=mdl_id, user=user)
         rsrc = get_object_or_404(Resource, id=id, source=source, source__user=user)
         l = format_resource(source, rsrc)
 

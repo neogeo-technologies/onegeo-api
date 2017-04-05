@@ -3,20 +3,20 @@ from ast import literal_eval
 from re import search
 from uuid import uuid4
 
-from django.views.generic import View
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse, HttpResponse
-from django.core.exceptions import ValidationError
-from django.shortcuts import get_object_or_404
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.http import JsonResponse, HttpResponse
+from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import View
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 
-from onegeo_manager.source import Source as OnegeoSource
-from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.context import Context as OnegeoContext
+from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
+from onegeo_manager.source import Source as OnegeoSource
 
 from . import utils
 from .elasticsearch_wrapper import elastic_conn
@@ -36,7 +36,6 @@ class SourceView(View):
             return user
         return JsonResponse(utils.get_objects(user(), Source), safe=False)
 
-
     def post(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -50,20 +49,24 @@ class SourceView(View):
 
         field_missing = False
         if "uri" not in body_data:
-            data = {"error": "Echec de création de la source. Le chemin d'accès à la source est manquant. "}
+            data = {"error": "Echec de création de la source. "
+                             "Le chemin d'accès à la source est manquant. "}
             field_missing = True
         if "mode" not in body_data:
-            data = {"error": "Echec de création de la source. Le type de la source est manquant. "}
+            data = {"error": "Echec de création de la source. "
+                             "Le type de la source est manquant. "}
             field_missing = True
         if "name" not in body_data:
-            data = {"error": "Echec de création de la source. Le nom de la source est manquant. "}
+            data = {"error": "Echec de création de la source. "
+                             "Le nom de la source est manquant. "}
             field_missing = True
         if field_missing is True:
             return JsonResponse(data, status=400)
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. Le nom du contexte est incorrect. "},
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Le nom du contexte est incorrect. "},
                                 status=400)
         uri = body_data["uri"]
         mode = body_data["mode"]
@@ -71,7 +74,8 @@ class SourceView(View):
         if mode == 'pdf':
             np = utils.check_uri(uri)
             if np is None:
-                data = {"error": "Echec de création de la source. Le chemin d'accès à la source est incorrect. "}
+                data = {"error": "Echec de création de la source. "
+                                 "Le chemin d'accès à la source est incorrect. "}
                 return JsonResponse(data, status=400)
         else:
             np = uri
@@ -86,6 +90,7 @@ class SourceView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SourceIDView(View):
+
     def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -106,6 +111,7 @@ class SourceIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ResourceView(View):
+
     def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -115,26 +121,29 @@ class ResourceView(View):
         try:
             tsk = Task.objects.get(model_type_id=src_id, model_type="source")
         except Task.DoesNotExist:
-            pass
+            data = utils.get_objects(user(), Resource, src_id)
+            opts = {"safe": False}
+        else:
+            if tsk.stop_date is not None and tsk.success is True:
+                data = utils.get_objects(user(), Resource, src_id)
+                opts = {"safe": False}
 
-        if tsk.stop_date is not None and tsk.success is True:
-            return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
+            if tsk.stop_date is not None and tsk.success is False:
+                data = {"error": tsk.description,
+                        "task": "tasks/{}".format(tsk.id)}
+                opts = {"status": 424}
 
-        if tsk.stop_date is not None and tsk.success is False:
-            data = {"error": tsk.description}
-            return JsonResponse(data, status=400)
+            if tsk.stop_date is None and tsk.success is None:
+                data = {"error": tsk.description,
+                        "task": "tasks/{}".format(tsk.id)}
+                opts = {"status": 423}
 
-        if tsk.stop_date is None and tsk.success is None:
-            data = {"error": tsk.description,
-                    "task": "task/{}".format(tsk.id)}
-            return JsonResponse(data, status=423)
-
-        return JsonResponse(utils.get_objects(user(), Resource, src_id), safe=False)
-
+        return JsonResponse(data, **opts)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ResourceIDView(View):
+
     def get(self, request, src_id, rsrc_id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -144,6 +153,7 @@ class ResourceIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextView(View):
+
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -160,15 +170,19 @@ class ContextView(View):
 
         body_data = json.loads(request.body.decode('utf-8'))
         if "name" not in body_data:
-            return JsonResponse({"error": "Echec la création du contexte d'indexation. Le nom du contexte est manquant. "}, status=400)
+            return JsonResponse({"error": "Echec la création du contexte d'indexation. "
+                                          "Le nom du contexte est manquant. "}, status=400)
         if "resource" not in body_data:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. Le chemin d'accès est manquant. "}, status=400)
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Le chemin d'accès est manquant. "}, status=400)
 
         name = utils.read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. Le nom du context est incorrect. "}, status=400)
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Le nom du context est incorrect. "}, status=400)
         if Context.objects.filter(name=name).count() > 0:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. Un contexte portant le même nom existe déjà. "}, status=409)
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Un contexte portant le même nom existe déjà. "}, status=409)
 
         reindex_frequency = "monthly"
         if "reindex_frequency" in body_data:
@@ -183,7 +197,9 @@ class ContextView(View):
 
         set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
         if Context.objects.filter(resource__id=rsrc_id).count() > 0:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. Une ressource ne peut être liée à plusieurs contextes d'indexation. "}, status=409)
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Une ressource ne peut être liée à plusieurs "
+                                          "contextes d'indexation. "}, status=409)
 
         onegeo_source = OnegeoSource(set_src.uri, name, set_src.mode)
         onegeo_resource = OnegeoResource(onegeo_source, set_rscr.name)
@@ -214,12 +230,16 @@ class ContextView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextIDView(View):
+
     def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
         ctx_id = literal_eval(id)
-        return JsonResponse(utils.get_object_id(user(), ctx_id, Context), safe=False)
+
+        return JsonResponse(utils.get_object_id(user(), ctx_id, Context),
+                            safe=False, status=200)
+
 
     def put(self, request, id):
         user = utils.get_user_or_401(request)
@@ -281,7 +301,40 @@ class ContextIDView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
+class ContextIDTaskView(View):
+
+    def get(self, request, id):
+
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+        ctx_id = literal_eval(id)
+
+        set = Task.objects.filter(
+                        model_type="context", model_type_id=ctx_id, user=user())
+
+        data = [utils.format_task(tsk) for tsk in set]
+
+        return JsonResponse(data, safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ContextIDTaskIDView(View):
+
+    def get(self, request, ctx_id, tsk_id):
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+
+        tsk_id = literal_eval(tsk_id)
+        tsk = get_object_or_404(Task, pk=tsk_id)
+
+        return JsonResponse(utils.format_task(tsk), safe=False)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class FilterView(View):
+
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -314,6 +367,7 @@ class FilterView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class FilterIDView(View):
+
     def get(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -366,6 +420,7 @@ class FilterIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class AnalyzerView(View):
+
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -414,6 +469,7 @@ class AnalyzerView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class AnalyzerIDView(View):
+
     def get(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -445,7 +501,8 @@ class AnalyzerIDView(View):
             try:
                 tkn_chk = Tokenizer.objects.get(name=tokenizer)
             except Tokenizer.DoesNotExist:
-                return JsonResponse({"error": "Echec de mise à jour de l'analyseur: Le tokenizer n'existe pas. "}, status=400)
+                return JsonResponse({"error": "Echec de mise à jour du tokenizer. "
+                                              "Le tokenizer n'existe pas. "}, status=400)
 
         if analyzer.user != user():
             status = 403
@@ -458,8 +515,9 @@ class AnalyzerIDView(View):
                 try:
                     flt = Filter.objects.get(name=f)
                 except Filter.DoesNotExist:
-                    return JsonResponse({"error": "Echec de mise à jour de l'analyseur. La liste contient un ou plusieurs filtres n'existant pas. "},
-                                        status=400)
+                    return JsonResponse({"error": "Echec de mise à jour du tokenizer. "
+                                                  "La liste contient un ou plusieurs "
+                                                  "filtres n'existant pas. "}, status=400)
             # Si tous corrects, on met à jour depuis un set vide
             analyzer.filter.set([])
             for f in filters:
@@ -481,6 +539,7 @@ class AnalyzerIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class TokenizerView(View):
+
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -512,6 +571,7 @@ class TokenizerView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class TokenizerIDView(View):
+
     def get(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -559,6 +619,7 @@ class TokenizerIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class Directories(View):
+
     def get(self, request):
         user = utils.UserAuthenticate(request)
         if user() is None:
@@ -574,8 +635,8 @@ class Directories(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SupportedModes(View):
-    def get(self, request):
 
+    def get(self, request):
         result = {}
         for entry in Source.MODE_L:
             result[entry[0]] = entry[1]
@@ -642,7 +703,7 @@ class ActionView(View):
 
         description = "Les données sont en cours d'indexation. Cette opération peut être longue. "
         tsk = Task.objects.create(model_type="context", description=description,
-                                  user=user(), model_type_id=ctx.name)
+                                  user=user(), model_type_id=ctx.pk)
 
         def on_index_success():
             tsk.success = True
@@ -715,6 +776,7 @@ class ActionView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchModelView(View):
+
     def get(self, request):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -772,6 +834,7 @@ class SearchModelView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchModelIDView(View):
+
     def get(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
@@ -860,6 +923,7 @@ class SearchModelIDView(View):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchView(View):
+
     def post(self, request, name):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):

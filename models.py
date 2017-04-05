@@ -191,7 +191,7 @@ def on_save_source(sender, instance, *args, **kwargs):
             tsk.save()
 
     description = "Création des ressources en cours. " \
-                  "Cette opération peut prendre plusieurs minutes."
+                  "Cette opération peut prendre plusieurs minutes. "
 
     tsk = Task.objects.create(model_type="source",
                               user=instance.user,
