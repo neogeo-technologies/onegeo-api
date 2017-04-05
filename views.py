@@ -659,8 +659,12 @@ class ActionView(View):
         except Context.DoesNotExist:
             return JsonResponse({"error": "Le contexte d'indexation n'existe pas. "}, status=404)
 
-        if elastic_conn.is_a_task_running():
-            data = {"error": "Toute modification est temporairement verouillée. Une autre tâche est en cours d'exécution. Veuillez réessayer plus tard. "}
+        filters = {
+            "model_type": "context", "model_type_id": ctx.pk, "user": user()}
+        last = Task.objects.filter(**filters).order_by("start_date").last()
+        if last and last.success is None:
+            data = {"error": "Une autre tâche est en cours d'exécution. "
+                             "Veuillez réessayer plus tard. "}
             return JsonResponse(data, status=423)
 
         action = data["type"]
