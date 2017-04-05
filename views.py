@@ -68,7 +68,11 @@ class SourceView(View):
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Le nom du contexte est incorrect. "},
                                 status=400)
-        uri = body_data["uri"]
+        uri = utils.read_uri(body_data)
+        if uri is None:
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "L'uri est incorrecte. "},
+                                status=400)
         mode = body_data["mode"]
 
         if mode == 'pdf':

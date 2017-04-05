@@ -235,6 +235,20 @@ def read_name(body_data):
     return name
 
 
+def read_uri(body_data):
+    if "uri" not in body_data or body_data["uri"] == "":
+        return None
+    if "mode" not in body_data or body_data["mode"] == "":
+        return None
+
+    uri = body_data["uri"]
+    mode = body_data["mode"]
+
+    if "file" == uri[0:4] and mode == "pdf":
+        return uri
+    return None
+
+
 def uri_shortcut(b):
     """
     Retourne une liste d'uri sous la forme de "file:///dossier",
