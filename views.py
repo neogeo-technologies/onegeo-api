@@ -405,16 +405,16 @@ class FilterIDView(View):
 
         if len(filter) == 1:
             filter.update(config=cfg)
-            status = 200
+            status = 204
             data = {}
         elif len(filter) == 0:
             flt = Filter.objects.filter(name=flt_name)
             if len(flt) == 1:
                 status = 403
                 data = {"error": "Echec de mise à jour du filtre. Vous ne disposez pas des autorisations requises. "}
-            elif len(flt) == 0:
-                status = 204
-                data = {"message": "Echec de mise à jour du filtre. Aucun filtre ne correspond à votre requête. "}
+            # elif len(flt) == 0:
+            #     status = 204
+            #     data = {"message": "Echec de mise à jour du filtre. Aucun filtre ne correspond à votre requête. "}
 
         return JsonResponse(data, status=status)
 
@@ -639,7 +639,6 @@ class Directories(View):
         subdir = utils.uri_shortcut(PDF_BASE_DIR)
 
         return JsonResponse(subdir, safe=False)
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SupportedModes(View):
