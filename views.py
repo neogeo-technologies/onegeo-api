@@ -332,7 +332,7 @@ class ContextIDTaskIDView(View):
             return user
 
         tsk_id = literal_eval(tsk_id)
-        tsk = get_object_or_404(Task, pk=tsk_id)
+        tsk = get_object_or_404(Task, pk=tsk_id, model_type_id=ctx_id)
 
         return JsonResponse(utils.format_task(tsk), safe=False)
 
