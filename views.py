@@ -712,7 +712,9 @@ class ActionView(View):
                     'analysis': self.retreive_analysis(
                         self.retreive_analyzers(onegeo_context))}}
 
-        description = "Les données sont en cours d'indexation. Cette opération peut être longue. "
+        index_uuid = str(uuid4())[0:7]
+
+        description = "Les données sont en cours d'indexation (id de l'index: '{0}'). ".format(index_uuid)
         tsk = Task.objects.create(model_type="context", description=description,
                                   user=user(), model_type_id=ctx.pk)
 
@@ -735,11 +737,8 @@ class ActionView(View):
                      "failed": on_index_failure,
                      "succeed": on_index_success})
 
-        elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
-                                             ctx.name,  # Alias de l'index
-                                             ctx.name,  # Nom du type
-                                             body,  # Settings & Mapping
-                                             **opts)
+        elastic_conn.create_or_replace_index(
+                            index_uuid, ctx.name, ctx.name, body, **opts)
 
         status = 202
         data = {"message": tsk.description}
