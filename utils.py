@@ -219,18 +219,13 @@ def read_name(body_data):
     return name
 
 
-def read_uri(body_data):
-    if "uri" not in body_data or body_data["uri"] == "":
-        return None
-    if "mode" not in body_data or body_data["mode"] == "":
-        return None
-
-    uri = body_data["uri"]
-    mode = body_data["mode"]
-
-    if "file" == uri[0:4] and mode == "pdf":
-        return uri
-    return None
+def is_valid_uri_for_given_mode(uri, mode):
+    # TODO: Utiliser des expressions régulières mais la flemme dans l'immédiat
+    if mode == "pdf" and uri[0:7] == "file://":
+        return True
+    if mode in ("wfs", "geonet") and uri[0:8] in ("https://", "http://"):
+        return True
+    return False
 
 
 def uri_shortcut(b):
