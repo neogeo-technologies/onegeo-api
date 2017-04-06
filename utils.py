@@ -428,9 +428,9 @@ def delete_func(id, user, model):
 
 class JsonError(Exception):
     def __init__(self, message, status):
-        # super().__init__(message, status)
         self.message = message
         self.status = status
+        super().__init__(message, status)
 
 
 # Check si user() == obj.user -- Implementé pour filterID, analyserID, tokenizerID, SearchModelID
@@ -468,8 +468,8 @@ def clean_my_obj(obj):
 
 
 class MultiTaskError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 def refresh_search_model(mdl_name, ctx_name_l):
@@ -498,7 +498,6 @@ def search_model_context_task(ctx_id, user):
                                model_type_id=ctx_id,
                                user=user,
                                stop_date=None)) > 0:
-        raise MultiTaskError("""Une autre tâche est en cours d'exécution.
-                                Veuillez réessayer plus tard. """)
+        raise MultiTaskError()
     else:
         return True
