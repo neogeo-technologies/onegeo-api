@@ -68,21 +68,21 @@ class SourceView(View):
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Le nom du contexte est incorrect. "},
                                 status=400)
-        uri = utils.read_uri(body_data)
-        if uri is None:
+
+        if not utils.is_valid_uri_for_given_mode(body_data["uri"], body_data["mode"]):
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "L'uri est incorrecte. "},
                                 status=400)
         mode = body_data["mode"]
 
         if mode == 'pdf':
-            np = utils.check_uri(uri)
+            np = utils.check_uri(body_data["uri"])
             if np is None:
                 data = {"error": "Echec de création de la source. "
                                  "Le chemin d'accès à la source est incorrect. "}
                 return JsonResponse(data, status=400)
         else:
-            np = uri
+            np = body_data["uri"]
 
         sources, created = Source.objects.get_or_create(uri=np, defaults={'user': user(),
                                                                           'name': name,
