@@ -255,6 +255,7 @@ class ContextIDView(View):
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
+
         if "name" in body_data:
             name = body_data['name']
 
@@ -833,9 +834,12 @@ class SearchModelView(View):
                 for c in ctx_clt:
                     try:
                         ctx = Context.objects.get(name=c)
+                        utils.search_model_context_task(ctx.pk, user())
                     except Context.DoesNotExist:
                         return JsonResponse({"error": "Echec de création du modèle de recherche. La liste de contexte est erronée. "},
                                             status=400)
+                    except utils.MultiTaskError as err:
+                        return JsonResponse({"error": err.message}, status=423)
                     else:
                         ctx_l.append(ctx)
                 search_model.context.set(ctx_l)
@@ -903,10 +907,13 @@ class SearchModelIDView(View):
             for c in ctx_clt:
                 try:
                     ctx = Context.objects.get(name=c)
+                    utils.search_model_context_task(ctx.pk, user())
                 except Context.DoesNotExist:
                     return JsonResponse(
                         {"error": "Echec de la modification du model de recherche: La liste de contexte est erronée"},
                         status=400)
+                except utils.MultiTaskError as err:
+                    return JsonResponse({"error": err.message}, status=423)
                 else:
                     ctx_l.append(ctx)
             sm.context.set(ctx_l)

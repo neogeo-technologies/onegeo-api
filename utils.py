@@ -496,3 +496,14 @@ def refresh_search_model(mdl_name, ctx_name_l):
         elastic_conn.update_aliases(body)
     else:
         raise RuntimeError
+
+def search_model_context_task(ctx_id, user):
+
+    if len(Task.objects.filter(model_type="context",
+                               model_type_id=ctx_id,
+                               user=user,
+                               stop_date=None)) > 0:
+        raise MultiTaskError("""Une autre tâche est en cours d'exécution.
+                                Veuillez réessayer plus tard. """)
+    else:
+        return True
