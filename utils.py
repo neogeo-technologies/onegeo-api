@@ -3,7 +3,6 @@ from base64 import b64decode
 from pathlib import Path
 from re import search
 
-from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel, Task
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -12,14 +11,49 @@ from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 
-
+from .models import Source, Resource, Context, Tokenizer, Filter, Analyzer, SearchModel, Task
 from .elasticsearch_wrapper import elastic_conn
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
+def iter_ctx_from_search_model(mdl_name):
+    SMC = SearchModel.context.through
+    set = SMC.objects.filter(searchmodel__name=mdl_name)
+    return [s.context.name for s in set if s.context.name is not None]
+
+
+def iter_mdl_from_ctx_name(ctx_name):
+    SMC = SearchModel.context.through
+    set = SMC.objects.filter(context__name=ctx_name)
+    return [s.searchmodel.name for s in set if s.searchmodel.name is not None]
+
+
+def iter_flt_from_anl(anl_name):
+    AnalyserFilters = Analyzer.filter.through
+    set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by("id")
+    return [s.filter.name for s in set if s.filter.name is not None]
+
+
+def format_source(s):
+    return clean_my_obj({"id": s.id,
+                         "uri": s.s_uri,
+                         "mode": s.mode,
+                         "name": s.name,
+                         "location": "/sources/{}".format(s.id)})
+
+
+def format_source_id(s):
+    return clean_my_obj({"id": s.id,
+                         "uri": s.s_uri,
+                         "mode": s.mode,
+                         "name": s.name,
+                         "location": "/sources/{}".format(s.id)})
+
+
 def format_resource(s, r):
+    d = {}
     try:
         ctx = Context.objects.get(resource_id=r.id)
         d = {"id": r.id,
@@ -31,108 +65,58 @@ def format_resource(s, r):
         d = {"id": r.id,
              "location": "/sources/{}/resources/{}".format(s.id, r.id),
              "name": r.name,
-             "columns": r.columns
-             }
-    return d
-
-
-def format_source(s):
-    d = {"id": s.id,
-         "uri": s.s_uri,
-         "mode": s.mode,
-         "name": s.name,
-         "location": "/sources/{}".format(s.id),
-         # "resources": [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by("name"))]
-         }
-    return d
-
-def format_source_id(s):
-    d = {"id": s.id,
-         "uri": s.s_uri,
-         "mode": s.mode,
-         "name": s.name,
-         "location": "/sources/{}".format(s.id),
-         # "resources": [format_resource(s, r) for r in list(Resource.objects.filter(source=s).order_by("name"))]
-         }
-    return d
+             "columns": r.columns}
+    finally:
+        return clean_my_obj(d)
 
 
 def format_context(s, r, c):
-    d = {"location": "/contexts/{}".format(c.resource_id),
-         "resource": "/sources/{}/resources/{}".format(s.id, r.id),
-         "columns": c.clmn_properties,
-         "name": c.name,
-         "reindex_frequency": c.reindex_frequency
-    }
-    return d
+    return {
+                "location": "/contexts/{}".format(c.resource_id),
+                "resource": "/sources/{}/resources/{}".format(s.id, r.id),
+                "columns": c.clmn_properties,
+                "name": c.name,
+                "reindex_frequency": c.reindex_frequency}
 
 
 def format_filter(obj):
-    return clean_my_obj({
-        "location": "filters/{}".format(obj.name),
-        "name": obj.name,
-        "config": obj.config or None,
-        "reserved": obj.reserved})
+    return clean_my_obj({"location": "filters/{}".format(obj.name),
+                         "name": obj.name,
+                         "config": obj.config or None,
+                         "reserved": obj.reserved})
 
 
-def iter_flt_from_anl(anl_name):
-    AnalyserFilters = Analyzer.filter.through
-    set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by("id")
-    return [s.filter.name for s in set if s.filter.name is not None]
+def format_tokenizer(obj):
+    return clean_my_obj({"location": "tokenizers/{}".format(obj.name),
+                         "name": obj.name,
+                         "config": obj.config or None,
+                         "reserved": obj.reserved})
 
 
 def format_analyzer(obj):
     return clean_my_obj({
-        "location": "analyzers/{}".format(obj.name),
-        "name": obj.name,
-        "filters": iter_flt_from_anl(obj.name) or None,
-        "reserved": obj.reserved,
-        "tokenizer": obj.tokenizer and obj.tokenizer.name or None})
+                "location": "analyzers/{}".format(obj.name),
+                "name": obj.name,
+                "filters": iter_flt_from_anl(obj.name) or None,
+                "reserved": obj.reserved,
+                "tokenizer": obj.tokenizer and obj.tokenizer.name or None})
 
-
-def format_tokenizer(obj):
-    return clean_my_obj({
-        "location": "tokenizers/{}".format(obj.name),
-        "name": obj.name,
-        "config": obj.config or None,
-        "reserved": obj.reserved})
-
-
-def iter_ctx_from_search_model(mdl_name):
-    SMC = SearchModel.context.through
-    set = SMC.objects.filter(searchmodel__name=mdl_name)
-    return [s.context.name for s in set if s.context.name is not None]
-
-def iter_mdl_from_ctx_name(ctx_name):
-    SMC = SearchModel.context.through
-    set = SMC.objects.filter(context__name=ctx_name)
-    return [s.searchmodel.name for s in set if s.searchmodel.name is not None]
 
 def format_search_model(obj):
-    l = iter_ctx_from_search_model(obj.name)
-    return {
-        "location": "models/{}".format(obj.name),
-        "name": obj.name,
-        "config": obj.config,
-        "contexts": l
-    }
+    return clean_my_obj({"location": "models/{}".format(obj.name),
+                         "name": obj.name,
+                         "config": obj.config,
+                         "contexts": iter_ctx_from_search_model(obj.name)})
+
 
 def format_task(obj):
-
-    status = None
-    if obj.success is None:
-        status = 'running'
-    else:
-        status = 'done'
-
-    return {
-        "id": obj.pk,
-        "status": status,
-        "description": obj.description,
-        "location": "tasks/{}".format(obj.pk),
-        "success": obj.success,
-        "dates": {"start": obj.start_date, "stop": obj.stop_date}
-    }
+    return clean_my_obj({
+                "id": obj.pk,
+                "status": obj.success is None and 'running' or 'done',
+                "description": obj.description,
+                "location": "tasks/{}".format(obj.pk),
+                "success": obj.success,
+                "dates": {"start": obj.start_date, "stop": obj.stop_date}})
 
 
 # Formate la réponse Json selon le type de model pour un ensemble d'objets
@@ -350,6 +334,7 @@ class UserAuthenticate:
     def __exit__(self, *args):
         pass
 
+
 def get_user_or_401(request):
     user = UserAuthenticate(request)
     if user() is None:
@@ -359,12 +344,14 @@ def get_user_or_401(request):
         return response
     return user
 
+
 def check_columns(list_ppt, list_ppt_clt):
     for ppt in list_ppt:
         for ppt_clt in list_ppt_clt:
             if ppt["name"] == ppt_clt["name"]:
                 ppt.update(ppt_clt)
     return list_ppt
+
 
 def get_param(request, param):
     """
@@ -449,6 +436,7 @@ class JsonError(Exception):
         # super().__init__(message, status)
         self.message = message
         self.status = status
+
 
 # Check si user() == obj.user -- Implementé pour filterID, analyserID, tokenizerID, SearchModelID
 def user_access(name, model, usr_req):

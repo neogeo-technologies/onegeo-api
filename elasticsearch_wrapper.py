@@ -5,7 +5,15 @@ from uuid import uuid4
 
 from django.conf import settings
 
-from .tools import Singleton
+
+class Singleton(type):
+
+    __instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls.__instances:
+            cls.__instances[cls] = super().__call__(*args, **kwargs)
+        return cls.__instances[cls]
 
 
 class ElasticWrapper(metaclass=Singleton):
@@ -79,6 +87,7 @@ class ElasticWrapper(metaclass=Singleton):
         def target(index, name, doc_type, collections, pipeline,
                    succeed=None, failed=None, error=None):
 
+            count = 0
             try:
                 for document in collections:
                     params = {'body': document, 'doc_type': doc_type,
@@ -93,21 +102,27 @@ class ElasticWrapper(metaclass=Singleton):
                     except Exception as err:
                         self.delete_index(index)
                         return failed(str(err))
+                    else:
+                        count += 1
                 else:
-                    return failed('Aucun document à indexer.')
+                    self.switch_aliases(index, name)
+
+                    if count == 0:
+                        msg = 'Aucun document à indexer. '
+                    if count == 1:
+                        msg = '1 document a été indexé avec succès. '
+                    if count > 1:
+                        msg = '{0} documents ont été indexés avec succès. '.format(count)
+
+                    return succeed(msg)
+
             except Exception as err:
+                self.delete_index(index)
                 return failed(str(err))
 
-            self.switch_aliases(index, name)
-            return succeed()
-
         thread = Thread(target=target,
-                        args=(index, name, doc_type,
-                              collections, pipeline),
-                        kwargs={'succeed': succeed,
-                                'failed': failed,
-                                'error': error})
-
+                        args=(index, name, doc_type, collections, pipeline),
+                        kwargs={'succeed': succeed, 'failed': failed, 'error': error})
         thread.start()
 
     def switch_aliases(self, index, name):

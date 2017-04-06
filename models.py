@@ -21,10 +21,8 @@ PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 def retrieve(b):
     p = Path(b.startswith("file://") and b[7:] or b)
-
     if not p.exists():
         raise ConnectionError("Given path does not exist.")
-
     return [x.as_uri() for x in p.iterdir() if x.is_dir()]
 
 
@@ -38,9 +36,8 @@ def does_uri_exist(uri):
 
 class Source(models.Model):
 
-
     MODE_L = (
-        ("geonet", "API de recherche de GeoNetWork"),
+        ("geonet", "API de recherche GeoNetWork"),
         ("pdf", "Répertoire contenant des fichiers PDF"),
         ("wfs", "Service OGC:WFS"),)
 
@@ -57,7 +54,6 @@ class Source(models.Model):
 
         if self.mode == 'pdf' and not does_uri_exist(self.uri):
             raise Exception()  # TODO
-
         self.__src = OnegeoSource(self.uri, self.name, self.mode)
 
         super().save(*args, **kwargs)
@@ -109,13 +105,15 @@ class Context(models.Model):
     resource = models.OneToOneField(Resource, on_delete=models.CASCADE, primary_key=True)
     name = models.CharField("Name", max_length=250, unique=True)
     clmn_properties = JSONField("Columns")
-    reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L, default="monthly", max_length=250)
+    reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L,
+                                         default="monthly", max_length=250)
 
     def save(self, *args, **kwargs):
         set_names_sm = SearchModel.objects.all()
         for s in set_names_sm:
             if self.name == s.name:
-                raise ValidationError("Un contexte d'indexation ne peut avoir le même nom qu'un modèle de recherche.")
+                raise ValidationError("Un contexte d'indexation ne peut avoir "
+                                      "le même nom qu'un modèle de recherche.")
         super().save(*args, **kwargs)
 
 
@@ -143,6 +141,7 @@ class Tokenizer(models.Model):
     config = JSONField("Config", blank=True, null=True)
     reserved = models.BooleanField("Reserved", default=False)
 
+
 class SearchModel(models.Model):
 
     user = models.ForeignKey(User, blank=True, null=True)
@@ -154,8 +153,8 @@ class SearchModel(models.Model):
         set_names_ctx = Context.objects.all()
         for c in set_names_ctx:
             if self.name == c.name:
-                raise ValidationError("Un modèle de recherche ne peut avoir le même nom qu'un contexte d'indexation.")
-
+                raise ValidationError("Un modèle de recherche ne peut avoir "
+                                      "le même nom qu'un contexte d'indexation.")
         super().save(*args, **kwargs)
 
 
@@ -176,13 +175,12 @@ class Task(models.Model):
 def on_save_source(sender, instance, *args, **kwargs):
 
     def create_resources(instance, tsk):
-
         try:
             for res in instance.src.get_resources():
                 resource = Resource.objects.create(source=instance, name=res.name, columns=res.columns)
                 resource.set_rsrc(res)
             tsk.success = True
-            tsk.description = ""
+            tsk.description = "Les ressources ont été créées avec succès. "
         except Exception as err:
             tsk.success = False
             tsk.description = str(err)  # TODO
@@ -193,10 +191,9 @@ def on_save_source(sender, instance, *args, **kwargs):
     description = "Création des ressources en cours. " \
                   "Cette opération peut prendre plusieurs minutes. "
 
-    tsk = Task.objects.create(model_type="source",
-                              user=instance.user,
-                              model_type_id=instance.id,
-                              description=description)
+    tsk = Task.objects.create(
+                    model_type="source", user=instance.user,
+                    model_type_id=instance.id, description=description)
 
     thread = Thread(target=create_resources, args=(instance, tsk))
     thread.start()
@@ -204,4 +201,5 @@ def on_save_source(sender, instance, *args, **kwargs):
 
 @receiver(post_delete, sender=Context)
 def on_delete_context(sender, instance, *args, **kwargs):
+    Task.objects.filter(model_type_id=instance.pk, model_type="context").delete()
     elastic_conn.delete_index_by_alias(instance.name)

@@ -314,8 +314,9 @@ class ContextIDTaskView(View):
             return user
         ctx_id = literal_eval(id)
 
-        set = Task.objects.filter(
-                        model_type="context", model_type_id=ctx_id, user=user())
+        set = Task.objects.filter(model_type="context",
+                                  model_type_id=ctx_id,
+                                  user=user()).order_by("-start_date")
 
         data = [utils.format_task(tsk) for tsk in set]
 
@@ -713,19 +714,24 @@ class ActionView(View):
         tsk = Task.objects.create(model_type="context", description=description,
                                   user=user(), model_type_id=ctx.pk)
 
-        def on_index_success():
+        def on_index_error(description):
+            print('ERROR:', description)
+
+        def on_index_success(description):
             tsk.success = True
             tsk.stop_date = timezone.now()
-            tsk.description = ""
+            tsk.description = description
             tsk.save()
 
-        def on_index_failure(err):
+        def on_index_failure(description):
             tsk.success = False
             tsk.stop_date = timezone.now()
-            tsk.description = str(err)
+            tsk.description = description
             tsk.save()
 
-        opts.update({"succeed": on_index_success, "failed": on_index_failure})
+        opts.update({"error": on_index_error,
+                     "failed": on_index_failure,
+                     "succeed": on_index_success})
 
         elastic_conn.create_or_replace_index(str(uuid4())[0:7],  # Un UUID comme nom d'index
                                              ctx.name,  # Alias de l'index
