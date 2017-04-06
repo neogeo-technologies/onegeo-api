@@ -827,7 +827,7 @@ class SearchModelView(View):
 
         status = created and 201 or 409
         if created:
-            search_model.context.clear()
+
             ctx_clt = []
             if len(ctx) > 0:
                 ctx_l = []
@@ -838,10 +838,13 @@ class SearchModelView(View):
                     except Context.DoesNotExist:
                         return JsonResponse({"error": "Echec de création du modèle de recherche. La liste de contexte est erronée. "},
                                             status=400)
-                    except utils.MultiTaskError as err:
-                        return JsonResponse({"error": err.message}, status=423)
+                    except utils.MultiTaskError:
+                            return JsonResponse({"error": """Une autre tâche est en cours d'exécution.
+                                Veuillez réessayer plus tard. """}, status=423)
                     else:
                         ctx_l.append(ctx)
+
+                search_model.context.clear()
                 search_model.context.set(ctx_l)
 
             response = JsonResponse(data={}, status=status)
@@ -902,7 +905,7 @@ class SearchModelIDView(View):
 
             sm = get_object_or_404(SearchModel, name=name) #get object pour sm.context.set
 
-            sm.context.clear()
+
             ctx_l = []
             for c in ctx_clt:
                 try:
@@ -912,12 +915,14 @@ class SearchModelIDView(View):
                     return JsonResponse(
                         {"error": "Echec de la modification du model de recherche: La liste de contexte est erronée"},
                         status=400)
-                except utils.MultiTaskError as err:
-                    return JsonResponse({"error": err.message}, status=423)
+                except utils.MultiTaskError:
+                    return JsonResponse({"error": """Une autre tâche est en cours d'exécution.
+                                Veuillez réessayer plus tard. """}, status=423)
                 else:
                     ctx_l.append(ctx)
-            sm.context.set(ctx_l)
 
+            sm.context.clear()
+            sm.context.set(ctx_l)
             search_model.update(config=config)
             status = 204
             data = {}
