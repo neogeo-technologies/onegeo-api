@@ -19,14 +19,14 @@ from .elasticsearch_wrapper import elastic_conn
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
-def retrieve(b):
-    p = Path(b.startswith("file://") and b[7:] or b)
-    if not p.exists():
-        raise ConnectionError("Given path does not exist.")
-    return [x.as_uri() for x in p.iterdir() if x.is_dir()]
+def does_file_uri_exist(uri):
 
+    def retrieve(b):
+        p = Path(b.startswith("file://") and b[7:] or b)
+        if not p.exists():
+            raise ConnectionError("Given path does not exist.")
+        return [x.as_uri() for x in p.iterdir() if x.is_dir()]
 
-def does_uri_exist(uri):
     p = Path(uri.startswith("file://") and uri[7:] or uri)
     if not p.exists():
         return False
@@ -36,10 +36,9 @@ def does_uri_exist(uri):
 
 class Source(models.Model):
 
-    MODE_L = (
-        ("geonet", "API de recherche GeoNetWork"),
-        ("pdf", "Répertoire contenant des fichiers PDF"),
-        ("wfs", "Service OGC:WFS"),)
+    MODE_L = (("geonet", "API de recherche GeoNetWork"),
+              ("pdf", "Répertoire contenant des fichiers PDF"),
+              ("wfs", "Service OGC:WFS"))
 
     user = models.ForeignKey(User)
     uri = models.CharField("URI", max_length=2048, unique=True)
@@ -52,7 +51,7 @@ class Source(models.Model):
 
     def save(self, *args, **kwargs):
 
-        if self.mode == 'pdf' and not does_uri_exist(self.uri):
+        if self.mode == 'pdf' and not does_file_uri_exist(str(self.uri)):
             raise Exception()  # TODO
         self.__src = OnegeoSource(self.uri, self.name, self.mode)
 
@@ -69,7 +68,7 @@ class Source(models.Model):
     @property
     def s_uri(self):
         if self.mode == "pdf":
-            dir_name = search("(\S+)\/(\S+)", self.uri)
+            dir_name = search("(\S+)/(\S+)", str(self.uri))
             return "file:///{}".format(dir_name.group(2))
         return self.uri
 
@@ -125,20 +124,20 @@ class Filter(models.Model):
     reserved = models.BooleanField("Reserved", default=False)
 
 
+class Tokenizer(models.Model):
+
+    name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
+    user = models.ForeignKey(User, blank=True, null=True)
+    config = JSONField("Config", blank=True, null=True)
+    reserved = models.BooleanField("Reserved", default=False)
+
+
 class Analyzer(models.Model):
 
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
     user = models.ForeignKey(User, blank=True, null=True)
     filter = models.ManyToManyField(Filter, blank=True)
     tokenizer = models.ForeignKey("Tokenizer", blank=True, null=True)
-    reserved = models.BooleanField("Reserved", default=False)
-
-
-class Tokenizer(models.Model):
-
-    name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
-    user = models.ForeignKey(User, blank=True, null=True)
-    config = JSONField("Config", blank=True, null=True)
     reserved = models.BooleanField("Reserved", default=False)
 
 
@@ -171,13 +170,24 @@ class Task(models.Model):
     description = models.CharField("Description", max_length=250)
 
 
+# SIGNALS
+# =======
+
+
+@receiver(post_delete, sender=Context)
+def on_delete_context(sender, instance, *args, **kwargs):
+    Task.objects.filter(model_type_id=instance.pk, model_type="context").delete()
+    elastic_conn.delete_index_by_alias(instance.name)
+
+
 @receiver(post_save, sender=Source)
 def on_save_source(sender, instance, *args, **kwargs):
 
     def create_resources(instance, tsk):
         try:
             for res in instance.src.get_resources():
-                resource = Resource.objects.create(source=instance, name=res.name, columns=res.columns)
+                resource = Resource.objects.create(
+                            source=instance, name=res.name, columns=res.columns)
                 resource.set_rsrc(res)
             tsk.success = True
             tsk.description = "Les ressources ont été créées avec succès. "
@@ -188,8 +198,8 @@ def on_save_source(sender, instance, *args, **kwargs):
             tsk.stop_date = timezone.now()
             tsk.save()
 
-    description = "Création des ressources en cours. " \
-                  "Cette opération peut prendre plusieurs minutes. "
+    description = ("Création des ressources en cours. "
+                   "Cette opération peut prendre plusieurs minutes. ")
 
     tsk = Task.objects.create(
                     model_type="source", user=instance.user,
@@ -197,9 +207,3 @@ def on_save_source(sender, instance, *args, **kwargs):
 
     thread = Thread(target=create_resources, args=(instance, tsk))
     thread.start()
-
-
-@receiver(post_delete, sender=Context)
-def on_delete_context(sender, instance, *args, **kwargs):
-    Task.objects.filter(model_type_id=instance.pk, model_type="context").delete()
-    elastic_conn.delete_index_by_alias(instance.name)
