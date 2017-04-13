@@ -51,14 +51,14 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn.ingest.put_pipeline(id=id, body=body)
 
     def create_or_replace_index(self, index, name, doc_type, body,
-                                collections=None, pipeline=None,
+                                collections=None, pipeline=None, parent=None,
                                 succeed=None, failed=None, error=None):
 
         def rebuild(index, name, doc_type, collections, pipeline,
-                    succeed=None, failed=None, error=error):
+                    parent=None, succeed=None, failed=None, error=error):
 
             self.push_document(index, name, doc_type, collections, pipeline,
-                               succeed=succeed, failed=failed, error=error)
+                               parent=parent, succeed=succeed, failed=failed, error=error)
 
         try:
             self.conn.indices.create(index=index, body=body)
@@ -66,7 +66,7 @@ class ElasticWrapper(metaclass=Singleton):
             raise err
 
         if collections:
-            rebuild(index, name, doc_type, collections, pipeline,
+            rebuild(index, name, doc_type, collections, pipeline, parent=parent,
                     succeed=succeed, failed=failed, error=error)
         else:
             raise Exception('TODO')
@@ -82,47 +82,48 @@ class ElasticWrapper(metaclass=Singleton):
             self.delete_index(index)
 
     def push_document(self, index, name, doc_type, collections, pipeline,
-                      succeed=None, failed=None, error=None):
+                      parent=None, succeed=None, failed=None, error=None):
 
         def target(index, name, doc_type, collections, pipeline,
-                   succeed=None, failed=None, error=None):
+                   parent=None, succeed=None, failed=None, error=None):
 
             count = 0
-            try:
-                for document in collections:
-                    params = {'body': document, 'doc_type': doc_type,
-                              'id': str(uuid4())[0:7], 'index': index}
-                    if pipeline is not None:
-                        params.update({'pipeline': pipeline})
-                    try:
-                        self.conn.index(**params)
-                    except ElasticExceptions.SerializationError as err:
-                        error(str(err))
-                        continue
-                    except Exception as err:
-                        self.delete_index(index)
-                        return failed(str(err))
-                    else:
-                        count += 1
+            for document in collections:
+                params = {'body': document, 'doc_type': doc_type,
+                          'id': str(uuid4())[0:7], 'index': index}
+
+                if parent:
+                    params['parent'] = parent
+                if pipeline is not None:
+                    params.update({'pipeline': pipeline})
+                try:
+                    self.conn.index(**params)
+                except ElasticExceptions.SerializationError as err:
+                    error(str(err))
+                    continue
+                except ElasticExceptions.TransportError as err:
+                    continue
+                except Exception as err:
+                    self.delete_index(index)
+                    return failed(str(err))
                 else:
-                    self.switch_aliases(index, name)
+                    count += 1
+            else:
+                self.switch_aliases(index, name)
 
-                    if count == 0:
-                        msg = 'Aucun document à indexer. '
-                    if count == 1:
-                        msg = '1 document a été indexé avec succès. '
-                    if count > 1:
-                        msg = '{0} documents ont été indexés avec succès. '.format(count)
+                if count == 0:
+                    msg = 'Aucun document à indexer. '
+                if count == 1:
+                    msg = '1 document a été indexé avec succès. '
+                if count > 1:
+                    msg = '{0} documents ont été indexés avec succès. '.format(count)
 
-                    return succeed(msg)
+                return succeed(msg)
 
-            except Exception as err:
-                self.delete_index(index)
-                return failed(str(err))
 
         thread = Thread(target=target,
                         args=(index, name, doc_type, collections, pipeline),
-                        kwargs={'succeed': succeed, 'failed': failed, 'error': error})
+                        kwargs={'parent': parent, 'succeed': succeed, 'failed': failed, 'error': error})
         thread.start()
 
     def switch_aliases(self, index, name):
@@ -173,9 +174,6 @@ class ElasticWrapper(metaclass=Singleton):
         return aliases
 
     def update_aliases(self, body):
-
-        print(body)
-
         try:
             self.conn.indices.update_aliases(body=body)
         except ElasticExceptions.RequestError as err:

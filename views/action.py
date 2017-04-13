@@ -18,7 +18,14 @@ from ..models import Context, Filter, Analyzer, Task
 
 __all__ = ["ActionView"]
 
+
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
+
+
+def iter_flt_from_anl(anl_name):
+    AnalyserFilters = Analyzer.filter.through
+    set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by("id")
+    return [s.filter.name for s in set if s.filter.name is not None]
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -47,7 +54,7 @@ class ActionView(View):
                 if tokenizer.config:
                     analysis['tokenizer'][tokenizer.name] = tokenizer.config
 
-            filters_name = utils.iter_flt_from_anl(analyzer.name)
+            filters_name = iter_flt_from_anl(analyzer.name)
 
             for filter_name in iter(filters_name):
                 filter = Filter.objects.get(name=filter_name)
@@ -90,6 +97,13 @@ class ActionView(View):
 
         action = data["type"]
 
+
+        parent = "parent" in data and data["parent"] or None
+        # index = None
+        # parent = 'dataset'
+        # if parent:
+        #     index = elastic_conn.get_indices_by_alias(parent)[0]
+
         rscr = ctx.resource
         src = rscr.source
 
@@ -121,7 +135,7 @@ class ActionView(View):
         if action == "reindex":
             pass  # Action par défaut
 
-        body = {'mappings': onegeo_context.generate_elastic_mapping(),
+        body = {'mappings': onegeo_context.generate_elastic_mapping(parent=parent),
                 'settings': {
                     'analysis': self._retreive_analysis(
                         self._retreive_analyzers(onegeo_context))}}
@@ -153,7 +167,7 @@ class ActionView(View):
                      "succeed": on_index_success})
 
         elastic_conn.create_or_replace_index(
-                    index_uuid, ctx.name, ctx.name, body, **opts)
+                    index_uuid, ctx.name, ctx.name, body, parent=parent, **opts)
 
         status = 202
         data = {"message": tsk.description}

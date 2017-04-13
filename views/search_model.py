@@ -13,6 +13,7 @@ from ..exceptions import JsonError, MultiTaskError
 from ..models import Context, SearchModel, Task
 
 
+
 __all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
 
 
@@ -129,7 +130,8 @@ class SearchModelView(View):
         if created is True:
             search_model.context.set(contexts)
             search_model.save()
-            refresh_search_model(name, contexts_params)
+            if len(contexts_params) > 0:
+                refresh_search_model(name, contexts_params)
             response = JsonResponse(data={}, status=201)
             response['Location'] = '{0}{1}'.format(request.build_absolute_uri(), search_model.name)
             return response
@@ -199,7 +201,8 @@ class SearchModelIDView(View):
         search_model.config = config
         search_model.save()
 
-        refresh_search_model(name, contexts_params)
+        if len(contexts_params) > 0:
+            refresh_search_model(name, contexts_params)
 
         return JsonResponse({}, status=204)
 
@@ -212,8 +215,38 @@ class SearchModelIDView(View):
         return utils.delete_func(name, user(), SearchModel)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(csrf_exempt, name='dispatch')
 class SearchView(View):
+
+    def get(self, request, name):
+
+        user = utils.get_user_or_401(request)
+        if isinstance(user, HttpResponse):
+            return user
+
+        search_model = get_object_or_404(SearchModel, name=name)
+        if not search_model.user == user():
+            return JsonResponse({
+                        'error':
+                            "Modification du modèle de recherche impossible. "
+                            "Son usage est réservé."}, status=403)
+
+        params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
+
+        if 'mode' in params and params['mode'] == 'throw':
+            return JsonResponse(data={'error': 'Not implemented.'}, status=501)
+        # else:
+
+        try:
+            from importlib import import_module
+            ext = import_module('...extensions.{0}'.format(name), __name__)
+        except ImportError:
+            from ..extensions import default as ext
+
+        plugin = ext.plugin()
+        body = plugin.input(search_model.config, **params)
+        print(body)
+        return plugin.output(elastic_conn.search(index=name, body=body))
 
     def post(self, request, name):
 
@@ -224,20 +257,16 @@ class SearchView(View):
         search_model = get_object_or_404(SearchModel, name=name)
         if not search_model.user == user():
             return JsonResponse({
-                        "error":
+                        'error':
                             "Modification du modèle de recherche impossible. "
                             "Son usage est réservé."}, status=403)
 
-        data = request.body.decode("utf-8")
+        body = request.body.decode('utf-8')
+        if not body:
+            body = None
 
-        mode = get_param(request, "mode")
-        if mode == "throw":
-            data = elastic_conn.search(index=name, body=data)
-            if data:
-                return JsonResponse(data=data, safe=False, status=200)
-
-
+        if get_param(request, 'mode') == 'throw':
+            data = elastic_conn.search(index=name, body=body)
+            return JsonResponse(data=data, safe=False, status=200)
         else:
-
-             return JsonResponse(data={}, safe=False, status=501)
-
+            return JsonResponse(data={'error': 'Not implemented.'}, status=501)
