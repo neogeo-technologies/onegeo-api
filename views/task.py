@@ -10,7 +10,6 @@ from ..models import Task
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_406 = "Le format demandé n'est pas pris en charge. "
 
 
 __all__ = ["TaskView", "TaskIDView"]
@@ -24,7 +23,6 @@ class TaskView(View):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-
         return JsonResponse(utils.get_objects(user(), Task), safe=False)
 
 

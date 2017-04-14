@@ -1,7 +1,27 @@
-from abc import ABCMeta, abstractmethod
-from functools import partial
+from abc import ABCMeta
+from functools import partial, wraps
 from json import dumps, loads
 from re import sub
+
+
+def format_elasticsearch_response(f):
+
+    @wraps(f)
+    def wrapper(self, data, **params):
+
+        results = []
+        for hit in data['hits']['hits']:
+            results.append({
+                'id': '_id' in hit and hit['_id'] or None,
+                'score': '_score' in hit and hit['_score'] or None,
+                'context': '_type' in hit and hit['_type'] or None,
+                'content': '_source' in hit and hit['_source'] or None})
+
+        response = {'results': results}
+
+        return f(self, response, **params)
+
+    return wrapper
 
 
 class AbstractPlugin(metaclass=ABCMeta):
@@ -24,8 +44,6 @@ class AbstractPlugin(metaclass=ABCMeta):
 
         return loads(str_json)
 
-    @abstractmethod
-    def output(self, *args, **kwargs):
-        raise NotImplementedError('This is an abstract method. '
-                                  "You can't do anything with it.")
-
+    @format_elasticsearch_response
+    def output(self, data, **params):
+        return data

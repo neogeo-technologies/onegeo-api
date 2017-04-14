@@ -245,8 +245,13 @@ class SearchView(View):
 
         plugin = ext.plugin()
         body = plugin.input(search_model.config, **params)
-        print(body)
-        return plugin.output(elastic_conn.search(index=name, body=body))
+
+        try:
+            res = elastic_conn.search(index=name, body=body)
+        except Exception as err:
+            return JsonResponse({"error": str(err)}, status=400)
+        else:
+            return plugin.output(res)
 
     def post(self, request, name):
 

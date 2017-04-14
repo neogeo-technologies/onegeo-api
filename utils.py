@@ -122,7 +122,7 @@ def get_objects(user, mdl, src_id=None):
             l.append(format_search_model(sm))
 
     if mdl is Task:
-        task = Task.objects.filter(Q(user=user) | Q(user=None))
+        task = Task.objects.filter(Q(user=user) | Q(user=None)).order_by("-start_date")
         for tsk in task:
             l.append(format_task(tsk))
 

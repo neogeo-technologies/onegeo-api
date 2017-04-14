@@ -85,11 +85,12 @@ class ContextView(View):
 
         onegeo_source = OnegeoSource(set_src.uri, name, set_src.mode)
         onegeo_resource = OnegeoResource(onegeo_source, set_rscr.name)
-        for column in iter(set_rscr.columns):
-            if onegeo_resource.is_existing_column(column["name"]):
+        for col in iter(set_rscr.columns):
+            if onegeo_resource.is_existing_column(col["name"]):
                 continue
-            onegeo_resource.add_column(column["name"], column_type=column["type"],
-                                       occurs=tuple(column["occurs"]), count=column["count"])
+            onegeo_resource.add_column(
+                            col["name"], column_type=col["type"],
+                            occurs=tuple(col["occurs"]), count=col["count"])
 
         onegeo_index = OnegeoIndex(set_rscr.name)
         onegeo_context = OnegeoContext(name, onegeo_index, onegeo_resource)
@@ -121,7 +122,6 @@ class ContextIDView(View):
 
         return JsonResponse(utils.get_object_id(user(), ctx_id, Context),
                             safe=False, status=200)
-
 
     def put(self, request, id):
         user = utils.get_user_or_401(request)
@@ -159,19 +159,14 @@ class ContextIDView(View):
         list_ppt = context.clmn_properties
         ppt_update = check_columns(list_ppt, list_ppt_clt)
 
+        context.resource = set_rscr
+        context.name = name
+        context.clmn_properties = ppt_update
         if reindex_frequency:
-            context.resource = set_rscr
-            context.name = name
-            context.clmn_properties = ppt_update
             context.reindex_frequency = reindex_frequency
-            context.save()
-        else:
-            context.resource = set_rscr
-            context.name = name
-            context.clmn_properties = ppt_update
-            context.save()
+        context.save()
 
-        return JsonResponse(data={}, status=200)
+        return JsonResponse(data={}, status=204)
 
     def delete(self, request, id):
         user = utils.get_user_or_401(request)

@@ -7,8 +7,8 @@ class Plugin(AbstractPlugin):
     def input(self, config, **params):
         return super().input(config, **params)
 
-    def output(self, data):
-        return JsonResponse(data)
+    def output(self, data, **params):
+        return JsonResponse(super().output(data, **params))
 
 
 plugin = Plugin

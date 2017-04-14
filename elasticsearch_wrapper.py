@@ -180,7 +180,11 @@ class ElasticWrapper(metaclass=Singleton):
             raise ValueError(str(err))
 
     def search(self, index, body):
-        return self.conn.search(index=index, body=body)
+        try:
+            return self.conn.search(index=index, body=body)
+        except Exception as err:
+            # TODO: gérer les exceptions
+            raise Exception(str(err))
 
 
 elastic_conn = ElasticWrapper()
