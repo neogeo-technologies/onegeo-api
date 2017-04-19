@@ -97,13 +97,6 @@ class ActionView(View):
 
         action = data["type"]
 
-
-        parent = "parent" in data and data["parent"] or None
-        # index = None
-        # parent = 'dataset'
-        # if parent:
-        #     index = elastic_conn.get_indices_by_alias(parent)[0]
-
         rscr = ctx.resource
         src = rscr.source
 
@@ -135,7 +128,7 @@ class ActionView(View):
         if action == "reindex":
             pass  # Action par défaut
 
-        body = {'mappings': onegeo_context.generate_elastic_mapping(parent=parent),
+        body = {'mappings': onegeo_context.generate_elastic_mapping(),
                 'settings': {
                     'analysis': self._retreive_analysis(
                         self._retreive_analyzers(onegeo_context))}}
@@ -167,7 +160,7 @@ class ActionView(View):
                      "succeed": on_index_success})
 
         elastic_conn.create_or_replace_index(
-                    index_uuid, ctx.name, ctx.name, body, parent=parent, **opts)
+                    index_uuid, ctx.name, ctx.name, body, **opts)
 
         status = 202
         data = {"message": tsk.description}

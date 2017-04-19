@@ -35,7 +35,7 @@ class ElasticWrapper(metaclass=Singleton):
         body = {'description': 'Pdf',
                 'processors': [{
                     'attachment': {
-                        'field': 'data',
+                        'field': 'raw_data',
                         'ignore_missing': True,
                         'indexed_chars': -1,
                         'properties': [
@@ -51,14 +51,14 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn.ingest.put_pipeline(id=id, body=body)
 
     def create_or_replace_index(self, index, name, doc_type, body,
-                                collections=None, pipeline=None, parent=None,
+                                collections=None, pipeline=None,
                                 succeed=None, failed=None, error=None):
 
         def rebuild(index, name, doc_type, collections, pipeline,
-                    parent=None, succeed=None, failed=None, error=error):
+                    succeed=None, failed=None, error=error):
 
             self.push_document(index, name, doc_type, collections, pipeline,
-                               parent=parent, succeed=succeed, failed=failed, error=error)
+                               succeed=succeed, failed=failed, error=error)
 
         try:
             self.conn.indices.create(index=index, body=body)
@@ -66,7 +66,7 @@ class ElasticWrapper(metaclass=Singleton):
             raise err
 
         if collections:
-            rebuild(index, name, doc_type, collections, pipeline, parent=parent,
+            rebuild(index, name, doc_type, collections, pipeline,
                     succeed=succeed, failed=failed, error=error)
         else:
             raise Exception('TODO')
@@ -82,18 +82,16 @@ class ElasticWrapper(metaclass=Singleton):
             self.delete_index(index)
 
     def push_document(self, index, name, doc_type, collections, pipeline,
-                      parent=None, succeed=None, failed=None, error=None):
+                      succeed=None, failed=None, error=None):
 
         def target(index, name, doc_type, collections, pipeline,
-                   parent=None, succeed=None, failed=None, error=None):
+                   succeed=None, failed=None, error=None):
 
             count = 0
             for document in collections:
                 params = {'body': document, 'doc_type': doc_type,
                           'id': str(uuid4())[0:7], 'index': index}
 
-                if parent:
-                    params['parent'] = parent
                 if pipeline is not None:
                     params.update({'pipeline': pipeline})
                 try:
@@ -123,7 +121,7 @@ class ElasticWrapper(metaclass=Singleton):
 
         thread = Thread(target=target,
                         args=(index, name, doc_type, collections, pipeline),
-                        kwargs={'parent': parent, 'succeed': succeed, 'failed': failed, 'error': error})
+                        kwargs={'succeed': succeed, 'failed': failed, 'error': error})
         thread.start()
 
     def switch_aliases(self, index, name):

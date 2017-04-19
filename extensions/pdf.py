@@ -1,4 +1,5 @@
 from . import AbstractPlugin
+from ..utils import clean_my_obj
 from django.http import JsonResponse
 
 
@@ -8,49 +9,53 @@ from django.http import JsonResponse
     "size": "%size%",
     "query": {
         "bool": {
-            "must": {
-                "match": {
+            "should": {
+                "match_phrase": {
                     "attachment.content": {
-                        "query": "%txt%",
-                        "minimum_should_match": "75%",
-                        "fuzziness": "auto"
+                        "slop": 6,
+                        "query": "%text%"
                     }
                 }
             },
             "filter": [],
-            "should": {
-                "match_phrase": {
+            "must": {
+                "match": {
                     "attachment.content": {
-                        "query": "%txt%",
-                        "slop": 6
+                        "fuzziness": "auto",
+                        "minimum_should_match": "75%",
+                        "query": "%text%"
                     }
                 }
             }
         }
     },
     "highlight": {
-        "require_field_match": false,
         "fields": {
-            "attachment.content": {
-                "type": "plain",
+            "properties.*": {
                 "pre_tags": [
                     "<strong>"
                 ],
                 "post_tags": [
                     "</strong>"
-                ]
+                ],
+                "type": "plain"
             },
-            "meta.*": {
-                "type": "plain",
+            "attachment.content": {
                 "pre_tags": [
                     "<strong>"
                 ],
                 "post_tags": [
                     "</strong>"
-                ]
+                ],
+                "type": "plain"
             }
-        }
-    }
+        },
+        "require_field_match": false
+    },
+    "_source": [
+        "properties",
+        "origin"
+    ]
 }
 """
 
@@ -60,8 +65,8 @@ class Plugin(AbstractPlugin):
     def input(self, config, **params):
         return super().input(config, **params)
 
-    def output(self, data):
-        return JsonResponse(data)
+    def output(self, data, **params):
+        return JsonResponse(clean_my_obj(super().output(data, **params)))
 
 
 plugin = Plugin

@@ -11,13 +11,23 @@ def format_elasticsearch_response(f):
 
         results = []
         for hit in data['hits']['hits']:
-            results.append({
-                'id': '_id' in hit and hit['_id'] or None,
-                'score': '_score' in hit and hit['_score'] or None,
-                'context': '_type' in hit and hit['_type'] or None,
-                'content': '_source' in hit and hit['_source'] or None})
 
-        response = {'results': results}
+            d1 = {'id': '_id' in hit and hit['_id'] or None,
+                  'score': '_score' in hit and hit['_score'] or None,
+                  'index': '_type' in hit and hit['_type'] or None}
+
+            if 'highlight' in hit and hit['highlight']:
+                d1['highlight'] = hit['highlight']
+
+            d2 = dict((k, v) for k, v in hit['_source'].items())
+
+            results.append({**d1, **d2})
+
+        response = {'results': results,
+                    'total': data['hits']['total']}
+
+        if 'aggregations' in data:
+            response['aggregations'] = data['aggregations']
 
         return f(self, response, **params)
 
@@ -39,8 +49,8 @@ class AbstractPlugin(metaclass=ABCMeta):
         def evaluate(match):
             return str(eval(match.group(1)))
 
-        str_json = sub(
-                '\"\%\s*((\d+\s*[-+]?\s*)+)\%\"', partial(evaluate), str_json)
+        str_json = sub('\"\%\s*((\d+\s*[-+\*/]?\s*)+)\%\"',
+                       partial(evaluate), str_json)
 
         return loads(str_json)
 

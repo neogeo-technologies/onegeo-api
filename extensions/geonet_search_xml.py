@@ -47,8 +47,8 @@ def format_parameter(dct, key, typ):
 
 class Plugin(AbstractPlugin):
 
-    FROMTO = (0, 10)
     INDEX = 'geonet'
+    FROMTO = (0, 10)
 
     def __init__(self):
         super().__init__()
@@ -90,7 +90,7 @@ class Plugin(AbstractPlugin):
     def input(self, config, **params):
 
         if 'fast' in params:
-            self.__fast = (params['fast'] == 'true')
+            self._fast = (params['fast'] == 'true')
 
         self._type = format_parameter(params, 'type', str) or None
 
@@ -130,7 +130,7 @@ class Plugin(AbstractPlugin):
                 raise Exception('TODO')  # TODO
 
             data = res['hits']['hits'][0]['_source']['data']
-            if self.__fast:
+            if self._fast:
                 metadata.append({'info': data['info']})
             else:
                 metadata.append(data)
