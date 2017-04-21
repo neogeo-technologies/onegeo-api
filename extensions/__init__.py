@@ -1,17 +1,47 @@
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
+from django.http import JsonResponse
 from functools import partial, wraps
 from json import dumps, loads
 from re import sub
 
 
-def format_elasticsearch_response(f):
+def input_parser(f):
 
     @wraps(f)
-    def wrapper(self, data, **params):
+    def wrapper(self, config, **params):
+        config = dumps(config)
+
+        for k, v in params.items():
+            config = config.replace('{{%{0}%}}'.format(k), v)
+            config = sub('\"\{\%\s*((\d+\s*[-+\*/]?\s*)+)\%\}\"',
+                       partial(lambda m: str(eval(m.group(1)))), config)
+
+        return f(self, loads(config), **params)
+    return wrapper
+
+
+class AbstractPlugin(metaclass=ABCMeta):
+
+    @abstractmethod
+    def input(self, config, **params):
+        raise NotImplementedError('This is an abstract method. '
+                                  "You can't do anything with it.")
+
+    @abstractmethod
+    def output(self, data, **params):
+        raise NotImplementedError('This is an abstract method. '
+                                  "You can't do anything with it.")
+
+
+class Plugin(AbstractPlugin):
+
+    def input(self, config, **params):
+        return super().input(config, **params)
+
+    def output(self, data, **params):
 
         results = []
         for hit in data['hits']['hits']:
-
             d1 = {'id': '_id' in hit and hit['_id'] or None,
                   'score': '_score' in hit and hit['_score'] or None,
                   'index': '_type' in hit and hit['_type'] or None}
@@ -29,31 +59,7 @@ def format_elasticsearch_response(f):
         if 'aggregations' in data:
             response['aggregations'] = data['aggregations']
 
-        return f(self, response, **params)
-
-    return wrapper
+        return JsonResponse(response)
 
 
-class AbstractPlugin(metaclass=ABCMeta):
-
-    def input(self, config, **params):
-
-        if not config:
-            return {'query': {'match_all': {}}}
-
-        str_json = dumps(config)
-
-        for k, v in params.items():
-            str_json = str_json.replace('%{0}%'.format(k), v)
-
-        def evaluate(match):
-            return str(eval(match.group(1)))
-
-        str_json = sub('\"\%\s*((\d+\s*[-+\*/]?\s*)+)\%\"',
-                       partial(evaluate), str_json)
-
-        return loads(str_json)
-
-    @format_elasticsearch_response
-    def output(self, data, **params):
-        return data
+plugin = Plugin

@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from importlib import import_module
 
 from .. import utils
 from ..elasticsearch_wrapper import elastic_conn
@@ -238,10 +239,9 @@ class SearchView(View):
         # else:
 
         try:
-            from importlib import import_module
             ext = import_module('...extensions.{0}'.format(name), __name__)
         except ImportError:
-            from ..extensions import default as ext
+            ext = import_module('...extensions.__init__', __name__)
 
         plugin = ext.plugin()
         body = plugin.input(search_model.config, **params)
