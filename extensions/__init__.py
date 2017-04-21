@@ -13,8 +13,9 @@ def input_parser(f):
 
         for k, v in params.items():
             config = config.replace('{{%{0}%}}'.format(k), v)
-            config = sub('\"\{\%\s*((\d+\s*[-+\*/]?\s*)+)\%\}\"',
-                       partial(lambda m: str(eval(m.group(1)))), config)
+
+        config = sub('\"\{\%\s*((\d+\s*[-+\*/]?\s*)+)\%\}\"',
+                     partial(lambda m: str(eval(m.group(1)))), config)
 
         return f(self, loads(config), **params)
     return wrapper
@@ -35,10 +36,14 @@ class AbstractPlugin(metaclass=ABCMeta):
 
 class Plugin(AbstractPlugin):
 
+    @input_parser
     def input(self, config, **params):
-        return super().input(config, **params)
+        if not config or not params:
+            return {'query': {'match_all': {}}}
+        return config
 
     def output(self, data, **params):
+        return JsonResponse(data)
 
         results = []
         for hit in data['hits']['hits']:
