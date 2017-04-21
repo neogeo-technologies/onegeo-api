@@ -43,7 +43,6 @@ class Plugin(AbstractPlugin):
         return config
 
     def output(self, data, **params):
-        return JsonResponse(data)
 
         results = []
         for hit in data['hits']['hits']:
