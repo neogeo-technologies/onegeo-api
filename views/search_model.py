@@ -34,7 +34,7 @@ def search_model_context_task(ctx_id, user):
 
 def get_param(request, param):
     """
-        Retourne la valeur d'une clé param presente dans une requete GET ou POST
+        Retourne la valeur d'une clé param presente dans une requete GET ou POST.
     """
     if request.method == "GET":
         if param in request.GET:
@@ -48,7 +48,9 @@ def get_param(request, param):
 
 
 def refresh_search_model(mdl_name, ctx_name_l):
-    """Mise à jour des aliases dans ElasticSearch. """
+    """
+        Mise à jour des aliases dans ElasticSearch.
+    """
 
     body = {"actions": []}
 
@@ -60,6 +62,129 @@ def refresh_search_model(mdl_name, ctx_name_l):
             body["actions"].append({"add": {"index": index, "alias": mdl_name}})
 
     elastic_conn.update_aliases(body)
+
+
+def read_name_SM(data, method, name_url):
+
+    name = None
+    if method == 'POST':
+        name = utils.read_name(data)
+    elif method == 'PUT':
+        name = (name_url.endswith('/') and name_url[:-1] or name_url)
+    return name
+
+
+def read_params_SM(data):
+
+    items = {"contexts" : [] if ("contexts" not in data) else data["contexts"],
+            "config" : {} if ("config" not in data) else data["config"]
+    }
+    items = utils.clean_my_obj(items)
+    return items["contexts"], items["config"]
+
+
+def get_search_model(name, user_rq, config,  method):
+
+    sm = None
+    error = None
+
+    if method == 'POST':
+        try:
+            sm, created = SearchModel.objects.get_or_create(name=name,
+                                                            default={"user":user_rq,
+                                                                     "config":config})
+
+        except ValidationError as e:
+            error = JsonResponse({"error": e.message}, status=409)
+        if created is False:
+            error = JsonResponse(data={"error": "Conflict"}, status=409)
+
+    elif method == 'PUT':
+        try:
+            sm = SearchModel.objects.get(name=name)
+        except SearchModel.DoesNotExist:
+            sm = None
+            error = JsonResponse({
+                        "error":
+                            "Modification du modèle de recherche impossible. "
+                            "Le modèle de recherche '{}' n'existe pas. ".format(name)
+                        }, status=404)
+
+        if not error and sm.user != user_rq:
+            sm = None
+            error = JsonResponse({
+                        "error":
+                            "Modification du modèle de recherche impossible. "
+                            "Son usage est réservé."}, status=403)
+    return sm, error
+
+
+def get_contexts_obj(contexts_clt, user):
+
+    contexts_obj = []
+    for context_name in contexts_clt:
+        try:
+            context = Context.objects.get(name=context_name)
+        except Context.DoesNotExist:
+            raise
+        try:
+            search_model_context_task(context.pk, user)
+        except MultiTaskError:
+            raise
+        contexts_obj.append(context)
+    return contexts_obj
+
+
+def set_search_model_contexts(search_model, contexts_obj, contexts_clt, request, config=None):
+    response = None
+
+    if request.method == "POST":
+        search_model.context.set(contexts_obj)
+        search_model.save()
+        response = JsonResponse(data={}, status=201)
+        response['Location'] = '{0}{1}'.format(request.build_absolute_uri(), search_model.name)
+
+        if len(contexts_clt) > 0:
+            try:
+                refresh_search_model(search_model.name, contexts_clt)
+            except ValueError:
+                response = JsonResponse({
+                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
+                             "(par exemple, car une connexion a été réutilisée)."}, status=421)
+
+    if request.method == "PUT":
+        search_model.context.clear()
+        search_model.context.set(contexts_obj)
+        search_model.config = config
+        search_model.save()
+        response = JsonResponse({}, status=204)
+
+        if len(contexts_clt) > 0:
+            try:
+                refresh_search_model(search_model.name, contexts_clt)
+            except ValueError:
+                response = JsonResponse({
+                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
+                             "(par exemple, car une connexion a été réutilisée)."}, status=421)
+
+    return response
+
+
+def read_request(request, name_url=None):
+
+    user = utils.get_user_or_401(request)
+    error = None
+    contexts_clt = None
+    config_clt = None
+    name = None
+
+    if "application/json" not in request.content_type:
+        error = JsonResponse({"Error": MSG_406}, status=406)
+    else:
+        data = json.loads(request.body.decode("utf-8"))
+        name = read_name_SM(data, request.method, name_url)
+        contexts_clt, config_clt = read_params_SM(data)
+    return user, contexts_clt, config_clt, name, error
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -74,68 +199,36 @@ class SearchModelView(View):
 
     def post(self, request):
 
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
+        # READ REQUEST DATA
+        user, contexts_clt, config_clt, name, error = read_request(request)
+        if error:
+            return error
 
-        if "application/json" not in request.content_type:
-            return JsonResponse({"Error": MSG_406}, status=406)
+        # GET OR CREATE SearchModel
+        search_model, error = get_search_model(name, user(), config_clt, request.method)
+        if error:
+            return error
 
-        data = request.body.decode("utf-8")
-        body_data = json.loads(data)
-
-        name = utils.read_name(body_data)
-        if name is None:
-            return JsonResponse({
-                        "error":
-                            "Echec de création du modèle de recherche. "
-                            "Le nom du modèle de recherche est manquant. "}, status=400)
-
-        if SearchModel.objects.filter(name=name).count() > 0:
-            return JsonResponse({
-                        "error":
-                            "Echec de création du modèle de recherche. "
-                            "Un modèle portant le même nom existe déjà. "}, status=409)
-
-        contexts_params = "contexts" in body_data and body_data["contexts"] or []
-        config = "config" in body_data and body_data["config"] or {}
-
-        contexts = []
-        for context_name in contexts_params:
-            try:
-                context = Context.objects.get(name=context_name)
-            except Context.DoesNotExist:
-                return JsonResponse({
-                    "error":
-                        "Echec de l'enregistrement du model de recherche. "
-                        "La liste de contexte est erronée"}, status=400)
-            try:
-                search_model_context_task(context.pk, user())
-            except MultiTaskError:
-                return JsonResponse({
-                    "error":
-                        "Une autre tâche est en cours d'exécution. "
-                        "Veuillez réessayer plus tard. "}, status=423)
-            contexts.append(context)
-
+        # GET & CHECK CONTEXTS
         try:
-            search_model, created = SearchModel.objects.get_or_create(
-                                        user=user(), config=config, name=name)
+            contexts_obj = get_contexts_obj(contexts_clt, user())
+        except Context.DoesNotExist:
+            return JsonResponse({
+                "error":
+                    "Echec de l'enregistrement du model de recherche. "
+                    "La liste de contexte est erronée"}, status=400)
+        except MultiTaskError:
+            return JsonResponse({
+                "error":
+                    "Une autre tâche est en cours d'exécution. "
+                    "Veuillez réessayer plus tard. "}, status=423)
 
-        except ValidationError as e:
-            return JsonResponse({"error": e.message}, status=409)
-
-        if created is False:
-            return JsonResponse(data={"error": "Conflict"}, status=409)
-
-        if created is True:
-            search_model.context.set(contexts)
-            search_model.save()
-            if len(contexts_params) > 0:
-                refresh_search_model(name, contexts_params)
-            response = JsonResponse(data={}, status=201)
-            response['Location'] = '{0}{1}'.format(request.build_absolute_uri(), search_model.name)
-            return response
+        # RETURN RESPONSE
+        return set_search_model_contexts(search_model,
+                                         contexts_obj,
+                                         contexts_clt,
+                                         request,
+                                         config=None)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -153,63 +246,35 @@ class SearchModelIDView(View):
         return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
 
     def put(self, request, name):
+        # READ REQUEST DATA
+        user, contexts_clt, config_clt, name, error = read_request(request, name_url=name)
+        if error:
+            return error
 
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
+        # GET SearchModel
+        search_model, error = get_search_model(name, user(), config_clt, request.method)
+        if error:
+            return error
 
-        if "application/json" not in request.content_type:
-            return JsonResponse({"Error": MSG_406}, status=406)
-
-        data = request.body.decode("utf-8")
-        body_data = json.loads(data)
-
-        name = (name.endswith('/') and name[:-1] or name)
-
-        contexts_params = "contexts" in body_data and body_data["contexts"] or []
-        config = "config" in body_data and body_data["config"] or {}
-
-        search_model = get_object_or_404(SearchModel, name=name)
-        if not search_model.user == user():
+        try:
+            contexts_obj = get_contexts_obj(contexts_clt, user())
+        except Context.DoesNotExist:
             return JsonResponse({
-                        "error":
-                            "Modification du modèle de recherche impossible. "
-                            "Son usage est réservé."}, status=403)
+                "error":
+                    "Echec de l'enregistrement du model de recherche. "
+                    "La liste de contexte est erronée"}, status=400)
+        except MultiTaskError:
+            return JsonResponse({
+                "error":
+                    "Une autre tâche est en cours d'exécution. "
+                    "Veuillez réessayer plus tard. "}, status=423)
 
-        contexts = []
-        for context_name in contexts_params:
-
-            try:
-                context = Context.objects.get(name=context_name)
-            except Context.DoesNotExist:
-                return JsonResponse({
-                        "error":
-                            "Echec de la modification du model de recherche. "
-                            "La liste de contexte est erronée"}, status=400)
-
-            try:
-                search_model_context_task(context.pk, user())
-            except MultiTaskError:
-                return JsonResponse({
-                        "error":
-                            "Une autre tâche est en cours d'exécution. "
-                            "Veuillez réessayer plus tard. "}, status=423)
-
-            contexts.append(context)
-
-        search_model.context.clear()
-        search_model.context.set(contexts)
-        search_model.config = config
-        search_model.save()
-
-        if len(contexts_params) > 0:
-            try:
-                refresh_search_model(name, contexts_params)
-            except ValueError:
-                return JsonResponse({
-                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
-                             "(par exemple, car une connexion a été réutilisée)."}, status=421)
-        return JsonResponse({}, status=204)
+        # RETURN RESPONSE
+        return set_search_model_contexts(search_model,
+                                         contexts_obj,
+                                         contexts_clt,
+                                         request,
+                                         config_clt)
 
     def delete(self, request, name):
         user = utils.get_user_or_401(request)

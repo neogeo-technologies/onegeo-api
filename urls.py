@@ -27,7 +27,7 @@ urlpatterns = [
     url(r'^filters/(\S+)/?$', TokenFilterIDView.as_view()),
     url(r'^filters/?$', TokenFilterView.as_view()),
     url(r'^models/(\S+)/search/?$', SearchView.as_view()),
-    url(r'^models/(\S+)?$', SearchModelIDView.as_view()),
+    url(r'^models/(\S+)/?$', SearchModelIDView.as_view()),
     url(r'^models/?$', SearchModelView.as_view()),
     url(r'^sources/(\d+)/resources/(\d+)/?$', ResourceIDView.as_view()),
     url(r'^sources/(\d+)/resources/?$', ResourceView.as_view()),
