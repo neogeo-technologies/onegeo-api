@@ -18,7 +18,7 @@ app_name = 'api'
 
 urlpatterns = [
     url(r'^action/?$', ActionView.as_view()),
-    url(r'^analyzers/(\S+)?$', AnalyzerIDView.as_view()),
+    url(r'^analyzers/(\S+)/?$', AnalyzerIDView.as_view()),
     url(r'^analyzers/?$', AnalyzerView.as_view()),
     url(r'^contexts/(\d+)/tasks/?$', ContextIDTaskView.as_view()),
     url(r'^contexts/(\d+)/tasks/(\d+)/?$', ContextIDTaskIDView.as_view()),
@@ -37,6 +37,6 @@ urlpatterns = [
     url(r'^supported_modes/?$', SupportedModes.as_view()),
     url(r'^tasks/(\d+)/?$', TaskIDView.as_view()),
     url(r'^tasks/?$', TaskView.as_view()),
-    url(r'^tokenizers/(\S+)?$', TokenizerIDView.as_view()),
+    url(r'^tokenizers/(\S+)/?$', TokenizerIDView.as_view()),
     url(r'^tokenizers/?$', TokenizerView.as_view()),
 ]
