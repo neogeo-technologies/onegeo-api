@@ -203,8 +203,12 @@ class SearchModelIDView(View):
         search_model.save()
 
         if len(contexts_params) > 0:
-            refresh_search_model(name, contexts_params)
-
+            try:
+                refresh_search_model(name, contexts_params)
+            except ValueError:
+                return JsonResponse({
+                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
+                             "(par exemple, car une connexion a été réutilisée)."}, status=421)
         return JsonResponse({}, status=204)
 
     def delete(self, request, name):
