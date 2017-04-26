@@ -32,7 +32,7 @@ def format_resource(s, r):
              "location": "/sources/{}/resources/{}".format(s.id, r.id),
              "name": r.name,
              "columns": r.columns,
-             "context": format_context(s, r, ctx)["location"]}
+             "indices": format_context(s, r, ctx)["location"]}
     except Context.DoesNotExist:
         d = {"id": r.id,
              "location": "/sources/{}/resources/{}".format(s.id, r.id),
@@ -43,7 +43,7 @@ def format_resource(s, r):
 
 
 def format_context(s, r, c):
-    return {"location": "/contexts/{}".format(c.resource_id),
+    return {"location": "/indices/{}".format(c.resource_id),
             "resource": "/sources/{}/resources/{}".format(s.id, r.id),
             "columns": c.clmn_properties,
             "name": c.name,
@@ -51,7 +51,7 @@ def format_context(s, r, c):
 
 
 def format_filter(obj):
-    return clean_my_obj({"location": "filters/{}".format(obj.name),
+    return clean_my_obj({"location": "tokenfilters/{}".format(obj.name),
                          "name": obj.name,
                          "config": obj.config or None,
                          "reserved": obj.reserved})
@@ -74,7 +74,7 @@ def format_analyzer(obj):
     return clean_my_obj({
                 "location": "analyzers/{}".format(obj.name),
                 "name": obj.name,
-                "filters": retreive_filters(obj.name) or None,
+                "tokenfilters": retreive_filters(obj.name) or None,
                 "reserved": obj.reserved,
                 "tokenizer": obj.tokenizer and obj.tokenizer.name or None})
 
@@ -97,10 +97,10 @@ def format_search_model(obj):
         return [s.context.name for s in set if s.context.name is not None]
 
     return clean_my_obj({
-                "location": "models/{}".format(obj.name),
+                "location": "profiles/{}".format(obj.name),
                 "name": obj.name,
                 "config": obj.config,
-                "contexts": retreive_contexts(obj.name)})
+                "indices": retreive_contexts(obj.name)})
 
 
 def get_objects(user, mdl, src_id=None):
