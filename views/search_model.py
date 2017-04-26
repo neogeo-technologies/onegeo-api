@@ -91,7 +91,7 @@ def get_search_model(name, user_rq, config,  method):
     if method == 'POST':
         try:
             sm, created = SearchModel.objects.get_or_create(name=name,
-                                                            default={"user":user_rq,
+                                                            defaults={"user":user_rq,
                                                                      "config":config})
 
         except ValidationError as e:
