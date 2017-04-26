@@ -76,11 +76,11 @@ def read_name_SM(data, method, name_url):
 
 def read_params_SM(data):
 
-    items = {"contexts" : [] if ("contexts" not in data) else data["contexts"],
+    items = {"indices" : [] if ("indices" not in data) else data["indices"],
             "config" : {} if ("config" not in data) else data["config"]
     }
     items = utils.clean_my_obj(items)
-    return items["contexts"], items["config"]
+    return items["indices"], items["config"]
 
 
 def get_search_model(name, user_rq, config,  method):
