@@ -45,6 +45,10 @@ class ActionView(View):
                 else:
                     continue
 
+            if analyzer.config:
+                analysis['analyzer'][analyzer.name] = analyzer.config
+                continue
+
             analysis['analyzer'][analyzer.name] = {'type': 'custom'}
 
             tokenizer = analyzer.tokenizer
@@ -113,6 +117,7 @@ class ActionView(View):
 
         for col_property in iter(ctx.clmn_properties):
             context_name = col_property.pop('name')
+            onegeo_context.update_property(context_name, **col_property)
             onegeo_context.update_property(context_name, **col_property)
 
         opts = {}
