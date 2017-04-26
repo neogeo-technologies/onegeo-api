@@ -265,10 +265,8 @@ def format_json_get_create(request, created, status, obj_id):
 
 
 def delete_func(id, user, model):
-    # Suppression d"un élément et formatage d'une réponse en Json --
+    # Suppression d'un élément et formatage d'une réponse en Json --
     # Implementer pour sourceID, contextID, filterID, analyzerID, TokenizerID, SearchModelID
-
-    # CF: https: // www.w3.org / Protocols / rfc2616 / rfc2616 - sec9.html
 
     if model is Source:
         obj = get_object_or_404(model, id=id)
@@ -319,7 +317,8 @@ def delete_func(id, user, model):
 
 
 def user_access(name, model, usr_req):
-    # Check si user() == obj.user -- Implementé pour filterID, analyserID, tokenizerID, SearchModelID
+    # Check si user() == obj.user
+    # Implementé pour filterID, analyserID, tokenizerID, SearchModelID
 
     try:
         obj = model.objects.get(name=name)
