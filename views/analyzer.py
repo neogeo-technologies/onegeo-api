@@ -46,8 +46,9 @@ class AnalyzerView(View):
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or None
         filters = "filters" in body_data and body_data["filters"] or []
+        config = "config" in body_data and body_data["config"] or {}
 
-        analyzer, created = Analyzer.objects.get_or_create(user=user(), name=name)
+        analyzer, created = Analyzer.objects.get_or_create(name=name, defaults={"user":user(), "config":config})
         if created and len(filters) > 0:
             for f in filters:
                 try:
@@ -94,9 +95,11 @@ class AnalyzerIDView(View):
 
         tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or False
         filters = "filters" in body_data and body_data["filters"] or []
+        config = "config" in body_data and body_data["config"] or {}
 
         name = (name.endswith('/') and name[:-1] or name)
         analyzer = get_object_or_404(Analyzer, name=name)
+
 
         if tokenizer:
             try:
@@ -111,6 +114,9 @@ class AnalyzerIDView(View):
         else:
             status = 204
             data = {}
+            # On met à jour le champs config
+            analyzer.config = config
+
             # On s'assure que tous les filtres existent
             for f in filters:
                 try:
@@ -125,7 +131,9 @@ class AnalyzerIDView(View):
                 analyzer.filter.add(f)
             if tokenizer:
                 analyzer.tokenizer = tkn_chk
-                analyzer.save()
+
+            # On sauvegarde
+            analyzer.save()
 
         return JsonResponse(data, status=status)
 
