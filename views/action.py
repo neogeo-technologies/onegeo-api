@@ -6,6 +6,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from onegeo_manager.context import Context as OnegeoContext
+from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
 from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
@@ -117,8 +118,15 @@ class ActionView(View):
 
         for col_property in iter(ctx.clmn_properties):
             context_name = col_property.pop('name')
-            onegeo_context.update_property(context_name, **col_property)
-            onegeo_context.update_property(context_name, **col_property)
+            onegeo_context.update_property(context_name, 'alias', col_property['alias'])
+            onegeo_context.update_property(context_name, 'type', col_property['type'])
+            onegeo_context.update_property(context_name, 'pattern', col_property['pattern'])
+            onegeo_context.update_property(context_name, 'occurs', col_property['occurs'])
+            onegeo_context.update_property(context_name, 'rejected', col_property['rejected'])
+            onegeo_context.update_property(context_name, 'searchable', col_property['searchable'])
+            onegeo_context.update_property(context_name, 'weight', col_property['weight'])
+            onegeo_context.update_property(context_name, 'analyzer', col_property['analyzer'])
+            onegeo_context.update_property(context_name, 'search_analyzer', col_property['search_analyzer'])
 
         opts = {}
 
