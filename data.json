@@ -95,7 +95,14 @@
       "reserved": true
     }
   },
-
+  {
+    "model": "onegeo_api.tokenizer",
+    "pk": "comma_separated",
+    "fields": {
+      "config": {"type": "pattern", "pattern": "([,]\\s?)"},
+      "reserved": true
+    }
+  },
   {
     "model": "onegeo_api.filter",
     "pk": "asciifolding",
@@ -331,6 +338,14 @@
     "pk": "model_french_standard",
     "fields": {
       "tokenizer_id": "standard",
+      "reserved": true
+    }
+  },
+  {
+    "model": "onegeo_api.analyzer",
+    "pk": "comma_separated",
+    "fields": {
+      "tokenizer_id": "comma_separated",
       "reserved": true
     }
   },
