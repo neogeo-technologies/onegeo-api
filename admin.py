@@ -8,5 +8,14 @@ admin.site.register(Context)
 admin.site.register(Filter)
 admin.site.register(Analyzer)
 admin.site.register(Tokenizer)
-admin.site.register(SearchModel)
-admin.site.register(Task)
+
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ['start_date', 'success']
+    ordering = ['start_date']
+
+
+@admin.register(SearchModel)
+class SearchModelAdmin(admin.ModelAdmin):
+    list_display = ['name', 'user']
+    ordering = ['name']
