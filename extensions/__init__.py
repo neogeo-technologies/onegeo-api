@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from functools import partial, wraps
 from json import dumps, loads
 from re import sub
+from ..utils import clean_my_obj
 
 
 def input_parser(f):
@@ -17,7 +18,10 @@ def input_parser(f):
         config = sub('\"\{\%\s*((\d+\s*[-+\*/]?\s*)+)\%\}\"',
                      partial(lambda m: str(eval(m.group(1)))), config)
 
-        return f(self, loads(config), **params)
+        config = sub('\"\{\%(\s*((\d+\s*[-+\*/]?\s*)+)|\w+)\%\}\"',
+                     'null', config)
+
+        return f(self, clean_my_obj(loads(config)), **params)
     return wrapper
 
 
@@ -38,7 +42,7 @@ class Plugin(AbstractPlugin):
 
     @input_parser
     def input(self, config, **params):
-        if not config or not params:
+        if not config:
             return {'query': {'match_all': {}}}
         return config
 
