@@ -9,8 +9,8 @@ from ..utils import clean_my_obj
 def input_parser(f):
 
     @wraps(f)
-    def wrapper(self, config, **params):
-        config = dumps(config)
+    def wrapper(self, **params):
+        config = dumps(self.config)
 
         for k, v in params.items():
             config = config.replace('{{%{0}%}}'.format(k), v)
@@ -21,7 +21,8 @@ def input_parser(f):
         config = sub('\"\{\%(\s*((\d+\s*[-+\*/]?\s*)+)|\w+)\%\}\"',
                      'null', config)
 
-        return f(self, clean_my_obj(loads(config)), **params)
+        self.config = loads(config)
+        return f(self, **params)
     return wrapper
 
 
@@ -51,6 +52,8 @@ class Plugin(AbstractPlugin):
 
     @input_parser
     def input(self, **params):
+        if self.config and not params:
+            return {'query': {'match_all': {}}}
         if not self.config:
             return {'query': {'match_all': {}}}
         return self.config

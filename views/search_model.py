@@ -314,7 +314,6 @@ class SearchView(View):
 
         plugin = ext.plugin(search_model.config)
         body = plugin.input(**params)
-
         try:
             res = elastic_conn.search(index=name, body=body)
         except Exception as err:
