@@ -6,6 +6,7 @@ from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
+from importlib import import_module
 from re import search
 
 from .models import Analyzer, Context, Filter, Resource, \
@@ -97,11 +98,24 @@ def format_search_model(obj):
         set = smc.objects.filter(searchmodel__name=name)
         return [s.context.name for s in set if s.context.name is not None]
 
-    return clean_my_obj({
-                "location": "profiles/{}".format(obj.name),
-                "name": obj.name,
-                "config": obj.config,
-                "indices": retreive_contexts(obj.name)})
+    response = {
+        "location": "profiles/{}".format(obj.name),
+        "name": obj.name,
+        "config": obj.config,
+        "indices": retreive_contexts(obj.name)}
+
+    try:
+        ext = import_module('..extensions.{0}'.format(obj.name), __name__)
+    except ImportError:
+        ext = import_module('..extensions.__init__', __name__)
+    finally:
+        plugin = ext.plugin(obj.config)
+        if plugin.qs:
+            response['qs_params'] = [{'key': e[0],
+                                      'description': e[1],
+                                      'type': e[2]} for e in plugin.qs]
+
+    return clean_my_obj(response)
 
 
 def get_objects(user, mdl, src_id=None):

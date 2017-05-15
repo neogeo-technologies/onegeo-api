@@ -312,8 +312,8 @@ class SearchView(View):
         except ImportError:
             ext = import_module('...extensions.__init__', __name__)
 
-        plugin = ext.plugin()
-        body = plugin.input(search_model.config, **params)
+        plugin = ext.plugin(search_model.config)
+        body = plugin.input(**params)
 
         try:
             res = elastic_conn.search(index=name, body=body)

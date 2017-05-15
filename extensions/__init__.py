@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 from django.http import JsonResponse
 from functools import partial, wraps
 from json import dumps, loads
-from re import sub
+from re import sub, findall
 from ..utils import clean_my_obj
 
 
@@ -27,8 +27,14 @@ def input_parser(f):
 
 class AbstractPlugin(metaclass=ABCMeta):
 
+    def __init__(self, config):
+        self.config = config
+        self.qs = []
+        for find in findall('\{\%\w+\%\}', dumps(self.config)):
+            self.qs.append((find[2:-2], None, None))
+
     @abstractmethod
-    def input(self, config, **params):
+    def input(self, **params):
         raise NotImplementedError('This is an abstract method. '
                                   "You can't do anything with it.")
 
@@ -40,11 +46,14 @@ class AbstractPlugin(metaclass=ABCMeta):
 
 class Plugin(AbstractPlugin):
 
+    def __init__(self, config):
+        super().__init__(config)
+
     @input_parser
-    def input(self, config, **params):
-        if not config:
+    def input(self, **params):
+        if not self.config:
             return {'query': {'match_all': {}}}
-        return config
+        return self.config
 
     def output(self, data, **params):
 
