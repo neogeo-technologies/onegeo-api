@@ -106,6 +106,7 @@ def format_search_model(obj):
 
     try:
         ext = import_module('..extensions.{0}'.format(obj.name), __name__)
+        response['extended'] = True
     except ImportError:
         ext = import_module('..extensions.__init__', __name__)
     finally:
