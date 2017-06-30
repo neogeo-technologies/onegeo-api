@@ -90,7 +90,8 @@ class ContextView(View):
                 continue
             onegeo_resource.add_column(
                             col["name"], column_type=col["type"],
-                            occurs=tuple(col["occurs"]), count=col["count"])
+                            occurs=tuple(col["occurs"]), count=col["count"],
+                            rule="rule" in col and col["rule"] or None)
 
         onegeo_index = OnegeoIndex(set_rscr.name)
         onegeo_context = OnegeoContext(name, onegeo_index, onegeo_resource)
@@ -211,4 +212,3 @@ class ContextIDTaskIDView(View):
         tsk = get_object_or_404(Task, pk=tsk_id, model_type_id=ctx_id)
 
         return JsonResponse(utils.format_task(tsk), safe=False)
-

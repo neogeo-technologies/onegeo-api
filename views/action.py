@@ -110,8 +110,10 @@ class ActionView(View):
         for column in iter(rscr.columns):
             if onegeo_resource.is_existing_column(column["name"]):
                 continue
-            onegeo_resource.add_column(column["name"], column_type=column["type"],
-                                       occurs=tuple(column["occurs"]), count=column["count"])
+            onegeo_resource.add_column(
+                        column["name"], column_type=column["type"],
+                        occurs=tuple(column["occurs"]), count=column["count"],
+                        rule="rule" in column and column["rule"] or None)
 
         onegeo_index = OnegeoIndex(rscr.name)
         onegeo_context = OnegeoContext(ctx.name, onegeo_index, onegeo_resource)
