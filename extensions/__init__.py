@@ -28,8 +28,15 @@ def input_parser(f):
 
 class AbstractPlugin(metaclass=ABCMeta):
 
-    def __init__(self, config):
+    def __init__(self, config, contexts):
         self.config = config
+        self.contexts = contexts
+
+        self.columns_by_index = {}
+        for context in self.contexts:
+            self.columns_by_index[context.name] = tuple(
+                    (p['name'], p['type']) for p in context.clmn_properties)
+
         self.qs = []
         for find in findall('\{\%\w+\%\}', dumps(self.config)):
             self.qs.append((find[2:-2], None, None))

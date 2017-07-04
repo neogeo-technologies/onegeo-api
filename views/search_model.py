@@ -295,12 +295,12 @@ class SearchView(View):
             return user
 
         search_model = get_object_or_404(SearchModel, name=name)
+
         if not search_model.user == user():
             return JsonResponse({
                         'error':
                             "Modification du modèle de recherche impossible. "
                             "Son usage est réservé."}, status=403)
-
         params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
 
         if 'mode' in params and params['mode'] == 'throw':
@@ -312,7 +312,10 @@ class SearchView(View):
         except ImportError:
             ext = import_module('...extensions.__init__', __name__)
 
-        plugin = ext.plugin(search_model.config)
+        contexts = [e.context
+                    for e in SearchModel.context.through.objects.filter(
+                                                    searchmodel=search_model)]
+        plugin = ext.plugin(search_model.config, contexts)
         body = plugin.input(**params)
         try:
             res = elastic_conn.search(index=name, body=body)
