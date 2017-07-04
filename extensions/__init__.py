@@ -35,7 +35,8 @@ class AbstractPlugin(metaclass=ABCMeta):
         self.columns_by_index = {}
         for context in self.contexts:
             self.columns_by_index[context.name] = tuple(
-                    (p['alias'], p['type']) for p in context.clmn_properties)
+                    (p['alias'] and p['alias'] or p['name'], p['type'])
+                    for p in context.clmn_properties if not p['rejected'])
 
         self.qs = []
         for find in findall('\{\%\w+\%\}', dumps(self.config)):
