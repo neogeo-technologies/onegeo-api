@@ -54,8 +54,8 @@ class AbstractPlugin(metaclass=ABCMeta):
 
 class Plugin(AbstractPlugin):
 
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, contexts):
+        super().__init__(config, contexts)
 
     @input_parser
     def input(self, **params):

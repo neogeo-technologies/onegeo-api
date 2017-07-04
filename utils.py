@@ -104,13 +104,16 @@ def format_search_model(obj):
         "config": obj.config,
         "indices": retreive_contexts(obj.name)}
 
+    contexts = [e.context for e in
+                SearchModel.context.through.objects.filter(searchmodel=obj)]
+
     try:
         ext = import_module('..extensions.{0}'.format(obj.name), __name__)
         response['extended'] = True
     except ImportError:
         ext = import_module('..extensions.__init__', __name__)
     finally:
-        plugin = ext.plugin(obj.config)
+        plugin = ext.plugin(obj.config, contexts)
         if plugin.qs:
             response['qs_params'] = [{'key': e[0],
                                       'description': e[1],

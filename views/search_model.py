@@ -298,9 +298,8 @@ class SearchView(View):
 
         if not search_model.user == user():
             return JsonResponse({
-                        'error':
-                            "Modification du modèle de recherche impossible. "
-                            "Son usage est réservé."}, status=403)
+                    'error': "Modification du modèle de recherche impossible. "
+                             "Son usage est réservé."}, status=403)
         params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
 
         if 'mode' in params and params['mode'] == 'throw':
@@ -315,6 +314,7 @@ class SearchView(View):
         contexts = [e.context
                     for e in SearchModel.context.through.objects.filter(
                                                     searchmodel=search_model)]
+
         plugin = ext.plugin(search_model.config, contexts)
         body = plugin.input(**params)
         try:
