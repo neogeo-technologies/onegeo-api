@@ -89,9 +89,6 @@ class ElasticWrapper(metaclass=Singleton):
 
             count = 0
             for document in collections:
-
-                print('Document', count, ' =>', document)
-
                 params = {'body': document, 'doc_type': doc_type,
                           'id': str(uuid4())[0:7], 'index': index}
 
@@ -109,7 +106,6 @@ class ElasticWrapper(metaclass=Singleton):
                     return failed(str(err))
                 else:
                     count += 1
-                print('=> Ok <=')
             else:
                 self.switch_aliases(index, name)
 
