@@ -28,7 +28,7 @@ def input_parser(f):
 
 class AbstractPlugin(metaclass=ABCMeta):
 
-    def __init__(self, config, contexts):
+    def __init__(self, config, contexts, **kwargs):
         self.config = config
         self.contexts = contexts
 
@@ -55,8 +55,8 @@ class AbstractPlugin(metaclass=ABCMeta):
 
 class Plugin(AbstractPlugin):
 
-    def __init__(self, config, contexts):
-        super().__init__(config, contexts)
+    def __init__(self, config, contexts, **kwargs):
+        super().__init__(config, contexts, **kwargs)
 
     @input_parser
     def input(self, **params):

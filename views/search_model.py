@@ -12,7 +12,7 @@ from .. import utils
 from ..elasticsearch_wrapper import elastic_conn
 from ..exceptions import JsonError, MultiTaskError
 from ..models import Context, SearchModel, Task
-
+from base64 import b64decode
 
 
 __all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
@@ -42,7 +42,7 @@ def get_param(request, param):
     elif request.method == "POST":
         try:
             param_read = request.POST.get(param, request.GET.get(param))
-        except KeyError as e:
+        except KeyError:
             return None
         return param_read
 
@@ -76,23 +76,21 @@ def read_name_SM(data, method, name_url):
 
 def read_params_SM(data):
 
-    items = {"indices" : [] if ("indices" not in data) else data["indices"],
-            "config" : {} if ("config" not in data) else data["config"]
-    }
+    items = {"indices": [] if ("indices" not in data) else data["indices"],
+            "config": {} if ("config" not in data) else data["config"]}
     items = utils.clean_my_obj(items)
     return items["indices"], items["config"]
 
 
-def get_search_model(name, user_rq, config,  method):
+def get_search_model(name, user_rq, config, method):
 
     sm = None
     error = None
 
     if method == 'POST':
         try:
-            sm, created = SearchModel.objects.get_or_create(name=name,
-                                                            defaults={"user":user_rq,
-                                                                     "config":config})
+            sm, created = SearchModel.objects.get_or_create(
+                name=name, defaults={"user": user_rq, "config": config})
 
         except ValidationError as e:
             error = JsonResponse({"error": e.message}, status=409)
@@ -135,14 +133,17 @@ def get_contexts_obj(contexts_clt, user):
     return contexts_obj
 
 
-def set_search_model_contexts(search_model, contexts_obj, contexts_clt, request, config=None):
+def set_search_model_contexts(search_model, contexts_obj,
+                              contexts_clt, request, config=None):
+
     response = None
 
     if request.method == "POST":
         search_model.context.set(contexts_obj)
         search_model.save()
         response = JsonResponse(data={}, status=201)
-        response['Location'] = '{0}{1}'.format(request.build_absolute_uri(), search_model.name)
+        response['Location'] = '{0}{1}'.format(
+            request.build_absolute_uri(), search_model.name)
 
         if len(contexts_clt) > 0:
             try:
@@ -205,7 +206,8 @@ class SearchModelView(View):
             return error
 
         # GET OR CREATE SearchModel
-        search_model, error = get_search_model(name, user(), config_clt, request.method)
+        search_model, error = \
+            get_search_model(name, user(), config_clt, request.method)
         if error:
             return error
 
@@ -243,16 +245,19 @@ class SearchModelIDView(View):
             utils.user_access(name, SearchModel, user())
         except JsonError as e:
             return JsonResponse(data={"error": e.message}, status=e.status)
-        return JsonResponse(utils.get_object_id(user(), name, SearchModel), status=200)
+        return JsonResponse(
+            utils.get_object_id(user(), name, SearchModel), status=200)
 
     def put(self, request, name):
         # READ REQUEST DATA
-        user, contexts_clt, config_clt, name, error = read_request(request, name_url=name)
+        user, contexts_clt, config_clt, name, error = \
+            read_request(request, name_url=name)
         if error:
             return error
 
         # GET SearchModel
-        search_model, error = get_search_model(name, user(), config_clt, request.method)
+        search_model, error = \
+            get_search_model(name, user(), config_clt, request.method)
         if error:
             return error
 
@@ -290,16 +295,14 @@ class SearchView(View):
 
     def get(self, request, name):
 
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
+        user = None
+        password = None
+        if 'HTTP_AUTHORIZATION' in request.META:
+            auth = request.META['HTTP_AUTHORIZATION'].split()
+            if len(auth) == 2 and auth[0].lower() == 'basic':
+                user, password = b64decode(auth[1]).decode("utf-8").split(":")
 
         search_model = get_object_or_404(SearchModel, name=name)
-
-        if not search_model.user == user():
-            return JsonResponse({
-                    'error': "Modification du modèle de recherche impossible. "
-                             "Son usage est réservé."}, status=403)
         params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
 
         if 'mode' in params and params['mode'] == 'throw':
@@ -313,9 +316,10 @@ class SearchView(View):
 
         contexts = [e.context
                     for e in SearchModel.context.through.objects.filter(
-                                                    searchmodel=search_model)]
+                        searchmodel=search_model)]
 
-        plugin = ext.plugin(search_model.config, contexts)
+        plugin = ext.plugin(
+            search_model.config, contexts, user=user, password=password)
         body = plugin.input(**params)
         try:
             res = elastic_conn.search(index=name, body=body)
@@ -333,9 +337,8 @@ class SearchView(View):
         search_model = get_object_or_404(SearchModel, name=name)
         if not search_model.user == user():
             return JsonResponse({
-                        'error':
-                            "Modification du modèle de recherche impossible. "
-                            "Son usage est réservé."}, status=403)
+                'error': "Modification du modèle de recherche impossible. "
+                         "Son usage est réservé."}, status=403)
 
         body = request.body.decode('utf-8')
         if not body:
