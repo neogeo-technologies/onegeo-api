@@ -13,6 +13,7 @@ from ..elasticsearch_wrapper import elastic_conn
 from ..exceptions import JsonError, MultiTaskError
 from ..models import Context, SearchModel, Task
 from base64 import b64decode
+from requests.exceptions import HTTPError  # TODO
 
 
 __all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
@@ -77,7 +78,7 @@ def read_name_SM(data, method, name_url):
 def read_params_SM(data):
 
     items = {"indices": [] if ("indices" not in data) else data["indices"],
-            "config": {} if ("config" not in data) else data["config"]}
+             "config": {} if ("config" not in data) else data["config"]}
     items = utils.clean_my_obj(items)
     return items["indices"], items["config"]
 
@@ -318,8 +319,14 @@ class SearchView(View):
                     for e in SearchModel.context.through.objects.filter(
                         searchmodel=search_model)]
 
-        plugin = ext.plugin(
-            search_model.config, contexts, user=user, password=password)
+        try:
+            plugin = ext.plugin(
+                search_model.config, contexts, user=user, password=password)
+        except HTTPError as err:
+            return JsonResponse({"error": str(err)}, status=err.response.status_code)
+        except Exception as err:
+            return JsonResponse({"error": str(err)}, status=400)
+
         body = plugin.input(**params)
         try:
             res = elastic_conn.search(index=name, body=body)
