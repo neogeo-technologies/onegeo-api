@@ -105,7 +105,10 @@ class ActionView(View):
         rscr = ctx.resource
         src = rscr.source
 
-        onegeo_source = OnegeoSource(src.uri, src.name, src.mode)
+        try:
+            onegeo_source = OnegeoSource(src.uri, src.name, src.mode)
+        except ConnectionError:
+            return JsonResponse({'error': 'La source de données est inaccessible.'}, status=404)
         onegeo_resource = OnegeoResource(onegeo_source, rscr.name)
         for column in iter(rscr.columns):
             if onegeo_resource.is_existing_column(column["name"]):
