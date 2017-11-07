@@ -43,7 +43,7 @@ class Source(models.Model):
     user = models.ForeignKey(User)
     uri = models.CharField("URI", max_length=2048, unique=True)
     name = models.CharField("Name", max_length=250)
-    mode = models.CharField("Mode", choices= MODE_L, default="pdf", max_length=250)
+    mode = models.CharField("Mode", choices=MODE_L, default="pdf", max_length=250)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -101,7 +101,7 @@ class Context(models.Model):
         ("weekly", "weekly"),
         ("monthly", "monthly"),)
 
-    resource = models.OneToOneField(Resource, on_delete=models.CASCADE, primary_key=True)
+    resources = models.ManyToManyField(Resource)
     name = models.CharField("Name", max_length=250, unique=True)
     clmn_properties = JSONField("Columns")
     reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L,
@@ -136,7 +136,7 @@ class Analyzer(models.Model):
 
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
     user = models.ForeignKey(User, blank=True, null=True)
-    filter = models.ManyToManyField(Filter, blank=True)
+    filter = models.ManyToManyField(Filter)
     tokenizer = models.ForeignKey("Tokenizer", blank=True, null=True)
     config = JSONField("Config", blank=True, null=True)
     reserved = models.BooleanField("Reserved", default=False)
@@ -146,7 +146,7 @@ class SearchModel(models.Model):
 
     user = models.ForeignKey(User, blank=True, null=True)
     name = models.CharField("Name", max_length=250, unique=True, primary_key=True)
-    context = models.ManyToManyField(Context, blank=True)
+    context = models.ManyToManyField(Context)
     config = JSONField("Config", blank=True, null=True)
 
     def save(self, *args, **kwargs):
@@ -159,8 +159,8 @@ class SearchModel(models.Model):
 
 
 class Task(models.Model):
-    T_L = (("source","source"),
-           ("context","context"))
+    T_L = (("source", "source"),
+           ("context", "context"))
 
     start_date = models.DateTimeField("Start", auto_now_add=True)
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
@@ -188,7 +188,7 @@ def on_save_source(sender, instance, *args, **kwargs):
         try:
             for res in instance.src.get_resources():
                 resource = Resource.objects.create(
-                            source=instance, name=res.name, columns=res.columns)
+                    source=instance, name=res.name, columns=res.columns)
                 resource.set_rsrc(res)
             tsk.success = True
             tsk.description = "Les ressources ont été créées avec succès. "
@@ -203,8 +203,8 @@ def on_save_source(sender, instance, *args, **kwargs):
                    "Cette opération peut prendre plusieurs minutes. ")
 
     tsk = Task.objects.create(
-                    model_type="source", user=instance.user,
-                    model_type_id=instance.id, description=description)
+        model_type="source", user=instance.user,
+        model_type_id=instance.id, description=description)
 
     thread = Thread(target=create_resources, args=(instance, tsk))
     thread.start()
