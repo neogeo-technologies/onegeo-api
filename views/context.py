@@ -105,7 +105,7 @@ class ContextView(View):
                                              clmn_properties=column_ppt,
                                              reindex_frequency=reindex_frequency)
         except ValidationError as e:
-            return JsonResponse(data={"error":e.message}, status=409)
+            return JsonResponse(data={"error": e.message}, status=409)
 
         response = JsonResponse(data={}, status=201)
         response['Location'] = '{}{}'.format(request.build_absolute_uri(), context.resource_id)
@@ -115,12 +115,12 @@ class ContextView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextIDView(View):
 
-    def get(self, request, id):
+    def get(self, request, ctx_id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        ctx_id = literal_eval(id)
-
+        ctx_id = literal_eval(ctx_id)
+        import pdb; pdb.set_trace()
         return JsonResponse(utils.get_object_id(user(), ctx_id, Context),
                             safe=False, status=200)
 
@@ -133,7 +133,6 @@ class ContextIDView(View):
             return JsonResponse([{"error": MSG_406}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
-
 
         if "name" in body_data:
             name = body_data['name']
@@ -160,7 +159,7 @@ class ContextIDView(View):
         list_ppt = context.clmn_properties
         ppt_update = check_columns(list_ppt, list_ppt_clt)
 
-        context.resource = set_rscr
+        context.resource.add(set_rscr)
         context.name = name
         context.clmn_properties = ppt_update
         if reindex_frequency:

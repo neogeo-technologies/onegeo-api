@@ -3,7 +3,7 @@ from django.conf.urls import url
 from .views.action import ActionView
 from .views.analyzer import AnalyzerIDView, AnalyzerView
 from .views.context import ContextIDView, ContextView, \
-                           ContextIDTaskView, ContextIDTaskIDView
+                            ContextIDTaskView, ContextIDTaskIDView
 from .views.main import Directories, SupportedModes
 from .views.resource import ResourceView, ResourceIDView
 from .views.search_model import SearchModelIDView, SearchModelView, SearchView

@@ -150,8 +150,8 @@ def get_objects(user, mdl, src_id=None):
         for s in src:
             rsrc = Resource.objects.filter(source=s, source__user=user)
             for r in rsrc:
-                set = Context.objects.filter(resource_id=r.id, resource__source__user=user)
-                for ctx in set:
+                contexts = Context.objects.filter(resource_id=r.id, resource__source__user=user)
+                for ctx in contexts:
                     l.append(format_context(s, r, ctx))
 
     if mdl is Resource and src_id is not None:
@@ -172,10 +172,10 @@ def get_object_id(user, id, mdl, mdl_id=None):
     # Formate la réponse Json selon le type de model pour un objet identifié
 
     l = {}
-    d = {SearchModel : format_search_model,
+    d = {SearchModel: format_search_model,
          Tokenizer: format_tokenizer,
-         Analyzer : format_analyzer,
-         Filter : format_filter}
+         Analyzer: format_analyzer,
+         Filter: format_filter}
 
     if mdl in d:
         obj = get_object_or_404(mdl, name=id)
@@ -183,13 +183,26 @@ def get_object_id(user, id, mdl, mdl_id=None):
             l = d[mdl](obj)
 
     if mdl is Context and mdl_id is None:
+        # src = Source.objects.filter(user=user)
+        # for s in src:
+        #     rsrc = Resource.objects.filter(source=s, source__user=user)
+        #     for r in rsrc:
+        #         if r.id == id:
+        #             ctx = Context.objects.get(resource_id=r.id, resource__source__user=user)
+        #             l = format_context(s, r, ctx)
+
         src = Source.objects.filter(user=user)
         for s in src:
             rsrc = Resource.objects.filter(source=s, source__user=user)
             for r in rsrc:
-                if r.id == id:
-                    ctx = Context.objects.get(resource_id=r.id, resource__source__user=user)
-                    l = format_context(s, r, ctx)
+                contexts = Context.objects.filter(id=id, resource_id=r.id, resource__source__user=user)
+                for ctx in contexts:
+                    l.append(format_context(s, r, ctx))
+
+        # context = Context.objects.get(id=id)
+        # for r in context.resources:
+        #     if r.source.user == user:
+        #         l.append(format_context(r.source, r, context))
 
     if mdl is Resource and mdl_id is not None:
         source = get_object_or_404(Source, id=mdl_id, user=user)
