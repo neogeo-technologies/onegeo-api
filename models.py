@@ -190,7 +190,7 @@ class Task(models.Model):
 @receiver(post_delete, sender=Context)
 def on_delete_context(sender, instance, *args, **kwargs):
     Task.objects.filter(model_type_id=instance.pk, model_type="context").delete()
-    # elastic_conn.delete_index_by_alias(instance.name)
+    elastic_conn.delete_index_by_alias(instance.name)
 
 
 @receiver(post_save, sender=Source)
