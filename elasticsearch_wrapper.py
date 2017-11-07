@@ -20,9 +20,9 @@ class ElasticWrapper(metaclass=Singleton):
 
     def __init__(self):
 
-        self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
-        self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
-
+        # self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
+        # self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
+        self.conn = None
     # def is_a_task_running(self):
     #
     #     response = self.conn.tasks.list(actions='indices:*')

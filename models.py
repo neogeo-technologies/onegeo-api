@@ -115,6 +115,18 @@ class Context(models.Model):
                                       "le même nom qu'un modèle de recherche.")
         super().save(*args, **kwargs)
 
+    def user_allowed(self, user):
+        for resource in self.resources.all():
+            if resource.source.user != user:
+                return False
+        return True
+
+    def update_clmn_properties(self, list_ppt_clt):
+        for ppt in self.clmn_properties:
+            for ppt_clt in list_ppt_clt:
+                if ppt["name"] == ppt_clt["name"]:
+                    ppt.update(ppt_clt)
+
 
 class Filter(models.Model):
 
@@ -178,7 +190,7 @@ class Task(models.Model):
 @receiver(post_delete, sender=Context)
 def on_delete_context(sender, instance, *args, **kwargs):
     Task.objects.filter(model_type_id=instance.pk, model_type="context").delete()
-    elastic_conn.delete_index_by_alias(instance.name)
+    # elastic_conn.delete_index_by_alias(instance.name)
 
 
 @receiver(post_save, sender=Source)

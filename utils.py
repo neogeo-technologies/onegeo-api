@@ -9,8 +9,15 @@ from django.shortcuts import get_object_or_404
 from importlib import import_module
 from re import search
 
-from .models import Analyzer, Context, Filter, Resource, \
-                    Source, SearchModel, Task, Tokenizer
+from .models import Analyzer
+from .models import Context
+from .models import Filter
+from .models import Resource
+from .models import Source
+from .models import SearchModel
+from .models import Task
+from .models import Tokenizer
+
 from .exceptions import JsonError
 
 
@@ -28,24 +35,27 @@ def format_source(s):
 def format_resource(s, r):
     d = {}
     try:
-        ctx = Context.objects.get(resource_id=r.id)
-        d = {"id": r.id,
-             "location": "/sources/{}/resources/{}".format(s.id, r.id),
-             "name": r.name,
-             "columns": r.columns,
-             "index": format_context(s, r, ctx)["location"]}
+        contexts = Context.objects.filter(resources=r)
     except Context.DoesNotExist:
         d = {"id": r.id,
              "location": "/sources/{}/resources/{}".format(s.id, r.id),
              "name": r.name,
              "columns": r.columns}
+    else:
+        d = {"id": r.id,
+             "location": "/sources/{}/resources/{}".format(s.id, r.id),
+             "name": r.name,
+             "columns": r.columns,
+             "index": [format_context(ctx)["location"] for ctx in contexts]}
     finally:
         return clean_my_obj(d)
 
 
-def format_context(s, r, c):
-    return {"location": "/indices/{}".format(c.resource_id),
-            "resource": "/sources/{}/resources/{}".format(s.id, r.id),
+def format_context(c):
+
+    return {"location": "/indices/{}".format(c.id),
+            "resource": ["/sources/{}/resources/{}".format(
+                r.source.id, r.id) for r in c.resources.all()],
             "columns": c.clmn_properties,
             "name": c.name,
             "reindex_frequency": c.reindex_frequency}
@@ -146,13 +156,10 @@ def get_objects(user, mdl, src_id=None):
             l.append(format_task(tsk))
 
     if mdl is Context:
-        src = Source.objects.filter(user=user)
-        for s in src:
-            rsrc = Resource.objects.filter(source=s, source__user=user)
-            for r in rsrc:
-                contexts = Context.objects.filter(resource_id=r.id, resource__source__user=user)
-                for ctx in contexts:
-                    l.append(format_context(s, r, ctx))
+        my_resources = Resource.objects.filter(source__user=user)
+        contexts = Context.objects.filter(resources__in=my_resources)
+        for ctx in contexts:
+            l.append(format_context(ctx))
 
     if mdl is Resource and src_id is not None:
         source = Source.objects.get(id=src_id, user=user)
@@ -183,26 +190,9 @@ def get_object_id(user, id, mdl, mdl_id=None):
             l = d[mdl](obj)
 
     if mdl is Context and mdl_id is None:
-        # src = Source.objects.filter(user=user)
-        # for s in src:
-        #     rsrc = Resource.objects.filter(source=s, source__user=user)
-        #     for r in rsrc:
-        #         if r.id == id:
-        #             ctx = Context.objects.get(resource_id=r.id, resource__source__user=user)
-        #             l = format_context(s, r, ctx)
-
-        src = Source.objects.filter(user=user)
-        for s in src:
-            rsrc = Resource.objects.filter(source=s, source__user=user)
-            for r in rsrc:
-                contexts = Context.objects.filter(id=id, resource_id=r.id, resource__source__user=user)
-                for ctx in contexts:
-                    l.append(format_context(s, r, ctx))
-
-        # context = Context.objects.get(id=id)
-        # for r in context.resources:
-        #     if r.source.user == user:
-        #         l.append(format_context(r.source, r, context))
+        context = Context.objects.get(id=id)
+        if context.user_allowed(user):
+            l = format_context(context)
 
     if mdl is Resource and mdl_id is not None:
         source = get_object_or_404(Source, id=mdl_id, user=user)
@@ -283,7 +273,6 @@ def get_user_or_401(request):
     return user
 
 
-
 def format_json_get_create(request, created, status, obj_id):
     # Format response Json apres les get_or_create()
 
@@ -313,14 +302,16 @@ def delete_func(id, user, model):
 
     if model is Context:
         # l'user n'est accessible qu'au travers de la source de la resource du context :)
-        context = Context.objects.filter(resource_id=id, resource__source__user=user)
-        if len(context) == 1:
+
+        context = get_object_or_404(Context, id=id)
+
+        if not context.user_allowed(user):
+            data = {"error": "Echec de la suppression: Vous n'etes pas l'usager de cet élément."}
+            status = 403
+        else:
             context.delete()
             data = {}
             status = 204
-        elif len(context) == 0 and Context.objects.filter(resource_id=id).count() > 0:
-            data = {"error": "Echec de la suppression: Vous n'etes pas l'usager de cet élément."}
-            status = 403
 
     if model in [Filter, Analyzer, Tokenizer, SearchModel]:
 

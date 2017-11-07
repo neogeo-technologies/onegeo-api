@@ -25,12 +25,12 @@ PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 MSG_406 = "Le format demandé n'est pas pris en charge. "
 
 
-def check_columns(list_ppt, list_ppt_clt):
-    for ppt in list_ppt:
-        for ppt_clt in list_ppt_clt:
-            if ppt["name"] == ppt_clt["name"]:
-                ppt.update(ppt_clt)
-    return list_ppt
+# def check_columns(list_ppt, list_ppt_clt):
+#     for ppt in list_ppt:
+#         for ppt_clt in list_ppt_clt:
+#             if ppt["name"] == ppt_clt["name"]:
+#                 ppt.update(ppt_clt)
+#     return list_ppt
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -76,12 +76,11 @@ class ContextView(View):
         src_id = data.group(1)
         rsrc_id = data.group(2)
         set_src = get_object_or_404(Source, id=src_id)
-
         set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
-        if Context.objects.filter(resource__id=rsrc_id).count() > 0:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-                                          "Une ressource ne peut être liée à plusieurs "
-                                          "contextes d'indexation. "}, status=409)
+        # if Context.objects.filter(resources=set_rscr).exists():
+        #     return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+        #                                   "Une ressource ne peut être liée à plusieurs "
+        #                                   "contextes d'indexation. "}, status=409)
 
         onegeo_source = OnegeoSource(set_src.uri, name, set_src.mode)
         onegeo_resource = OnegeoResource(onegeo_source, set_rscr.name)
@@ -100,30 +99,31 @@ class ContextView(View):
             column_ppt.append(property.all())
 
         try:
-            context = Context.objects.create(resource=set_rscr,
-                                             name=name,
+            context = Context.objects.create(name=name,
                                              clmn_properties=column_ppt,
                                              reindex_frequency=reindex_frequency)
         except ValidationError as e:
-            return JsonResponse(data={"error": e.message}, status=409)
-
+            return JsonResponse(data={"error":e.message}, status=409)
+        context.resources.add(set_rscr)
         response = JsonResponse(data={}, status=201)
-        response['Location'] = '{}{}'.format(request.build_absolute_uri(), context.resource_id)
+        response['Location'] = '{}{}'.format(request.build_absolute_uri(), context.id)
         return response
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextIDView(View):
 
-    def get(self, request, ctx_id):
+    def get(self, request, id):
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
-        ctx_id = literal_eval(ctx_id)
+        ctx_id = literal_eval(id)
+
         return JsonResponse(utils.get_object_id(user(), ctx_id, Context),
                             safe=False, status=200)
 
     def put(self, request, id):
+
         user = utils.get_user_or_401(request)
         if isinstance(user, HttpResponse):
             return user
@@ -133,16 +133,19 @@ class ContextIDView(View):
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
-        if "name" in body_data:
-            name = body_data['name']
+        # if "name" in body_data:
+        #     name = body_data['name']
+        name = body_data.get('name')
 
-        reindex_frequency = None
-        if "reindex_frequency" in body_data:
-            reindex_frequency = body_data['reindex_frequency']
+        # reindex_frequency = None
+        # if "reindex_frequency" in body_data:
+        #     reindex_frequency = body_data['reindex_frequency']
+        reindex_frequency = body_data.get('reindex_frequency')
 
-        list_ppt_clt = {}
-        if "columns" in body_data:
-            list_ppt_clt = body_data['columns']
+        # list_ppt_clt = {}
+        # if "columns" in body_data:
+        #     list_ppt_clt = body_data['columns']
+        list_ppt_clt = body_data.get('columns', {})
 
         data = search('^/sources/(\d+)/resources/(\d+)$', body_data['resource'])
         if not data:
@@ -153,14 +156,16 @@ class ContextIDView(View):
         set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
 
         ctx_id = literal_eval(id)
-        context = get_object_or_404(Context, resource_id=ctx_id)
+        context = get_object_or_404(Context, id=ctx_id)
 
-        list_ppt = context.clmn_properties
-        ppt_update = check_columns(list_ppt, list_ppt_clt)
+        # list_ppt = context.clmn_properties
+        # ppt_update = check_columns(list_ppt, list_ppt_clt)
+        # context.clmn_properties = ppt_update
+        context.update_clmn_properties(list_ppt_clt)
 
-        context.resource.add(set_rscr)
-        context.name = name
-        context.clmn_properties = ppt_update
+        context.resources.add(set_rscr)
+        if name:
+            context.name = name
         if reindex_frequency:
             context.reindex_frequency = reindex_frequency
         context.save()
