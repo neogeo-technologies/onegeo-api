@@ -120,7 +120,6 @@ class ContextIDView(View):
         if isinstance(user, HttpResponse):
             return user
         ctx_id = literal_eval(ctx_id)
-        import pdb; pdb.set_trace()
         return JsonResponse(utils.get_object_id(user(), ctx_id, Context),
                             safe=False, status=200)
 
