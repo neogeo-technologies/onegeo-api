@@ -19,8 +19,8 @@
 (onegeo_venv) /onegeo_venv> pip install --upgrade pip
 (onegeo_venv) /onegeo_venv> pip install --upgrade setuptools
 (onegeo_venv) /onegeo_venv> pip install django==1.10
-(onegeo_venv) /onegeo_venv> pip install --process-dependency-links git+https://github.com/neogeo-technologies/onegeo-manager.git@0.0.1#egg=onegeo_manager-0.0.1
-(onegeo_venv) /onegeo_venv> pip install elasticsearch
+(onegeo_venv) /onegeo_venv> pip install --process-dependency-links --egg git+https://github.com/neogeo-technologies/onegeo-manager.git@0.0.1#egg=onegeo_manager-0.0.1
+(onegeo_venv) /onegeo_venv> pip install elasticsearch5
 ```
 
 #### Récupérer les codes sources
@@ -34,7 +34,7 @@
 Puis
 
 ```shell
-> ln -s /apps/onegeo_api /onegeo_venv/
+> ln -s /apps/onegeo-api/onegeo_api/ /onegeo_venv/
 ```
 
 #### Initialiser Django
@@ -42,7 +42,7 @@ Puis
 ```shell
 > cd /onegeo_venv
 /onegeo_venv> source bin/activate
-(onegeo_venv) django-admin startproject config .
+(onegeo_venv) /onegeo_venv> django-admin startproject config .
 ```
 
 #### Éditer les fichiers de configuration Django
@@ -83,7 +83,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware']
 
-ROOT_URLCONF = 'onegeo.urls'
+ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [{
     'BACKEND': 'django.template.backends.django.DjangoTemplates',

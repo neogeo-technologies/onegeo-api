@@ -29,7 +29,7 @@ setup(
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content'],
     install_requires=[
-        'elasticsearch>=5.5.0',
+        'elasticsearch>=5.0.0,<6.0.0',
         'PyPDF2>=1.26.0',
         'onegeo-manager==0.0.1'],
     dependency_links=[
