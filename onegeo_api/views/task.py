@@ -1,18 +1,15 @@
 from ast import literal_eval
 from django.conf import settings
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponse
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-
-from .. import utils
-from ..models import Task
+from onegeo_api.models import Task
+from onegeo_api import utils
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-
-
-__all__ = ["TaskView", "TaskIDView"]
 
 
 @method_decorator(csrf_exempt, name="dispatch")

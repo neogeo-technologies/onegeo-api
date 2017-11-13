@@ -1,6 +1,13 @@
 from django.contrib import admin
+from onegeo_api.models import Analyzer
+from onegeo_api.models import Context
+from onegeo_api.models import Filter
+from onegeo_api.models import Resource
+from onegeo_api.models import SearchModel
+from onegeo_api.models import Source
+from onegeo_api.models import Task
+from onegeo_api.models import Tokenizer
 
-from .models import Source, Resource, Context, Filter, Analyzer, Tokenizer, SearchModel, Task
 
 admin.site.register(Source)
 admin.site.register(Resource)
@@ -8,6 +15,7 @@ admin.site.register(Context)
 admin.site.register(Filter)
 admin.site.register(Analyzer)
 admin.site.register(Tokenizer)
+
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):

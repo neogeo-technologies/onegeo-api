@@ -1,19 +1,17 @@
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.contrib.postgres.fields import JSONField
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.db.models.signals import post_delete
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
+from onegeo_api.elasticsearch_wrapper import elastic_conn
+from onegeo_manager.source import Source as OnegeoSource
 from pathlib import Path
 from re import search
 from threading import Thread
-
-from django.db import models
-from django.db.models.signals import post_delete, post_save
-from django.dispatch import receiver
-from django.conf import settings
-from django.core.exceptions import ValidationError
-from django.contrib.auth.models import User
-from django.contrib.postgres.fields import JSONField
-from django.utils import timezone
-
-from onegeo_manager.source import Source as OnegeoSource
-
-from .elasticsearch_wrapper import elastic_conn
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR

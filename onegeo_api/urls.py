@@ -1,16 +1,26 @@
 from django.conf.urls import url
-
-from .views.action import ActionView
-from .views.analyzer import AnalyzerIDView, AnalyzerView
-from .views.context import ContextIDView, ContextView, \
-                           ContextIDTaskView, ContextIDTaskIDView
-from .views.main import Directories, SupportedModes
-from .views.resource import ResourceView, ResourceIDView
-from .views.search_model import SearchModelIDView, SearchModelView, SearchView
-from .views.source import SourceView, SourceIDView
-from .views.task import TaskIDView, TaskView
-from .views.tokenizer import TokenizerIDView, TokenizerView
-from .views.token_filter import TokenFilterIDView, TokenFilterView
+from onegeo_api.views.action import ActionView
+from onegeo_api.views.analyzer import AnalyzerIDView
+from onegeo_api.views.analyzer import AnalyzerView
+from onegeo_api.views.context import ContextIDTaskIDView
+from onegeo_api.views.context import ContextIDTaskView
+from onegeo_api.views.context import ContextIDView
+from onegeo_api.views.context import ContextView
+from onegeo_api.views.main import Directories
+from onegeo_api.views.main import SupportedModes
+from onegeo_api.views.resource import ResourceIDView
+from onegeo_api.views.resource import ResourceView
+from onegeo_api.views.search_model import SearchModelIDView
+from onegeo_api.views.search_model import SearchModelView
+from onegeo_api.views.search_model import SearchView
+from onegeo_api.views.source import SourceIDView
+from onegeo_api.views.source import SourceView
+from onegeo_api.views.task import TaskIDView
+from onegeo_api.views.task import TaskView
+from onegeo_api.views.token_filter import TokenFilterIDView
+from onegeo_api.views.token_filter import TokenFilterView
+from onegeo_api.views.tokenizer import TokenizerIDView
+from onegeo_api.views.tokenizer import TokenizerView
 
 
 app_name = 'api'

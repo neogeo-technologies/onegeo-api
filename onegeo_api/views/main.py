@@ -1,15 +1,12 @@
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from onegeo_api.models import Source
+from onegeo_api import utils
 from pathlib import Path
-
-from .. import utils
-from ..models import Source
-
-
-__all__ = ["Directories", "SupportedModes"]
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR

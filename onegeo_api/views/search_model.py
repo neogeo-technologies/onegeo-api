@@ -1,22 +1,22 @@
-import json
+from base64 import b64decode
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from importlib import import_module
-
-from .. import utils
-from ..elasticsearch_wrapper import elastic_conn
-from ..exceptions import JsonError, MultiTaskError
-from ..models import Context, SearchModel, Task
-from base64 import b64decode
+import json
+from onegeo_api.elasticsearch_wrapper import elastic_conn
+from onegeo_api.exceptions import JsonError
+from onegeo_api.exceptions import MultiTaskError
+from onegeo_api.models import Context
+from onegeo_api.models import SearchModel
+from onegeo_api.models import Task
+from onegeo_api import utils
 from requests.exceptions import HTTPError  # TODO
-
-
-__all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR

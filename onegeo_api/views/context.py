@@ -1,24 +1,23 @@
-import json
 from ast import literal_eval
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from re import search
+import json
+from onegeo_api.models import Context
+from onegeo_api.models import Resource
+from onegeo_api.models import Source
+from onegeo_api.models import Task
+from onegeo_api import utils
 from onegeo_manager.context import Context as OnegeoContext
 from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
-
-from .. import utils
-from ..models import Context, Resource, Source, Task
-
-
-__all__ = ["ContextView", "ContextIDView",
-           "ContextIDTaskView", "ContextIDTaskIDView"]
+from re import search
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR

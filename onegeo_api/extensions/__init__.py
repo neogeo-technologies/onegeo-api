@@ -1,9 +1,13 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
+from abc import abstractmethod
 from django.http import JsonResponse
-from functools import partial, wraps
-from json import dumps, loads
-from re import sub, findall
-from ..utils import clean_my_obj
+from functools import partial
+from functools import wraps
+from json import dumps
+from json import loads
+# from onegeo_api.utils import clean_my_obj
+from re import findall
+from re import sub
 
 
 def input_parser(f):

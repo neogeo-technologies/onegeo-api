@@ -2,16 +2,23 @@ from base64 import b64decode
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
+from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from importlib import import_module
+from onegeo_api.exceptions import JsonError
+from onegeo_api.models import Analyzer
+from onegeo_api.models import Context
+from onegeo_api.models import Filter
+from onegeo_api.models import Resource
+from onegeo_api.models import SearchModel
+from onegeo_api.models import Source
+from onegeo_api.models import Task
+from onegeo_api.models import Tokenizer
 from re import search
-
-from .models import Analyzer, Context, Filter, Resource, \
-                    Source, SearchModel, Task, Tokenizer
-from .exceptions import JsonError
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
@@ -172,10 +179,10 @@ def get_object_id(user, id, mdl, mdl_id=None):
     # Formate la réponse Json selon le type de model pour un objet identifié
 
     l = {}
-    d = {SearchModel : format_search_model,
+    d = {SearchModel: format_search_model,
          Tokenizer: format_tokenizer,
-         Analyzer : format_analyzer,
-         Filter : format_filter}
+         Analyzer: format_analyzer,
+         Filter: format_filter}
 
     if mdl in d:
         obj = get_object_or_404(mdl, name=id)
@@ -264,7 +271,7 @@ def get_user_or_401(request):
     if user() is None:
         response = HttpResponse()
         response.status_code = 401
-        response["WWW-Authenticate"] = 'Basic realm="%s"' % "Basic Auth Protected"
+        # response["WWW-Authenticate"] = 'Basic realm="%s"' % "Basic Auth Protected"
         return response
 
     return user

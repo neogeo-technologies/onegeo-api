@@ -1,9 +1,8 @@
-from elasticsearch import Elasticsearch
+# from django.conf import settings
+# from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as ElasticExceptions
 from threading import Thread
 from uuid import uuid4
-
-from django.conf import settings
 
 
 class Singleton(type):
@@ -20,8 +19,9 @@ class ElasticWrapper(metaclass=Singleton):
 
     def __init__(self):
 
-        self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
-        self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
+        # self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
+        # self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
+        self.conn = None
 
     # def is_a_task_running(self):
     #
@@ -118,10 +118,10 @@ class ElasticWrapper(metaclass=Singleton):
 
                 return succeed(msg)
 
-
         thread = Thread(target=target,
                         args=(index, name, doc_type, collections, pipeline),
                         kwargs={'succeed': succeed, 'failed': failed, 'error': error})
+
         thread.start()
 
     def switch_aliases(self, index, name):

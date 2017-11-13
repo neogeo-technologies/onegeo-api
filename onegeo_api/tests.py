@@ -1,16 +1,16 @@
 import json
 
 from django.test import TestCase, RequestFactory, Client
-from .models import Source, Resource, Context, Filter, Analyzer
+from onegeo_api.models import Source, Resource, Context, Filter, Analyzer
 from django.contrib.auth.models import User, AnonymousUser
-from .views import (SourceView, SourceIDView, ResourceView,
-                    ResourceIDView, Directories, ContextView,
-                    ContextIDView, FilterView, FilterIDView,
-                    AnalyzerView, AnalyzerIDView, TokenizerView,
-                    TokenizerIDView, ActionView, SearchModelView,
-                    SearchModelIDView, SearchView)
+from onegeo_api.views import (SourceView, SourceIDView, ResourceView,
+                              ResourceIDView, Directories, ContextView,
+                              ContextIDView, FilterView, FilterIDView,
+                              AnalyzerView, AnalyzerIDView, TokenizerView,
+                              TokenizerIDView, ActionView, SearchModelView,
+                              SearchModelIDView, SearchView)
 
-from .utils import *
+from onegeo_api.utils import *
 
 class SimpleTest(TestCase):
 
@@ -738,4 +738,3 @@ class SimpleTest(TestCase):
         # request4.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
         # response4 = SearchView.as_view()(request4, name=(str(sm.name)))
         # self.assertEqual(response4.status_code, 200)
-

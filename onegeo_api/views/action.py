@@ -1,23 +1,23 @@
-import json
 from django.conf import settings
-from django.http import JsonResponse, HttpResponse
-from django.utils import timezone
+from django.http import HttpResponse
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+import json
+from onegeo_api.elasticsearch_wrapper import elastic_conn
+from onegeo_api.models import Analyzer
+from onegeo_api.models import Context
+from onegeo_api.models import Filter
+from onegeo_api.models import Task
+from onegeo_api import utils
 from onegeo_manager.context import Context as OnegeoContext
-from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
+# from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
 from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
 from uuid import uuid4
-
-from .. import utils
-from ..elasticsearch_wrapper import elastic_conn
-from ..models import Context, Filter, Analyzer, Task
-
-
-__all__ = ["ActionView"]
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
