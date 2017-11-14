@@ -271,7 +271,7 @@ def get_user_or_401(request):
     if user() is None:
         response = HttpResponse()
         response.status_code = 401
-        # response["WWW-Authenticate"] = 'Basic realm="%s"' % "Basic Auth Protected"
+        response["WWW-Authenticate"] = 'Basic realm="%s"' % "Basic Auth Protected"
         return response
 
     return user

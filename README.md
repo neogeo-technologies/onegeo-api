@@ -18,6 +18,7 @@
 /onegeo_venv> source bin/activate
 (onegeo_venv) /onegeo_venv> pip install --upgrade pip
 (onegeo_venv) /onegeo_venv> pip install --upgrade setuptools
+(onegeo_venv) /onegeo_venv> pip install psycopg2
 (onegeo_venv) /onegeo_venv> pip install django==1.10
 (onegeo_venv) /onegeo_venv> pip install --process-dependency-links --egg git+https://github.com/neogeo-technologies/onegeo-manager.git@0.0.1#egg=onegeo_manager-0.0.1
 (onegeo_venv) /onegeo_venv> pip install elasticsearch5
@@ -96,12 +97,12 @@ TEMPLATES = [{
             'django.contrib.auth.context_processors.auth',
             'django.contrib.messages.context_processors.messages']}}]
 
-WSGI_APPLICATION = 'onegeo.wsgi.application'
+WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
         'NAME': 'onegeo_api',
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'USER': 'username',
         'PASSWORD': 'password',
         'HOST':  'localhost',

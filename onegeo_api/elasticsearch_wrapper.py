@@ -1,5 +1,5 @@
-# from django.conf import settings
-# from elasticsearch import Elasticsearch
+from django.conf import settings
+from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as ElasticExceptions
 from threading import Thread
 from uuid import uuid4
@@ -19,9 +19,8 @@ class ElasticWrapper(metaclass=Singleton):
 
     def __init__(self):
 
-        # self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
-        # self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
-        self.conn = None
+        self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
+        self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
 
     # def is_a_task_running(self):
     #
