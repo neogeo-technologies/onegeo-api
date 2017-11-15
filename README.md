@@ -184,6 +184,15 @@ urlpatterns = [
 (onegeo_venv) /onegeo_venv> python manage.py collectstatic
 ```
 
+#### Charger les données par défaut en base
+
+```shell
+> cd /onegeo_venv
+/onegeo_venv> source bin/activate
+(onegeo_venv) /onegeo_venv> python manage.py loaddata onegeo_api/data.json
+```
+
+
 #### Pour Apache (mode wsgi)
 
 Ajouter dans la configuration du site `WSGIPassAuthorization on`
