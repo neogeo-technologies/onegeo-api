@@ -109,7 +109,7 @@ DATABASES = {
         'HOST':  'localhost',
         'PORT': '5432'}}
 
-ES_VAR = {'HOST': 'localhost', 'PORT': '80'}
+ES_VAR = {'HOST': 'elasticsearch', 'PORT': '80'}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -128,8 +128,9 @@ USE_L10N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+STATIC_ROOT = '/var/www/html/static/'
 
-PDF_DATA_BASE_DIR = '/path/to/dir/'
+PDF_DATA_BASE_DIR = '/path/to/data/pdf'
 
 ```
 
@@ -182,3 +183,7 @@ urlpatterns = [
 /onegeo_venv> source bin/activate
 (onegeo_venv) /onegeo_venv> python manage.py collectstatic
 ```
+
+#### Pour Apache (mode wsgi)
+
+Ajouter dans la configuration du site `WSGIPassAuthorization on`
