@@ -29,6 +29,8 @@ setup(
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content'],
     install_requires=[
+        'psycopg2',
+        'django>=1.10,<1.11',
         'elasticsearch>=5.0.0,<6.0.0',
         'PyPDF2>=1.26.0',
         'onegeo-manager==0.0.1'],

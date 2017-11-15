@@ -19,9 +19,10 @@
 (onegeo_venv) /onegeo_venv> pip install --upgrade pip
 (onegeo_venv) /onegeo_venv> pip install --upgrade setuptools
 (onegeo_venv) /onegeo_venv> pip install psycopg2
-(onegeo_venv) /onegeo_venv> pip install django==1.10
+(onegeo_venv) /onegeo_venv> pip install 'django>=1.10,<1.11'
+(onegeo_venv) /onegeo_venv> pip install 'elasticsearch>=5.0.0,<6.0.0'
+(onegeo_venv) /onegeo_venv> pip install PyPDF2
 (onegeo_venv) /onegeo_venv> pip install --process-dependency-links --egg git+https://github.com/neogeo-technologies/onegeo-manager.git@0.0.1#egg=onegeo_manager-0.0.1
-(onegeo_venv) /onegeo_venv> pip install elasticsearch5
 ```
 
 #### Récupérer les codes sources
