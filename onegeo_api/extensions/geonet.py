@@ -1,1 +1,0 @@
-/home/me/Workspaces/Onegeo/onegeo-ext-grandlyon-geonet/geonet.py
