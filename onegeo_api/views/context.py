@@ -32,6 +32,9 @@ MSG_406 = "Le format demandé n'est pas pris en charge. "
 #                 ppt.update(ppt_clt)
 #     return list_ppt
 
+def slash_remove(uri):
+    return uri[:-1] if uri[-1] is "/" else uri
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextView(View):
@@ -103,10 +106,11 @@ class ContextView(View):
                                              clmn_properties=column_ppt,
                                              reindex_frequency=reindex_frequency)
         except ValidationError as e:
-            return JsonResponse(data={"error":e.message}, status=409)
+            return JsonResponse(data={"error": e.message}, status=409)
         context.resources.add(set_rscr)
         response = JsonResponse(data={}, status=201)
-        response['Location'] = '{}{}'.format(request.build_absolute_uri(), context.id)
+        uri = slash_remove(request.build_absolute_uri())
+        response['Location'] = '{}/{}'.format(uri, context.id)
         return response
 
 
