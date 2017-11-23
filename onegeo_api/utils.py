@@ -51,7 +51,7 @@ def format_resource(s, r):
 
 
 def format_context(s, r, c):
-    return {"location": "/indices/{}".format(c.resource_id),
+    return {"location": "/indexes/{}".format(c.resource_id),
             "resource": "/sources/{}/resources/{}".format(s.id, r.id),
             "columns": c.clmn_properties,
             "name": c.name,
@@ -106,10 +106,10 @@ def format_search_model(obj):
         return [s.context.name for s in set if s.context.name is not None]
 
     response = {
-        "location": "profiles/{}".format(obj.name),
+        "location": "services/{}".format(obj.name),
         "name": obj.name,
         "config": obj.config,
-        "indices": retreive_contexts(obj.name)}
+        "indexes": retreive_contexts(obj.name)}
 
     contexts = [e.context for e in
                 SearchModel.context.through.objects.filter(searchmodel=obj)]
