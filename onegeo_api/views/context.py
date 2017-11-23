@@ -117,14 +117,10 @@ class ContextIDView(View):
 
         return JsonResponse(context.format_data, safe=False, status=200)
 
-    def put(self, request, id):
+    @BasicAuth()
+    @ContentTypeLookUp()
+    def put(self, request, uuid):
 
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-
-        if "application/json" not in request.content_type:
-            return JsonResponse([{"error": MSG_406}], safe=False)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -142,23 +138,26 @@ class ContextIDView(View):
         #     list_ppt_clt = body_data['columns']
         list_ppt_clt = body_data.get('columns', {})
 
-        data = search('^/sources/(\d+)/resources/(\d+)$', body_data['resource'])
+        data = search('^/sources/(\S+)/resources/(\S+)$', body_data['resource'])
         if not data:
             return None
-        src_id = data.group(1)
-        rsrc_id = data.group(2)
-        set_src = get_object_or_404(Source, id=src_id)
-        set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
+        # src_id = data.group(1)
+        rsrc_uuid = data.group(2)
 
-        ctx_id = literal_eval(id)
-        context = get_object_or_404(Context, id=ctx_id)
+        resource = Resource.get_from_uuid(rsrc_uuid, request.user)
+        if not resource:
+            return JsonResponse(MSG_404["GetResource"], status=404)
+
+        context = Context.get_from_uuid(uuid, request.user)
+        if not context:
+            return JsonResponse(MSG_404["GetContext"], status=404)
 
         # list_ppt = context.clmn_properties
         # ppt_update = check_columns(list_ppt, list_ppt_clt)
         # context.clmn_properties = ppt_update
         context.update_clmn_properties(list_ppt_clt)
 
-        context.resources.add(set_rscr)
+        context.resources.add(resource)
         if name:
             context.name = name
         if reindex_frequency:
@@ -167,10 +166,9 @@ class ContextIDView(View):
 
         return JsonResponse(data={}, status=204)
 
-    def delete(self, request, id):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
+    @BasicAuth()
+    def delete(self, request, uuid):
+        user = request.user
 
         id = literal_eval(id)
 

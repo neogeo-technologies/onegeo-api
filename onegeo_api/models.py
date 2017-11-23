@@ -256,6 +256,21 @@ class Context(models.Model):
             resources__in=Resource.objects.filter(source__user=user))
         return [ctx.format_data for ctx in contexts]
 
+    @classmethod
+    def custom_delete(cls, uuid, user):
+        obj = cls.get_from_uuid(uuid)
+        if not obj:
+            data = {"error": "Echec de la suppression: Aucune source ne correspond à cet identifiant."}
+            status = 404
+        elif obj and obj.user == user:
+            obj.delete()
+            data = {}
+            status = 204
+        else:
+            data = {"error": "Echec de la suppression: Vous n'etes pas l'usager de cette source."}
+            status = 403
+        return JsonResponse(data, status=status)
+
 
 class SearchModel(models.Model):
 
