@@ -1,22 +1,25 @@
 from base64 import b64decode
 from django.conf import settings
 from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
+from django.contrib.auth import login
+# from django.contrib.auth.models import User
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
+from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
-from importlib import import_module
+from functools import wraps
+# from importlib import import_module
 from re import search
 
-from .models import Analyzer
+# from .models import Analyzer
 from .models import Context
-from .models import Filter
+# from .models import Filter
 from .models import Resource
 from .models import Source
 from .models import SearchModel
 from .models import Task
-from .models import Tokenizer
+# from .models import Tokenizer
 
 from .exceptions import JsonError
 
@@ -24,71 +27,75 @@ from .exceptions import JsonError
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
-def format_source(s):
-    return clean_my_obj({"id": s.id,
-                         "uri": s.s_uri,
-                         "mode": s.mode,
-                         "name": s.name,
-                         "location": "/sources/{}".format(s.id)})
+def slash_remove(uri):
+    return uri.endswith('/') and uri[:-1] or uri
 
 
-def format_resource(s, r):
-    d = {}
-    try:
-        contexts = Context.objects.filter(resources=r)
-    except Context.DoesNotExist:
-        d = {"id": r.id,
-             "location": "/sources/{}/resources/{}".format(s.id, r.id),
-             "name": r.name,
-             "columns": r.columns}
-    else:
-        d = {"id": r.id,
-             "location": "/sources/{}/resources/{}".format(s.id, r.id),
-             "name": r.name,
-             "columns": r.columns,
-             "index": [format_context(ctx)["location"] for ctx in contexts]}
-    finally:
-        return clean_my_obj(d)
+# def format_source(s):
+#     return clean_my_obj({"id": s.id,
+#                          "uri": s.s_uri,
+#                          "mode": s.mode,
+#                          "name": s.name,
+#                          "location": "/sources/{}".format(s.id)})
 
 
-def format_context(c):
-
-    return {"location": "/indices/{}".format(c.id),
-            "resource": ["/sources/{}/resources/{}".format(
-                r.source.id, r.id) for r in c.resources.all()],
-            "columns": c.clmn_properties,
-            "name": c.name,
-            "reindex_frequency": c.reindex_frequency}
-
-
-def format_filter(obj):
-    return clean_my_obj({"location": "tokenfilters/{}".format(obj.name),
-                         "name": obj.name,
-                         "config": obj.config or None,
-                         "reserved": obj.reserved})
-
-
-def format_tokenizer(obj):
-    return clean_my_obj({"location": "tokenizers/{}".format(obj.name),
-                         "name": obj.name,
-                         "config": obj.config or None,
-                         "reserved": obj.reserved})
+# def format_resource(s, r):
+#     d = {}
+#     try:
+#         contexts = Context.objects.filter(resources=r)
+#     except Context.DoesNotExist:
+#         d = {"id": r.id,
+#              "location": "/sources/{}/resources/{}".format(s.id, r.id),
+#              "name": r.name,
+#              "columns": r.columns}
+#     else:
+#         d = {"id": r.id,
+#              "location": "/sources/{}/resources/{}".format(s.id, r.id),
+#              "name": r.name,
+#              "columns": r.columns,
+#              "index": [format_context(ctx)["location"] for ctx in contexts]}
+#     finally:
+#         return clean_my_obj(d)
 
 
-def format_analyzer(obj):
+# def format_context(c):
+#
+#     return {"location": "/indices/{}".format(c.id),
+#             "resource": ["/sources/{}/resources/{}".format(
+#                 r.source.id, r.id) for r in c.resources.all()],
+#             "columns": c.clmn_properties,
+#             "name": c.name,
+#             "reindex_frequency": c.reindex_frequency}
 
-    def retreive_filters(name):
-        af = Analyzer.filter.through
-        set = af.objects.filter(analyzer__name=name).order_by("id")
-        return [s.filter.name for s in set if s.filter.name is not None]
 
-    return clean_my_obj({
-        "location": "analyzers/{}".format(obj.name),
-        "name": obj.name,
-        "config": obj.config or None,
-        "tokenfilters": retreive_filters(obj.name) or None,
-        "reserved": obj.reserved,
-        "tokenizer": obj.tokenizer and obj.tokenizer.name or None})
+# def format_filter(obj):
+#     return clean_my_obj({"location": "tokenfilters/{}".format(obj.name),
+#                          "name": obj.name,
+#                          "config": obj.config or None,
+#                          "reserved": obj.reserved})
+#
+#
+# def format_tokenizer(obj):
+#     return clean_my_obj({"location": "tokenizers/{}".format(obj.name),
+#                          "name": obj.name,
+#                          "config": obj.config or None,
+#                          "reserved": obj.reserved})
+#
+#
+# def format_analyzer(obj):
+#
+#     def retreive_filters(name):
+#         af = Analyzer.filter.through
+#         set = af.objects.filter(analyzer__name=name).order_by("id")
+#         return [s.filter.name for s in set if s.filter.name is not None]
+#
+#     return clean_my_obj({
+#         "location": "analyzers/{}".format(obj.name),
+#         "name": obj.name,
+#         "config": obj.config or None,
+#         "tokenfilters": retreive_filters(obj.name) or None,
+#         "reserved": obj.reserved,
+#         "tokenizer": obj.tokenizer and obj.tokenizer.name or None})
 
 
 def format_task(obj):
@@ -101,76 +108,76 @@ def format_task(obj):
                 "dates": {"start": obj.start_date, "stop": obj.stop_date}})
 
 
-def format_search_model(obj):
-
-    def retreive_contexts(name):
-        smc = SearchModel.context.through
-        set = smc.objects.filter(searchmodel__name=name)
-        return [s.context.name for s in set if s.context.name is not None]
-
-    response = {
-        "location": "profiles/{}".format(obj.name),
-        "name": obj.name,
-        "config": obj.config,
-        "indices": retreive_contexts(obj.name)}
-
-    contexts = [e.context for e in
-                SearchModel.context.through.objects.filter(searchmodel=obj)]
-
-    try:
-        ext = import_module('..extensions.{0}'.format(obj.name), __name__)
-        response['extended'] = True
-    except ImportError:
-        ext = import_module('..extensions.__init__', __name__)
-    finally:
-        plugin = ext.plugin(obj.config, contexts)
-        if plugin.qs:
-            response['qs_params'] = [{'key': e[0],
-                                      'description': e[1],
-                                      'type': e[2]} for e in plugin.qs]
-
-    return clean_my_obj(response)
+# def format_search_model(obj):
+#
+#     def retreive_contexts(name):
+#         smc = SearchModel.context.through
+#         set = smc.objects.filter(searchmodel__name=name)
+#         return [s.context.name for s in set if s.context.name is not None]
+#
+#     response = {
+#         "location": "profiles/{}".format(obj.name),
+#         "name": obj.name,
+#         "config": obj.config,
+#         "indices": retreive_contexts(obj.name)}
+#
+#     contexts = [e.context for e in
+#                 SearchModel.context.through.objects.filter(searchmodel=obj)]
+#
+#     try:
+#         ext = import_module('..extensions.{0}'.format(obj.name), __name__)
+#         response['extended'] = True
+#     except ImportError:
+#         ext = import_module('..extensions.__init__', __name__)
+#     finally:
+#         plugin = ext.plugin(obj.config, contexts)
+#         if plugin.qs:
+#             response['qs_params'] = [{'key': e[0],
+#                                       'description': e[1],
+#                                       'type': e[2]} for e in plugin.qs]
+#
+#     return clean_my_obj(response)
 
 
 def get_objects(user, mdl, src_id=None):
     # Formate la réponse Json selon le type de 'Model' pour un ensemble d'objets
 
     l = []
-    d = {Tokenizer: format_tokenizer,
-         Analyzer: format_analyzer,
-         Filter: format_filter}
+    # d = {Tokenizer: format_tokenizer,
+    #      Analyzer: format_analyzer,
+    #      Filter: format_filter}
+    #
+    # if mdl in d:
+    #     obj = mdl.objects.filter(Q(user=user) | Q(user=None)).order_by("reserved", "name")
+    #     for o in obj:
+    #         l.append(d[mdl](o))
 
-    if mdl in d:
-        obj = mdl.objects.filter(Q(user=user) | Q(user=None)).order_by("reserved", "name")
-        for o in obj:
-            l.append(d[mdl](o))
-
-    if mdl is SearchModel:
-        search_model = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by("name")
-        for sm in search_model:
-            l.append(format_search_model(sm))
+    # if mdl is SearchModel:
+    #     search_model = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by("name")
+    #     for sm in search_model:
+    #         l.append(format_search_model(sm))
 
     if mdl is Task:
         task = Task.objects.filter(Q(user=user) | Q(user=None)).order_by("-start_date")
         for tsk in task:
             l.append(format_task(tsk))
 
-    if mdl is Context:
-        my_resources = Resource.objects.filter(source__user=user)
-        contexts = Context.objects.filter(resources__in=my_resources)
-        for ctx in contexts:
-            l.append(format_context(ctx))
+    # if mdl is Context:
+    #     my_resources = Resource.objects.filter(source__user=user)
+    #     contexts = Context.objects.filter(resources__in=my_resources)
+    #     for ctx in contexts:
+    #         l.append(format_context(ctx))
 
-    if mdl is Resource and src_id is not None:
-        source = Source.objects.get(id=src_id, user=user)
-        rsrc = Resource.objects.filter(source=source, source__user=user).order_by("name")
-        for r in rsrc:
-            l.append(format_resource(source, r))
+    # if mdl is Resource and src_id is not None:
+    #     source = Source.objects.get(id=src_id, user=user)
+    #     rsrc = Resource.objects.filter(source=source, source__user=user).order_by("name")
+    #     for r in rsrc:
+    #         l.append(format_resource(source, r))
 
-    if mdl is Source:
-        src = Source.objects.filter(user=user).order_by("name")
-        for s in src:
-            l.append(format_source(s))
+    # if mdl is Source:
+    #     src = Source.objects.filter(user=user).order_by("name")
+    #     for s in src:
+    #         l.append(format_source(s))
 
     return l
 
@@ -179,15 +186,15 @@ def get_object_id(user, id, mdl, mdl_id=None):
     # Formate la réponse Json selon le type de model pour un objet identifié
 
     l = {}
-    d = {SearchModel: format_search_model,
-         Tokenizer: format_tokenizer,
-         Analyzer: format_analyzer,
-         Filter: format_filter}
-
-    if mdl in d:
-        obj = get_object_or_404(mdl, name=id)
-        if obj.user == user or obj.user is None:
-            l = d[mdl](obj)
+    # d = {SearchModel: format_search_model,
+    #      Tokenizer: format_tokenizer,
+    #      Analyzer: format_analyzer,
+    #      Filter: format_filter}
+    #
+    # if mdl in d:
+    #     obj = get_object_or_404(mdl, name=id)
+    #     if obj.user == user or obj.user is None:
+    #         l = d[mdl](obj)
 
     if mdl is Context and mdl_id is None:
         context = Context.objects.get(id=id)
@@ -211,66 +218,113 @@ def get_object_id(user, id, mdl, mdl_id=None):
 
 
 def read_name(body_data):
-    if "name" not in body_data or body_data["name"] == "":
+    name = body_data.get("name", "")
+    if name == "":
         return None
     try:
-        name = search("^[a-z0-9_]{2,100}$", body_data["name"])
+        name = search("^[a-z0-9_]{2,100}$", name)
         name = name.group(0)
     except AttributeError:
         return None
     return name
 
 
-class UserAuthenticate:
-    """USAGE views.py/functions:
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        my_user= user()
+class BasicAuth(object):
 
-        DEPLOIMENT APACHE/WSGI:
-        -----------------------
-        fichier conf apache2 : 'WSGIPassAuthorization ON'
-        ------------------------------------------------
-    """
-
-    # Authentification clé api + droits liés
-
-    def __init__(self, request):
-        self.request = request
-
-    def __enter__(self):
-        if "HTTP_AUTHORIZATION" in self.request.META:
-            auth = self.request.META["HTTP_AUTHORIZATION"].split()
+    def view_or_basicauth(self, view, request, test_func, *args, **kwargs):
+        """
+        From Snippet 243:
+        """
+        if test_func(request.user):
+            # Already logged in, just return the view.
+            return view(*args, **kwargs)
+        http_auth = request.META.get('HTTP_AUTHORIZATION', "")
+        if http_auth not in ("", None):
+            auth = http_auth.split()
             if len(auth) == 2:
                 if auth[0].lower() == "basic":
-                    uname, passwd = b64decode(auth[1]).decode("utf-8").split(":")
+                    try:
+                        uname, passwd = b64decode(auth[1]).decode("utf-8").split(':')
+                    except:
+                        pass
                     user = authenticate(username=uname, password=passwd)
-                    if user:
-                        return User.objects.get(username=uname)
-                    else:
-                        return None
+                    if user is not None:
+                        if user.is_active:
+                            login(request, user)
+                            request.user = user
+                            return view(*args, **kwargs)
 
-    def __call__(self, *args, **kwargs):
-        with UserAuthenticate(self.request) as user:
-            if not user:
-                return None
-            return user
-
-    def __exit__(self, *args):
-        pass
-
-
-def get_user_or_401(request):
-
-    user = UserAuthenticate(request)
-    if user() is None:
         response = HttpResponse()
         response.status_code = 401
-        response["WWW-Authenticate"] = 'Basic realm="%s"' % "Basic Auth Protected"
+        response['WWW-Authenticate'] = 'Basic realm="Basic Auth Protected"'
         return response
 
-    return user
+    def __call__(self, f):
+
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            request = None
+            args = list(args)
+            for arg in args:
+                if isinstance(arg, WSGIRequest):
+                    request = arg
+                    break
+            return self.view_or_basicauth(
+                f, request, lambda u: u.is_authenticated(), *args, **kwargs)
+
+        return wrapper
+
+
+# class UserAuthenticate:
+#     """USAGE views.py/functions:
+#         user = utils.get_user_or_401(request)
+#         if isinstance(user, HttpResponse):
+#             return user
+#         my_user= user()
+#
+#         DEPLOIMENT APACHE/WSGI:
+#         -----------------------
+#         fichier conf apache2 : 'WSGIPassAuthorization ON'
+#         ------------------------------------------------
+#     """
+#
+#     # Authentification clé api + droits liés
+#
+#     def __init__(self, request):
+#         self.request = request
+#
+#     def __enter__(self):
+#         if "HTTP_AUTHORIZATION" in self.request.META:
+#             auth = self.request.META["HTTP_AUTHORIZATION"].split()
+#             if len(auth) == 2:
+#                 if auth[0].lower() == "basic":
+#                     uname, passwd = b64decode(auth[1]).decode("utf-8").split(":")
+#                     user = authenticate(username=uname, password=passwd)
+#                     if user:
+#                         return User.objects.get(username=uname)
+#                     else:
+#                         return None
+#
+#     def __call__(self, *args, **kwargs):
+#         with UserAuthenticate(self.request) as user:
+#             if not user:
+#                 return None
+#             return user
+#
+#     def __exit__(self, *args):
+#         pass
+
+
+# def get_user_or_401(request):
+#
+#     user = UserAuthenticate(request)
+#     if user() is None:
+#         response = HttpResponse()
+#         response.status_code = 401
+#         response["WWW-Authenticate"] = 'Basic realm="%s"' % "Basic Auth Protected"
+#         return response
+#
+#     return user
 
 
 def format_json_get_create(request, created, status, obj_id):
@@ -278,7 +332,8 @@ def format_json_get_create(request, created, status, obj_id):
 
     if created:
         response = JsonResponse(data={}, status=status)
-        response["Location"] = "{}{}".format(request.build_absolute_uri(), obj_id)
+        uri = slash_remove(request.build_absolute_uri())
+        response["Location"] = "{}/{}".format(uri, obj_id)
     if created is False:
         data = {"error": "Echec de la création: L'élément est déjà existant."}
         response = JsonResponse(data=data, status=status)

@@ -15,6 +15,9 @@ from ..models import Context, SearchModel, Task
 from base64 import b64decode
 from requests.exceptions import HTTPError  # TODO
 
+from onegeo_api.utils import BasicAuth
+from onegeo_api.exceptions import ContentTypeLookUp
+from onegeo_api.utils import slash_remove
 
 __all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
 
@@ -172,39 +175,39 @@ def set_search_model_contexts(search_model, contexts_obj,
     return response
 
 
-def read_request(request, name_url=None):
-
-    user = utils.get_user_or_401(request)
-    error = None
-    contexts_clt = None
-    config_clt = None
-    name = None
-
-    if "application/json" not in request.content_type:
-        error = JsonResponse({"Error": MSG_406}, status=406)
-    else:
-        data = json.loads(request.body.decode("utf-8"))
-        name = read_name_SM(data, request.method, name_url)
-        contexts_clt, config_clt = read_params_SM(data)
-    return user, contexts_clt, config_clt, name, error
+# def read_request(request, name_url=None):
+#
+#     error = None
+#     contexts_clt = None
+#     config_clt = None
+#     name = None
+#
+#     if "application/json" not in request.content_type:
+#         error = JsonResponse({"Error": MSG_406}, status=406)
+#     else:
+#         data = json.loads(request.body.decode("utf-8"))
+#         name = read_name_SM(data, request.method, name_url)
+#         contexts_clt, config_clt = read_params_SM(data)
+#     return contexts_clt, config_clt, name, error
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchModelView(View):
 
+    @BasicAuth()
     def get(self, request):
+        user = request.user
+        return JsonResponse(SearchModel.get_from_user(user), safe=False)
 
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        return JsonResponse(utils.get_objects(user(), SearchModel), safe=False)
-
+    @BasicAuth()
+    @ContentTypeLookUp()
     def post(self, request):
 
+        user = request.user
         # READ REQUEST DATA
-        user, contexts_clt, config_clt, name, error = read_request(request)
-        if error:
-            return error
+        data = json.loads(request.body.decode("utf-8"))
+        name = name = utils.read_name(data)
+        contexts_clt, config_clt = read_params_SM(data)
 
         # GET OR CREATE SearchModel
         search_model, error = \
@@ -237,24 +240,26 @@ class SearchModelView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchModelIDView(View):
 
+    @BasicAuth()
     def get(self, request, name):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        name = (name.endswith('/') and name[:-1] or name)
-        try:
-            utils.user_access(name, SearchModel, user())
-        except JsonError as e:
-            return JsonResponse(data={"error": e.message}, status=e.status)
-        return JsonResponse(
-            utils.get_object_id(user(), name, SearchModel), status=200)
+        user = request.user
+        name = slash_remove(name)
 
+        sm = SearchModel.user_access(name, user)
+        if not sm:
+            msg = "Vous n'etes pas l'usager de cet élément."
+            status = 403
+            return JsonResponse({"error": msg}, status=status)
+
+        return JsonResponse(sm.format_data, status=200)
+
+    @BasicAuth()
     def put(self, request, name):
         # READ REQUEST DATA
-        user, contexts_clt, config_clt, name, error = \
-            read_request(request, name_url=name)
-        if error:
-            return error
+        user = request.user
+        data = json.loads(request.body.decode("utf-8"))
+        name = slash_remove(name)
+        contexts_clt, config_clt = read_params_SM(data)
 
         # GET SearchModel
         search_model, error = \

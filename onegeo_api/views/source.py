@@ -1,21 +1,23 @@
 import json
-from ast import literal_eval
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from django.utils.decorators import method_decorator
 from pathlib import Path
 
-from .. import utils
 from ..models import Source
+from onegeo_api.exceptions import ContentTypeLookUp
+from onegeo_api.utils import BasicAuth
+from onegeo_api.utils import format_json_get_create
+from onegeo_api.utils import read_name
 
 
 __all__ = ["SourceView", "SourceIDView"]
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_406 = "Le format demandé n'est pas pris en charge. "
+MSG_404 = {"GetSource": {"error": "Aucune source ne correspond à cette requête."}}
 
 
 def is_valid_uri_for_given_mode(uri, mode):
@@ -46,20 +48,16 @@ def check_uri(b):
 @method_decorator(csrf_exempt, name="dispatch")
 class SourceView(View):
 
+    @BasicAuth()
     def get(self, request):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        return JsonResponse(utils.get_objects(user(), Source), safe=False)
+        user = request.user
+        return JsonResponse(Source.format_by_filter(user), safe=False)
 
+    @BasicAuth()
+    @ContentTypeLookUp()
     def post(self, request):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
+        user = request.user
 
-        if "application/json" not in request.content_type:
-            data = {"error": MSG_406}
-            return JsonResponse(data, status=406)
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
@@ -79,7 +77,7 @@ class SourceView(View):
         if field_missing is True:
             return JsonResponse(data, status=400)
 
-        name = utils.read_name(body_data)
+        name = read_name(body_data)
         if name is None:
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Le nom du contexte est incorrect. "},
@@ -100,30 +98,26 @@ class SourceView(View):
         else:
             np = body_data["uri"]
 
-        sources, created = Source.objects.get_or_create(uri=np, defaults={'user': user(),
+        sources, created = Source.objects.get_or_create(uri=np, defaults={'user': user,
                                                                           'name': name,
                                                                           'mode': mode})
 
         status = created and 201 or 409
-        return utils.format_json_get_create(request, created, status, sources.id)
+        return format_json_get_create(request, created, status, str(sources.short_uuid))
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SourceIDView(View):
 
-    def get(self, request, id):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        src_id = literal_eval(id)
+    @BasicAuth()
+    def get(self, request, uuid):
+        user = request.user
+        source = Source.get_from_uuid(uuid, user)
+        if not source:
+            return JsonResponse(MSG_404["GetSource"], status=404)
+        return JsonResponse(source.format_data, safe=False)
 
-        return JsonResponse(utils.get_object_id(user(), src_id, Source), safe=False)
-
-
-    def delete(self, request, id):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        id = literal_eval(id)
-
-        return utils.delete_func(id, user(), Source)
+    @BasicAuth()
+    def delete(self, request, uuid):
+        user = request.user
+        return Source.custom_delete(uuid, user)

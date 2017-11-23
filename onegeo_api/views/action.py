@@ -6,7 +6,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from onegeo_manager.context import Context as OnegeoContext
-from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
+# from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
 from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
@@ -14,8 +14,8 @@ from uuid import uuid4
 
 from .. import utils
 from ..elasticsearch_wrapper import elastic_conn
-from ..models import Context, Filter, Analyzer, Task
-
+from ..models import Context # Filter, Analyzer, Task
+from ..models import Task
 
 __all__ = ["ActionView"]
 
@@ -23,10 +23,10 @@ __all__ = ["ActionView"]
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
-def iter_flt_from_anl(anl_name):
-    AnalyserFilters = Analyzer.filter.through
-    set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by("id")
-    return [s.filter.name for s in set if s.filter.name is not None]
+# def iter_flt_from_anl(anl_name):
+#     AnalyserFilters = Analyzer.filter.through
+#     set = AnalyserFilters.objects.filter(analyzer__name=anl_name).order_by("id")
+#     return [s.filter.name for s in set if s.filter.name is not None]
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -88,12 +88,11 @@ class ActionView(View):
 
         data = json.loads(request.body.decode("utf-8"))
 
-        try:
-            ctx = Context.objects.get(name=data["index"])
-        except Context.DoesNotExist:
+        ctx = Context.get_from_uuid(uuid=data["index"])
+        if not ctx:
             return JsonResponse({"error": "Le contexte d'indexation n'existe pas. "}, status=404)
 
-        filters = {"model_type": "context", "model_type_id": ctx.pk, "user": user()}
+        filters = {"model_type": "context", "model_type_id": ctx.short_uuid, "user": user()}
         last = Task.objects.filter(**filters).order_by("start_date").last()
         if last and last.success is None:
             data = {"error": "Une autre tâche est en cours d'exécution. "
@@ -114,24 +113,33 @@ class ActionView(View):
             if onegeo_resource.is_existing_column(column["name"]):
                 continue
             onegeo_resource.add_column(
-                        column["name"], column_type=column["type"],
-                        occurs=tuple(column["occurs"]), count=column["count"],
-                        rule="rule" in column and column["rule"] or None)
+                column["name"], column_type=column["type"],
+                occurs=tuple(column["occurs"]), count=column["count"],
+                rule="rule" in column and column["rule"] or None)
 
         onegeo_index = OnegeoIndex(rscr.name)
         onegeo_context = OnegeoContext(ctx.name, onegeo_index, onegeo_resource)
 
         for col_property in iter(ctx.clmn_properties):
             context_name = col_property.pop('name')
-            onegeo_context.update_property(context_name, 'alias', col_property['alias'])
-            onegeo_context.update_property(context_name, 'type', col_property['type'])
-            onegeo_context.update_property(context_name, 'pattern', col_property['pattern'])
-            onegeo_context.update_property(context_name, 'occurs', col_property['occurs'])
-            onegeo_context.update_property(context_name, 'rejected', col_property['rejected'])
-            onegeo_context.update_property(context_name, 'searchable', col_property['searchable'])
-            onegeo_context.update_property(context_name, 'weight', col_property['weight'])
-            onegeo_context.update_property(context_name, 'analyzer', col_property['analyzer'])
-            onegeo_context.update_property(context_name, 'search_analyzer', col_property['search_analyzer'])
+            onegeo_context.update_property(
+                context_name, 'alias', col_property['alias'])
+            onegeo_context.update_property(
+                context_name, 'type', col_property['type'])
+            onegeo_context.update_property(
+                context_name, 'pattern', col_property['pattern'])
+            onegeo_context.update_property(
+                context_name, 'occurs', col_property['occurs'])
+            onegeo_context.update_property(
+                context_name, 'rejected', col_property['rejected'])
+            onegeo_context.update_property(
+                context_name, 'searchable', col_property['searchable'])
+            onegeo_context.update_property(
+                context_name, 'weight', col_property['weight'])
+            onegeo_context.update_property(
+                context_name, 'analyzer', col_property['analyzer'])
+            onegeo_context.update_property(
+                context_name, 'search_analyzer', col_property['search_analyzer'])
 
         opts = {}
 
@@ -148,13 +156,14 @@ class ActionView(View):
 
         body = {'mappings': onegeo_context.generate_elastic_mapping(),
                 'settings': {
-                    'analysis': self._retreive_analysis(
-                        self._retreive_analyzers(onegeo_context))}}
+                    'analysis': "N/A"}}
+                    # 'analysis': self._retreive_analysis(
+                    #     self._retreive_analyzers(onegeo_context))}}
 
         index_uuid = str(uuid4())[0:7]
 
-        description = "Les données sont en cours d'indexation (id de l'index: '{0}'). ".format(
-            index_uuid)
+        description = ("Les données sont en cours d'indexation "
+                       "(id de l'index: '{0}'). ").format(index_uuid)
         tsk = Task.objects.create(model_type="context", description=description,
                                   user=user(), model_type_id=ctx.pk)
 
@@ -178,7 +187,7 @@ class ActionView(View):
                      "succeed": on_index_success})
 
         elastic_conn.create_or_replace_index(
-                    index_uuid, ctx.name, ctx.name, body, **opts)
+            index_uuid, ctx.name, ctx.name, body, **opts)
 
         status = 202
         data = {"message": tsk.description}

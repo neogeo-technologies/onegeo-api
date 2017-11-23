@@ -13,9 +13,11 @@ from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
 
-from .. import utils
 from ..models import Context, Resource, Source, Task
-
+from onegeo_api.exceptions import ContentTypeLookUp
+from onegeo_api.utils import BasicAuth
+from onegeo_api.utils import read_name
+from onegeo_api.utils import slash_remove
 
 __all__ = ["ContextView", "ContextIDView",
            "ContextIDTaskView", "ContextIDTaskIDView"]
@@ -23,7 +25,9 @@ __all__ = ["ContextView", "ContextIDView",
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 MSG_406 = "Le format demandé n'est pas pris en charge. "
-
+MSG_404 = {
+    "GetResource": {"error": "Aucune resource ne correspond à cette requête."},
+    "GetContext": {"error": "Aucun context ne correspond à cette requête."}}
 
 # def check_columns(list_ppt, list_ppt_clt):
 #     for ppt in list_ppt:
@@ -32,26 +36,17 @@ MSG_406 = "Le format demandé n'est pas pris en charge. "
 #                 ppt.update(ppt_clt)
 #     return list_ppt
 
-def slash_remove(uri):
-    return uri[:-1] if uri[-1] is "/" else uri
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextView(View):
 
+    @BasicAuth()
     def get(self, request):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        return JsonResponse(utils.get_objects(user(), Context), safe=False)
+        return JsonResponse(Context.format_by_filter(request.user), safe=False)
 
+    @BasicAuth()
+    @ContentTypeLookUp()
     def post(self, request):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-
-        if "application/json" not in request.content_type:
-            return JsonResponse({"error": MSG_406}, status=406)
 
         body_data = json.loads(request.body.decode('utf-8'))
         if "name" not in body_data:
@@ -61,7 +56,7 @@ class ContextView(View):
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Le chemin d'accès est manquant. "}, status=400)
 
-        name = utils.read_name(body_data)
+        name = read_name(body_data)
         if name is None:
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Le nom du context est incorrect. "}, status=400)
@@ -69,33 +64,30 @@ class ContextView(View):
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Un contexte portant le même nom existe déjà. "}, status=409)
 
-        reindex_frequency = "monthly"
-        if "reindex_frequency" in body_data:
-            reindex_frequency = body_data['reindex_frequency']
+        reindex_frequency = body_data.get("reindex_frequency", "monthly")
 
-        data = search('^/sources/(\d+)/resources/(\d+)$', body_data['resource'])
+        data = search('^/sources/(\S+)/resources/(\S+)$', body_data['resource'])
         if not data:
             return None
-        src_id = data.group(1)
-        rsrc_id = data.group(2)
-        set_src = get_object_or_404(Source, id=src_id)
-        set_rscr = get_object_or_404(Resource, source=set_src, id=rsrc_id)
-        # if Context.objects.filter(resources=set_rscr).exists():
-        #     return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-        #                                   "Une ressource ne peut être liée à plusieurs "
-        #                                   "contextes d'indexation. "}, status=409)
+        # src_uuid = data.group(1)
+        rsrc_uuid = data.group(2)
 
-        onegeo_source = OnegeoSource(set_src.uri, name, set_src.mode)
-        onegeo_resource = OnegeoResource(onegeo_source, set_rscr.name)
-        for col in iter(set_rscr.columns):
+        resource = Resource.get_from_uuid(rsrc_uuid, request.user)
+        if not resource:
+            return JsonResponse(MSG_404["GetResource"], status=404)
+        source = resource.source
+
+        onegeo_source = OnegeoSource(source.uri, name, source.mode)
+        onegeo_resource = OnegeoResource(onegeo_source, resource.name)
+        for col in iter(resource.columns):
             if onegeo_resource.is_existing_column(col["name"]):
                 continue
             onegeo_resource.add_column(
-                            col["name"], column_type=col["type"],
-                            occurs=tuple(col["occurs"]), count=col["count"],
-                            rule="rule" in col and col["rule"] or None)
+                col["name"], column_type=col["type"],
+                occurs=tuple(col["occurs"]), count=col["count"],
+                rule="rule" in col and col["rule"] or None)
 
-        onegeo_index = OnegeoIndex(set_rscr.name)
+        onegeo_index = OnegeoIndex(resource.name)
         onegeo_context = OnegeoContext(name, onegeo_index, onegeo_resource)
         column_ppt = []
         for property in onegeo_context.iter_properties():
@@ -107,24 +99,23 @@ class ContextView(View):
                                              reindex_frequency=reindex_frequency)
         except ValidationError as e:
             return JsonResponse(data={"error": e.message}, status=409)
-        context.resources.add(set_rscr)
+        context.resources.add(resource)
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())
-        response['Location'] = '{}/{}'.format(uri, context.id)
+        response['Location'] = '{}/{}'.format(uri, context.uuid)
         return response
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextIDView(View):
 
-    def get(self, request, id):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        ctx_id = literal_eval(id)
+    @BasicAuth()
+    def get(self, request, uuid):
+        context = Context.get_from_uuid(uuid, request.user)
+        if not context:
+            return JsonResponse(MSG_404["GetContext"], status=404)
 
-        return JsonResponse(utils.get_object_id(user(), ctx_id, Context),
-                            safe=False, status=200)
+        return JsonResponse(context.format_data, safe=False, status=200)
 
     def put(self, request, id):
 
