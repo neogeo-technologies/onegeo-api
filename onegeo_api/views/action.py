@@ -1,6 +1,6 @@
 import json
 from django.conf import settings
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -12,10 +12,10 @@ from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
 from uuid import uuid4
 
-from .. import utils
 from ..elasticsearch_wrapper import elastic_conn
-from ..models import Context # Filter, Analyzer, Task
+from ..models import Context
 from ..models import Task
+from onegeo_api.utils import BasicAuth
 
 __all__ = ["ActionView"]
 
@@ -32,59 +32,58 @@ PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 @method_decorator(csrf_exempt, name="dispatch")
 class ActionView(View):
 
-    def _retreive_analysis(self, analyzers):
+    # def _retreive_analysis(self, analyzers):
+    #
+    #     analysis = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
+    #
+    #     for analyzer_name in analyzers:
+    #         analyzer = Analyzer.objects.get(name=analyzer_name)
+    #
+    #         plug_anal = analyzer.filter.through
+    #         if analyzer.reserved:
+    #             if plug_anal.objects.filter(analyzer__name=analyzer_name) and analyzer.tokenizer:
+    #                 pass
+    #             else:
+    #                 continue
+    #
+    #         if analyzer.config:
+    #             analysis['analyzer'][analyzer.name] = analyzer.config
+    #             continue
+    #
+    #         analysis['analyzer'][analyzer.name] = {'type': 'custom'}
+    #
+    #         tokenizer = analyzer.tokenizer
+    #
+    #         if tokenizer:
+    #             analysis['analyzer'][analyzer.name]['tokenizer'] = tokenizer.name
+    #             if tokenizer.config:
+    #                 analysis['tokenizer'][tokenizer.name] = tokenizer.config
+    #
+    #         filters_name = iter_flt_from_anl(analyzer.name)
+    #
+    #         for filter_name in iter(filters_name):
+    #             filter = Filter.objects.get(name=filter_name)
+    #             if filter.config:
+    #                 analysis['filter'][filter.name] = filter.config
+    #
+    #         analysis['analyzer'][analyzer.name]['filter'] = filters_name
+    #
+    #     return analysis
+    #
+    # def _retreive_analyzers(self, context):
+    #
+    #     analyzers = []
+    #     for prop in context.iter_properties():
+    #         if prop.analyzer not in analyzers:
+    #             analyzers.append(prop.analyzer)
+    #         if prop.search_analyzer not in analyzers:
+    #             analyzers.append(prop.search_analyzer)
+    #     return [analyzer for analyzer in analyzers if analyzer not in (None, '')]
 
-        analysis = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
-
-        for analyzer_name in analyzers:
-            analyzer = Analyzer.objects.get(name=analyzer_name)
-
-            plug_anal = analyzer.filter.through
-            if analyzer.reserved:
-                if plug_anal.objects.filter(analyzer__name=analyzer_name) and analyzer.tokenizer:
-                    pass
-                else:
-                    continue
-
-            if analyzer.config:
-                analysis['analyzer'][analyzer.name] = analyzer.config
-                continue
-
-            analysis['analyzer'][analyzer.name] = {'type': 'custom'}
-
-            tokenizer = analyzer.tokenizer
-
-            if tokenizer:
-                analysis['analyzer'][analyzer.name]['tokenizer'] = tokenizer.name
-                if tokenizer.config:
-                    analysis['tokenizer'][tokenizer.name] = tokenizer.config
-
-            filters_name = iter_flt_from_anl(analyzer.name)
-
-            for filter_name in iter(filters_name):
-                filter = Filter.objects.get(name=filter_name)
-                if filter.config:
-                    analysis['filter'][filter.name] = filter.config
-
-            analysis['analyzer'][analyzer.name]['filter'] = filters_name
-
-        return analysis
-
-    def _retreive_analyzers(self, context):
-
-        analyzers = []
-        for prop in context.iter_properties():
-            if prop.analyzer not in analyzers:
-                analyzers.append(prop.analyzer)
-            if prop.search_analyzer not in analyzers:
-                analyzers.append(prop.search_analyzer)
-        return [analyzer for analyzer in analyzers if analyzer not in (None, '')]
-
+    @BasicAuth()
     def post(self, request):
 
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
+        user = request.user
 
         data = json.loads(request.body.decode("utf-8"))
 
@@ -92,7 +91,7 @@ class ActionView(View):
         if not ctx:
             return JsonResponse({"error": "Le contexte d'indexation n'existe pas. "}, status=404)
 
-        filters = {"model_type": "context", "model_type_id": ctx.short_uuid, "user": user()}
+        filters = {"model_type": "context", "model_type_id": ctx.uuid, "user": user}
         last = Task.objects.filter(**filters).order_by("start_date").last()
         if last and last.success is None:
             data = {"error": "Une autre tâche est en cours d'exécution. "
@@ -154,9 +153,10 @@ class ActionView(View):
         if action == "reindex":
             pass  # Action par défaut
 
+        # TODO(mmeliani): check _retreive_analysis() & _retreive_analyzers
+        empty_data = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
         body = {'mappings': onegeo_context.generate_elastic_mapping(),
-                'settings': {
-                    'analysis': "N/A"}}
+                'settings': {'analysis': empty_data}}
                     # 'analysis': self._retreive_analysis(
                     #     self._retreive_analyzers(onegeo_context))}}
 
@@ -165,7 +165,7 @@ class ActionView(View):
         description = ("Les données sont en cours d'indexation "
                        "(id de l'index: '{0}'). ").format(index_uuid)
         tsk = Task.objects.create(model_type="context", description=description,
-                                  user=user(), model_type_id=ctx.pk)
+                                  user=user, model_type_id=ctx.uuid)
 
         def on_index_error(desc):
             pass

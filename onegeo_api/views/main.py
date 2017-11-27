@@ -1,12 +1,12 @@
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from pathlib import Path
 
-from .. import utils
-from ..models import Source
+from onegeo_api.utils import BasicAuth
+from onegeo_api.models import Source
 
 
 __all__ = ["Directories", "SupportedModes"]
@@ -33,10 +33,8 @@ def file_uri_shortcut(b):
 @method_decorator(csrf_exempt, name="dispatch")
 class Directories(View):
 
+    @BasicAuth()
     def get(self, request):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
         subdir = file_uri_shortcut(PDF_BASE_DIR)
         return JsonResponse(subdir, safe=False)
 

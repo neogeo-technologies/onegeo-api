@@ -2,7 +2,7 @@ import json
 from ast import literal_eval
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -13,7 +13,10 @@ from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
 
-from ..models import Context, Resource, Source, Task
+from ..models import Context
+from ..models import Resource
+# from ..models import Source
+from ..models import Task
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import read_name
@@ -28,13 +31,6 @@ MSG_406 = "Le format demandé n'est pas pris en charge. "
 MSG_404 = {
     "GetResource": {"error": "Aucune resource ne correspond à cette requête."},
     "GetContext": {"error": "Aucun context ne correspond à cette requête."}}
-
-# def check_columns(list_ppt, list_ppt_clt):
-#     for ppt in list_ppt:
-#         for ppt_clt in list_ppt_clt:
-#             if ppt["name"] == ppt_clt["name"]:
-#                 ppt.update(ppt_clt)
-#     return list_ppt
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -69,10 +65,10 @@ class ContextView(View):
         data = search('^/sources/(\S+)/resources/(\S+)$', body_data['resource'])
         if not data:
             return None
-        # src_uuid = data.group(1)
+        src_uuid = data.group(1)
         rsrc_uuid = data.group(2)
 
-        resource = Resource.get_from_uuid(rsrc_uuid, request.user)
+        resource = Resource.get_from_uuid(src_uuid, rsrc_uuid, request.user)
         if not resource:
             return JsonResponse(MSG_404["GetResource"], status=404)
         source = resource.source
@@ -102,7 +98,7 @@ class ContextView(View):
         context.resources.add(resource)
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())
-        response['Location'] = '{}/{}'.format(uri, context.uuid)
+        response['Location'] = '{}/{}'.format(uri, context.short_uuid)
         return response
 
 
@@ -123,28 +119,17 @@ class ContextIDView(View):
 
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
-
-        # if "name" in body_data:
-        #     name = body_data['name']
         name = body_data.get('name')
-
-        # reindex_frequency = None
-        # if "reindex_frequency" in body_data:
-        #     reindex_frequency = body_data['reindex_frequency']
         reindex_frequency = body_data.get('reindex_frequency')
-
-        # list_ppt_clt = {}
-        # if "columns" in body_data:
-        #     list_ppt_clt = body_data['columns']
         list_ppt_clt = body_data.get('columns', {})
 
         data = search('^/sources/(\S+)/resources/(\S+)$', body_data['resource'])
         if not data:
             return None
-        # src_id = data.group(1)
+        src_uuid = data.group(1)
         rsrc_uuid = data.group(2)
 
-        resource = Resource.get_from_uuid(rsrc_uuid, request.user)
+        resource = Resource.get_from_uuid(src_uuid, rsrc_uuid, request.user)
         if not resource:
             return JsonResponse(MSG_404["GetResource"], status=404)
 
@@ -152,9 +137,6 @@ class ContextIDView(View):
         if not context:
             return JsonResponse(MSG_404["GetContext"], status=404)
 
-        # list_ppt = context.clmn_properties
-        # ppt_update = check_columns(list_ppt, list_ppt_clt)
-        # context.clmn_properties = ppt_update
         context.update_clmn_properties(list_ppt_clt)
 
         context.resources.add(resource)
@@ -168,43 +150,38 @@ class ContextIDView(View):
 
     @BasicAuth()
     def delete(self, request, uuid):
-        user = request.user
-
-        id = literal_eval(id)
-
-        return utils.delete_func(id, user(), Context)
+        return Context.custom_delete(uuid, request.user)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextIDTaskView(View):
 
-    def get(self, request, id):
+    @BasicAuth()
+    def get(self, request, uuid):
 
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-        ctx_id = literal_eval(id)
+        user = request.user
 
-        get_object_or_404(Context, pk=ctx_id)
+        context = Context.get_from_uuid(uuid, user)
+        if not context:
+            return JsonResponse(MSG_404["GetContext"], status=404)
 
-        set = Task.objects.filter(model_type="context",
-                                  model_type_id=ctx_id,
-                                  user=user()).order_by("-start_date")
+        tasks = Task.objects.filter(
+            model_type="context",
+            model_type_id=context.uuid,
+            user=user).order_by("-start_date")
 
-        data = [utils.format_task(tsk) for tsk in set]
-
-        return JsonResponse(data, safe=False)
+        return JsonResponse([task.format_data for task in tasks], safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ContextIDTaskIDView(View):
 
-    def get(self, request, ctx_id, tsk_id):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
+    @BasicAuth()
+    def get(self, request, ctx_uuid, tsk_id):
+        context = Context.get_from_uuid(ctx_uuid, request.user)
+        if not context:
+            return JsonResponse(MSG_404["GetContext"], status=404)
+        task = get_object_or_404(
+            Task, pk=literal_eval(tsk_id), model_type_id=context.uuid)
 
-        tsk_id = literal_eval(tsk_id)
-        tsk = get_object_or_404(Task, pk=tsk_id, model_type_id=ctx_id)
-
-        return JsonResponse(utils.format_task(tsk), safe=False)
+        return JsonResponse(task.foramt_data, safe=False)

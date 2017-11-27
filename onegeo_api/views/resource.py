@@ -50,7 +50,7 @@ class ResourceIDView(View):
 
     @BasicAuth()
     def get(self, request, src_uuid, rsrc_uuid):
-        resource = Resource.get_from_uuid(rsrc_uuid, request.user)
+        resource = Resource.get_from_uuid(src_uuid, rsrc_uuid, request.user)
         if not resource:
             return JsonResponse(MSG_404["GetResource"], status=404)
         return JsonResponse(resource.format_data, safe=False)

@@ -10,7 +10,7 @@ from importlib import import_module
 
 from .. import utils
 from ..elasticsearch_wrapper import elastic_conn
-from ..exceptions import JsonError, MultiTaskError
+from ..exceptions import MultiTaskError
 from ..models import Context, SearchModel, Task
 from base64 import b64decode
 from requests.exceptions import HTTPError  # TODO
@@ -26,9 +26,9 @@ PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 MSG_406 = "Le format demandé n'est pas pris en charge. "
 
 
-def search_model_context_task(ctx_id, user):
+def search_model_context_task(ctx_uuid, user):
     if len(Task.objects.filter(model_type="context",
-                               model_type_id=ctx_id,
+                               model_type_id=ctx_uuid,
                                user=user,
                                stop_date=None)) > 0:
         raise MultiTaskError()
@@ -68,20 +68,10 @@ def refresh_search_model(mdl_name, ctx_name_l):
     elastic_conn.update_aliases(body)
 
 
-def read_name_SM(data, method, name_url):
-
-    name = None
-    if method == 'POST':
-        name = utils.read_name(data)
-    elif method == 'PUT':
-        name = (name_url.endswith('/') and name_url[:-1] or name_url)
-    return name
-
-
 def read_params_SM(data):
 
-    items = {"indices": [] if ("indices" not in data) else data["indices"],
-             "config": {} if ("config" not in data) else data["config"]}
+    items = {"indexes": data.get("indexes", []),
+             "config": data.get("config", {})}
     items = utils.clean_my_obj(items)
     return items["indices"], items["config"]
 
@@ -130,7 +120,7 @@ def get_contexts_obj(contexts_clt, user):
         except Context.DoesNotExist:
             raise
         try:
-            search_model_context_task(context.pk, user)
+            search_model_context_task(context.uuid, user)
         except MultiTaskError:
             raise
         contexts_obj.append(context)
@@ -175,22 +165,6 @@ def set_search_model_contexts(search_model, contexts_obj,
     return response
 
 
-# def read_request(request, name_url=None):
-#
-#     error = None
-#     contexts_clt = None
-#     config_clt = None
-#     name = None
-#
-#     if "application/json" not in request.content_type:
-#         error = JsonResponse({"Error": MSG_406}, status=406)
-#     else:
-#         data = json.loads(request.body.decode("utf-8"))
-#         name = read_name_SM(data, request.method, name_url)
-#         contexts_clt, config_clt = read_params_SM(data)
-#     return contexts_clt, config_clt, name, error
-
-
 @method_decorator(csrf_exempt, name="dispatch")
 class SearchModelView(View):
 
@@ -204,20 +178,17 @@ class SearchModelView(View):
     def post(self, request):
 
         user = request.user
-        # READ REQUEST DATA
         data = json.loads(request.body.decode("utf-8"))
         name = name = utils.read_name(data)
         contexts_clt, config_clt = read_params_SM(data)
 
-        # GET OR CREATE SearchModel
         search_model, error = \
-            get_search_model(name, user(), config_clt, request.method)
+            get_search_model(name, user, config_clt, request.method)
         if error:
             return error
 
-        # GET & CHECK CONTEXTS
         try:
-            contexts_obj = get_contexts_obj(contexts_clt, user())
+            contexts_obj = get_contexts_obj(contexts_clt, user)
         except Context.DoesNotExist:
             return JsonResponse({
                 "error":
@@ -229,7 +200,6 @@ class SearchModelView(View):
                     "Une autre tâche est en cours d'exécution. "
                     "Veuillez réessayer plus tard. "}, status=423)
 
-        # RETURN RESPONSE
         return set_search_model_contexts(search_model,
                                          contexts_obj,
                                          contexts_clt,
@@ -244,13 +214,10 @@ class SearchModelIDView(View):
     def get(self, request, name):
         user = request.user
         name = slash_remove(name)
-
         sm = SearchModel.user_access(name, user)
         if not sm:
             msg = "Vous n'etes pas l'usager de cet élément."
-            status = 403
-            return JsonResponse({"error": msg}, status=status)
-
+            return JsonResponse({"error": msg}, status=403)
         return JsonResponse(sm.format_data, status=200)
 
     @BasicAuth()
@@ -287,15 +254,14 @@ class SearchModelIDView(View):
                                          request,
                                          config_clt)
 
+    @BasicAuth()
     def delete(self, request, name):
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
-
+        user = request.user
         name = (name.endswith('/') and name[:-1] or name)
-        return utils.delete_func(name, user(), SearchModel)
+        return SearchModel.custom_delete(name, user)
 
 
+# TODO(mmeliani): Revoir gestion des plugins
 @method_decorator(csrf_exempt, name='dispatch')
 class SearchView(View):
 
@@ -340,14 +306,13 @@ class SearchView(View):
         else:
             return plugin.output(res)
 
+    @BasicAuth()
     def post(self, request, name):
 
-        user = utils.get_user_or_401(request)
-        if isinstance(user, HttpResponse):
-            return user
+        user = request.user
 
         search_model = get_object_or_404(SearchModel, name=name)
-        if not search_model.user == user():
+        if not search_model.user == user:
             return JsonResponse({
                 'error': "Modification du modèle de recherche impossible. "
                          "Son usage est réservé."}, status=403)
