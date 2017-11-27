@@ -1,14 +1,14 @@
 from django.conf.urls import url
 
-from .views.action import ActionView
-from .views.context import ContextIDView
-from .views.context import ContextView
-from .views.context import ContextIDTaskView
-from .views.context import ContextIDTaskIDView
-from .views.main import Directories, SupportedModes
-from .views.resource import ResourceView, ResourceIDView
-from .views.search_model import SearchModelIDView, SearchModelView, SearchView
-from .views.source import SourceView, SourceIDView
+from onegeo_api.views.action import ActionView
+from onegeo_api.views.context import ContextIDView
+from onegeo_api.views.context import ContextView
+from onegeo_api.views.context import ContextIDTaskView
+from onegeo_api.views.context import ContextIDTaskIDView
+from onegeo_api.views.main import Directories, SupportedModes
+from onegeo_api.views.resource import ResourceView, ResourceIDView
+from onegeo_api.views.search_model import SearchModelIDView, SearchModelView, SearchView
+from onegeo_api.views.source import SourceView, SourceIDView
 from onegeo_api.views.task import TaskIDView
 from onegeo_api.views.task import TaskView
 

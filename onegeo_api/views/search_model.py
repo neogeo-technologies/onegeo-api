@@ -1,7 +1,7 @@
 import json
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -136,8 +136,8 @@ def set_search_model_contexts(search_model, contexts_obj,
         search_model.context.set(contexts_obj)
         search_model.save()
         response = JsonResponse(data={}, status=201)
-        response['Location'] = '{0}{1}'.format(
-            request.build_absolute_uri(), search_model.name)
+        uri = slash_remove(request.build_absolute_uri())
+        response['Location'] = '{0}/{1}'.format(uri, search_model.name)
 
         if len(contexts_clt) > 0:
             try:

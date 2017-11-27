@@ -1,8 +1,8 @@
-from .context import Context
-from .resource import Resource
-from .search_model import SearchModel
-from .source import Source
-from .task import Task
+from onegeo_api.models.context import Context
+from onegeo_api.models.resource import Resource
+from onegeo_api.models.search_model import SearchModel
+from onegeo_api.models.source import Source
+from onegeo_api.models.task import Task
 
 __all__ = [
     'Context',

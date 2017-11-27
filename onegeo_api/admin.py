@@ -2,10 +2,10 @@ from django.contrib import admin
 from django.contrib.auth.models import Group
 
 
-from .models import Context
-from .models import Resource
-from .models import SearchModel
-from .models import Source
+from onegeo_api.models import Context
+from onegeo_api.models import Resource
+from onegeo_api.models import SearchModel
+from onegeo_api.models import Source
 
 
 admin.site.unregister(Group)

@@ -1,8 +1,9 @@
 from django.apps import apps
 from django.contrib.postgres.fields import JSONField
 from django.db import models
-from onegeo_api.utils import clean_my_obj
 import uuid
+
+from onegeo_api.utils import clean_my_obj
 
 
 class Resource(models.Model):
