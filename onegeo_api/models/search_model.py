@@ -1,11 +1,12 @@
 from django.apps import apps
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
-from django.http import JsonResponse
+from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from importlib import import_module
 import uuid
@@ -91,16 +92,16 @@ class SearchModel(models.Model):
         return clean_my_obj(response)
 
     @classmethod
-    def get_from_user(cls, user):
+    def custom_filter(cls, user):
         search_model = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by("name")
         return [sm.format_data for sm in search_model]
 
     @classmethod
     def user_access(cls, name, user):
         sm = get_object_or_404(cls, name=name)
-        if sm.user == user:
-            return sm
-        return None
+        if sm.user != user:
+            raise PermissionDenied
+        return sm
 
     @classmethod
     def custom_create(cls, name, user, config):

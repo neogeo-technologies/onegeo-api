@@ -171,7 +171,7 @@ class SearchModelView(View):
     @BasicAuth()
     def get(self, request):
         user = request.user
-        return JsonResponse(SearchModel.get_from_user(user), safe=False)
+        return JsonResponse(SearchModel.custom_filter(user), safe=False)
 
     @BasicAuth()
     @ContentTypeLookUp()
