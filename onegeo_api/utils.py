@@ -1,9 +1,9 @@
 from base64 import b64decode
 from django.conf import settings
 from django.contrib.auth import authenticate
-# from django.contrib.auth import login
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
+from django.http import JsonResponse
 from functools import wraps
 from pathlib import Path
 from re import search
@@ -26,6 +26,36 @@ def read_name(body_data):
     except AttributeError:
         return None
     return name
+
+
+def on_http404(model):
+    msg = {
+        'Analyzer': "Aucun analiseur ne correspond à votre requête",
+        'Context': "Aucun contexte ne correspond à votre requête",
+        'Filter': "Aucun filtre ne correspond à votre requête",
+        'Resource': "Aucune ressource ne correspond à votre requête",
+        'SearchModel': "Aucun modèle de recherche ne correspond à votre requête",
+        'Source': "Aucune source ne correspond à votre requête",
+        'Task': "Aucune tâche ne correspond à votre requête",
+        'Tokenizer': "Aucun jeton ne correspond à votre requête",
+        'Various': "Aucun élément ne correspond à votre requête",
+        }
+    return JsonResponse(msg[model], status=404)
+
+
+def on_http403(model):
+    msg = {
+        'Analyzer': "Vous n'avez pas la permission d'accéder à cet analyseur",
+        'Context': "Vous n'avez pas la permission d'accéder à ce contexte",
+        'Filter': "Vous n'avez pas la permission d'accéder à ce filtre",
+        'Resource': "Vous n'avez pas la permission d'accéder à cette ressource",
+        'SearchModel': "Vous n'avez pas la permission d'accéder à ce modèle de recherche",
+        'Source': "Vous n'avez pas la permission d'accéder à cette source",
+        'Task': "Vous n'avez pas la permission d'accéder à cette tâche",
+        'Tokenizer': "Vous n'avez pas la permission d'accéder à ce jeton",
+        'Various': "Vous n'avez pas la permission d'accéder à cet élément",
+        }
+    return JsonResponse(msg[model], status=403)
 
 
 class BasicAuth(object):

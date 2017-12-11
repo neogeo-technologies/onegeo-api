@@ -1,4 +1,8 @@
+from base64 import b64decode
+from importlib import import_module
 import json
+from requests.exceptions import HTTPError  # TODO
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
@@ -6,18 +10,23 @@ from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from importlib import import_module
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 
-from .. import utils
-from ..elasticsearch_wrapper import elastic_conn
-from ..exceptions import MultiTaskError
-from ..models import Context, SearchModel, Task
-from base64 import b64decode
-from requests.exceptions import HTTPError  # TODO
-
-from onegeo_api.utils import BasicAuth
+from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.exceptions import ContentTypeLookUp
+from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.exceptions import MultiTaskError
+from onegeo_api.models import Context
+from onegeo_api.models import SearchModel
+from onegeo_api.models import Task
+from onegeo_api.utils import BasicAuth
+from onegeo_api.utils import clean_my_obj
+from onegeo_api.utils import on_http403
+from onegeo_api.utils import on_http404
+from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
+
 
 __all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
 
@@ -72,7 +81,7 @@ def read_params_SM(data):
 
     items = {"indexes": data.get("indexes", []),
              "config": data.get("config", {})}
-    items = utils.clean_my_obj(items)
+    items = clean_my_obj(items)
     return items["indices"], items["config"]
 
 
@@ -179,7 +188,7 @@ class SearchModelView(View):
 
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
-        name = name = utils.read_name(data)
+        name = read_name(data)
         contexts_clt, config_clt = read_params_SM(data)
 
         search_model, error = \
@@ -211,16 +220,19 @@ class SearchModelView(View):
 class SearchModelIDView(View):
 
     @BasicAuth()
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="SearchModel")
     def get(self, request, name):
         user = request.user
-        name = slash_remove(name)
-        sm = SearchModel.user_access(name, user)
-        if not sm:
-            msg = "Vous n'etes pas l'usager de cet élément."
-            return JsonResponse({"error": msg}, status=403)
+        sm = SearchModel.user_access(slash_remove(name), user)
         return JsonResponse(sm.format_data, status=200)
 
     @BasicAuth()
+    @ContentTypeLookUp()
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="SearchModel")
     def put(self, request, name):
         # READ REQUEST DATA
         user = request.user
@@ -255,10 +267,14 @@ class SearchModelIDView(View):
                                          config_clt)
 
     @BasicAuth()
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="SearchModel")
     def delete(self, request, name):
         user = request.user
-        name = (name.endswith('/') and name[:-1] or name)
-        return SearchModel.custom_delete(name, user)
+        sm = SearchModel.user_access(slash_remove(name), user)
+        sm.delete()
+        return JsonResponse(data={}, status=204)
 
 
 # TODO(mmeliani): Revoir gestion des plugins

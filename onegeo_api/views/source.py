@@ -1,16 +1,20 @@
-import json
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.http import JsonResponse
+from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from django.utils.decorators import method_decorator
+import json
 
-from ..models import Source
 from onegeo_api.exceptions import ContentTypeLookUp
+from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
-from onegeo_api.utils import read_name
 from onegeo_api.utils import check_uri
-
+from onegeo_api.utils import read_name
+from onegeo_api.utils import on_http404
+from onegeo_api.utils import on_http403
 
 __all__ = ["SourceView", "SourceIDView"]
 
@@ -33,8 +37,7 @@ class SourceView(View):
 
     @BasicAuth()
     def get(self, request):
-        user = request.user
-        return JsonResponse(Source.format_by_filter(user), safe=False)
+        return JsonResponse(Source.list_renderer(request.user), safe=False)
 
     @BasicAuth()
     @ContentTypeLookUp()
@@ -85,21 +88,25 @@ class SourceView(View):
             'user': user,
             'name': name,
             'mode': mode}
-        return Source.custom_create(request, uri, defaults)
+
+        return Source.create_with_response(request, uri, defaults)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SourceIDView(View):
 
     @BasicAuth()
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="Source")
     def get(self, request, uuid):
-        user = request.user
-        source = Source.get_from_uuid(uuid, user)
-        if not source:
-            return JsonResponse(MSG_404["GetSource"], status=404)
-        return JsonResponse(source.format_data, safe=False)
+        source = Source.get_with_permission(uuid, request.user)
+        return JsonResponse(source.detail_renderer, safe=False)
 
     @BasicAuth()
+    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Source")
     def delete(self, request, uuid):
-        user = request.user
-        return Source.custom_delete(uuid, user)
+
+        source = Source.get_with_permission(uuid, request.user)
+        source.delete()
+        return JsonResponse(data={}, status=204)

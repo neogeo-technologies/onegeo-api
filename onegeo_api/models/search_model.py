@@ -9,18 +9,15 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from importlib import import_module
-import uuid
 
 from onegeo_api.utils import clean_my_obj
-
+from onegeo_api.models import AbstractModelProfile
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
-class SearchModel(models.Model):
+class SearchModel(AbstractModelProfile):
 
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField("Name", max_length=250, unique=True)
     config = JSONField("Config", blank=True, null=True)
 
     # FK & alt
@@ -35,10 +32,6 @@ class SearchModel(models.Model):
                 raise ValidationError("Un modèle de recherche ne peut avoir "
                                       "le même nom qu'un contexte d'indexation.")
         super().save(*args, **kwargs)
-
-    @property
-    def short_uuid(self):
-        return str(self.uuid)[:7]
 
     @classmethod
     def get_from_uuid(cls, uuid, user=None):
@@ -103,6 +96,8 @@ class SearchModel(models.Model):
             raise PermissionDenied
         return sm
 
+    # TODO(cbenhabib): A implementer pour remplacer:
+    # get_search_model(), get_contexts_obj(), set_search_model_contexts()
     @classmethod
     def custom_create(cls, name, user, config):
         error = None
@@ -116,18 +111,3 @@ class SearchModel(models.Model):
             error = JsonResponse(data={"error": "Conflict"}, status=409)
 
         return sm, error
-
-    @classmethod
-    def custom_delete(cls, name, user):
-        obj = cls.get_from_params({'name': name})
-        if not obj:
-            data = {"error": "Echec de la suppression: Aucun model de recherche ne correspond à cet identifiant."}
-            status = 404
-        elif obj and obj.user == user:
-            obj.delete()
-            data = {}
-            status = 204
-        else:
-            data = {"error": "Echec de la suppression: Vous n'etes pas l'usager de ce modèle de recherche."}
-            status = 403
-        return JsonResponse(data, status=status)

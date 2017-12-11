@@ -24,7 +24,7 @@ class Task(models.Model):
     user = models.ForeignKey(User)
 
     @property
-    def format_data(self):
+    def detail_renderer(self):
         return clean_my_obj({
             "id": self.pk,
             "status": self.success is None and 'running' or 'done',

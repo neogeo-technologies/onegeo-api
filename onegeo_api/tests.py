@@ -38,17 +38,16 @@ class SimpleTest(TestCase):
 
     # TESTS SOURCES
     def test_source_get__with_anonymous_user(self):
-        rf = self.factory
-        request = rf.get('/api/sources/')
+        request = self.factory.get('/api/sources/')
+
         request.user = AnonymousUser()
         response = SourceView.as_view()(request)
         self.assertEqual(response.status_code, 401)
 
     def test_source_get(self):
-        rf = self.factory
-        request = rf.get('/api/sources/')
+        request = self.factory.get('/api/sources/')
 
-        # l'authetification passe par une classe qui vérifie le contenu de META[]
+        # L'authetification passe par une classe qui vérifie le contenu de META[]
         request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='  # base64(user1:passpass)
 
         response = SourceView.as_view()(request)

@@ -1,21 +1,28 @@
 import json
+from uuid import uuid4
+
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+
 from onegeo_manager.context import Context as OnegeoContext
 # from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
 from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
-from uuid import uuid4
 
-from ..elasticsearch_wrapper import elastic_conn
-from ..models import Context
-from ..models import Task
+from onegeo_api.elasticsearch_wrapper import elastic_conn
+from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.models import Context
+from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
+from onegeo_api.utils import on_http403
+from onegeo_api.utils import on_http404
 
 __all__ = ["ActionView"]
 
@@ -81,15 +88,16 @@ class ActionView(View):
     #     return [analyzer for analyzer in analyzers if analyzer not in (None, '')]
 
     @BasicAuth()
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="Context")
     def post(self, request):
 
         user = request.user
 
         data = json.loads(request.body.decode("utf-8"))
 
-        ctx = Context.get_from_uuid(uuid=data["index"])
-        if not ctx:
-            return JsonResponse({"error": "Le contexte d'indexation n'existe pas. "}, status=404)
+        ctx = Context.cust_obj.get_or_not_found(uuid=data.get("index", ""))
 
         filters = {"model_type": "context", "model_type_id": ctx.uuid, "user": user}
         last = Task.objects.filter(**filters).order_by("start_date").last()
@@ -100,96 +108,97 @@ class ActionView(View):
 
         action = data["type"]
 
-        rscr = ctx.resource
-        src = rscr.source
-
-        try:
-            onegeo_source = OnegeoSource(src.uri, src.name, src.mode)
-        except ConnectionError:
-            return JsonResponse({'error': 'La source de données est inaccessible.'}, status=404)
-        onegeo_resource = OnegeoResource(onegeo_source, rscr.name)
-        for column in iter(rscr.columns):
-            if onegeo_resource.is_existing_column(column["name"]):
-                continue
-            onegeo_resource.add_column(
-                column["name"], column_type=column["type"],
-                occurs=tuple(column["occurs"]), count=column["count"],
-                rule="rule" in column and column["rule"] or None)
-
-        onegeo_index = OnegeoIndex(rscr.name)
-        onegeo_context = OnegeoContext(ctx.name, onegeo_index, onegeo_resource)
-
-        for col_property in iter(ctx.clmn_properties):
-            context_name = col_property.pop('name')
-            onegeo_context.update_property(
-                context_name, 'alias', col_property['alias'])
-            onegeo_context.update_property(
-                context_name, 'type', col_property['type'])
-            onegeo_context.update_property(
-                context_name, 'pattern', col_property['pattern'])
-            onegeo_context.update_property(
-                context_name, 'occurs', col_property['occurs'])
-            onegeo_context.update_property(
-                context_name, 'rejected', col_property['rejected'])
-            onegeo_context.update_property(
-                context_name, 'searchable', col_property['searchable'])
-            onegeo_context.update_property(
-                context_name, 'weight', col_property['weight'])
-            onegeo_context.update_property(
-                context_name, 'analyzer', col_property['analyzer'])
-            onegeo_context.update_property(
-                context_name, 'search_analyzer', col_property['search_analyzer'])
-
-        opts = {}
-
-        if src.mode == "pdf":
-            pipeline = "attachment"
-            elastic_conn.create_pipeline_if_not_exists(pipeline)
-            opts.update({"pipeline": pipeline})
-
-        if action == "rebuild":
-            opts.update({"collections": onegeo_context.get_collection()})
-
-        if action == "reindex":
-            pass  # Action par défaut
-
-        # TODO(mmeliani): check _retreive_analysis() & _retreive_analyzers
-        empty_data = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
-        body = {'mappings': onegeo_context.generate_elastic_mapping(),
-                'settings': {'analysis': empty_data}}
-                    # 'analysis': self._retreive_analysis(
-                    #     self._retreive_analyzers(onegeo_context))}}
-
-        index_uuid = str(uuid4())[0:7]
-
-        description = ("Les données sont en cours d'indexation "
-                       "(id de l'index: '{0}'). ").format(index_uuid)
-        tsk = Task.objects.create(model_type="context", description=description,
-                                  user=user, model_type_id=ctx.uuid)
-
-        def on_index_error(desc):
-            pass
-
-        def on_index_success(desc):
-            tsk.success = True
-            tsk.stop_date = timezone.now()
-            tsk.description = desc
-            tsk.save()
-
-        def on_index_failure(desc):
-            tsk.success = False
-            tsk.stop_date = timezone.now()
-            tsk.description = desc
-            tsk.save()
-
-        opts.update({"error": on_index_error,
-                     "failed": on_index_failure,
-                     "succeed": on_index_success})
-
-        elastic_conn.create_or_replace_index(
-            index_uuid, ctx.name, ctx.name, body, **opts)
-
-        status = 202
-        data = {"message": tsk.description}
+        # # TODO(mmeliani): relation ManyToMany entre context et Resource
+        # rscr = ctx.resource
+        # src = rscr.source
+        #
+        # try:
+        #     onegeo_source = OnegeoSource(src.uri, src.name, src.mode)
+        # except ConnectionError:
+        #     return JsonResponse({'error': 'La source de données est inaccessible.'}, status=404)
+        # onegeo_resource = OnegeoResource(onegeo_source, rscr.name)
+        # for column in iter(rscr.columns):
+        #     if onegeo_resource.is_existing_column(column["name"]):
+        #         continue
+        #     onegeo_resource.add_column(
+        #         column["name"], column_type=column["type"],
+        #         occurs=tuple(column["occurs"]), count=column["count"],
+        #         rule="rule" in column and column["rule"] or None)
+        #
+        # onegeo_index = OnegeoIndex(rscr.name)
+        # onegeo_context = OnegeoContext(ctx.name, onegeo_index, onegeo_resource)
+        #
+        # for col_property in iter(ctx.clmn_properties):
+        #     context_name = col_property.pop('name')
+        #     onegeo_context.update_property(
+        #         context_name, 'alias', col_property['alias'])
+        #     onegeo_context.update_property(
+        #         context_name, 'type', col_property['type'])
+        #     onegeo_context.update_property(
+        #         context_name, 'pattern', col_property['pattern'])
+        #     onegeo_context.update_property(
+        #         context_name, 'occurs', col_property['occurs'])
+        #     onegeo_context.update_property(
+        #         context_name, 'rejected', col_property['rejected'])
+        #     onegeo_context.update_property(
+        #         context_name, 'searchable', col_property['searchable'])
+        #     onegeo_context.update_property(
+        #         context_name, 'weight', col_property['weight'])
+        #     onegeo_context.update_property(
+        #         context_name, 'analyzer', col_property['analyzer'])
+        #     onegeo_context.update_property(
+        #         context_name, 'search_analyzer', col_property['search_analyzer'])
+        #
+        # opts = {}
+        #
+        # if src.mode == "pdf":
+        #     pipeline = "attachment"
+        #     elastic_conn.create_pipeline_if_not_exists(pipeline)
+        #     opts.update({"pipeline": pipeline})
+        #
+        # if action == "rebuild":
+        #     opts.update({"collections": onegeo_context.get_collection()})
+        #
+        # if action == "reindex":
+        #     pass  # Action par défaut
+        #
+        # # TODO(mmeliani): check _retreive_analysis() & _retreive_analyzers
+        # empty_data = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
+        # body = {'mappings': onegeo_context.generate_elastic_mapping(),
+        #         'settings': {'analysis': empty_data}}
+        #             # 'analysis': self._retreive_analysis(
+        #             #     self._retreive_analyzers(onegeo_context))}}
+        #
+        # index_uuid = str(uuid4())[0:7]
+        #
+        # description = ("Les données sont en cours d'indexation "
+        #                "(id de l'index: '{0}'). ").format(index_uuid)
+        # tsk = Task.objects.create(model_type="context", description=description,
+        #                           user=user, model_type_id=ctx.uuid)
+        #
+        # def on_index_error(desc):
+        #     pass
+        #
+        # def on_index_success(desc):
+        #     tsk.success = True
+        #     tsk.stop_date = timezone.now()
+        #     tsk.description = desc
+        #     tsk.save()
+        #
+        # def on_index_failure(desc):
+        #     tsk.success = False
+        #     tsk.stop_date = timezone.now()
+        #     tsk.description = desc
+        #     tsk.save()
+        #
+        # opts.update({"error": on_index_error,
+        #              "failed": on_index_failure,
+        #              "succeed": on_index_success})
+        #
+        # elastic_conn.create_or_replace_index(
+        #     index_uuid, ctx.name, ctx.name, body, **opts)
+        #
+        # status = 202
+        # data = {"message": tsk.description}
 
         return JsonResponse(data, status=status)
