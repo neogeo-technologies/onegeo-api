@@ -1,3 +1,4 @@
+from django.core.exceptions import PermissionDenied
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
@@ -34,10 +35,13 @@ class Task(models.Model):
             "dates": {"start": self.start_date, "stop": self.stop_date}})
 
     @classmethod
-    def format_by_filter(cls, user):
+    def list_renderer(cls, user):
         tasks = cls.objects.filter(Q(user=user) | Q(user=None)).order_by("-start_date")
-        return [t.format_data for t in tasks]
+        return [t.detail_renderer for t in tasks]
 
     @classmethod
-    def get_from_id(cls, id, user):
+    def get_with_permission(cls, id, user):
+        instance = get_object_or_404(cls, id=id)
+        if instance.user != user:
+            raise PermissionDenied
         return get_object_or_404(cls, id=id, user=user)

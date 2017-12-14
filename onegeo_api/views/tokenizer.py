@@ -6,25 +6,20 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from onegeo_api.exceptions import JsonError
 from onegeo_api.models import Tokenizer
 
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
 from django.http import Http404
 
 from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
 from onegeo_api.exceptions import BasicAuth
 from onegeo_api.exceptions import ExceptionsHandler
-from ongeo_api.models import Analyzer
-from ongeo_api.models import Filter
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.utils import read_name
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_406 = "Le format demandé n'est pas pris en charge. "
 
 
 @method_decorator(csrf_exempt, name="dispatch")

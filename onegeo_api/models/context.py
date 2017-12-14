@@ -6,6 +6,8 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.http import JsonResponse
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 
 from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.models import AbstractModelProfile
@@ -23,9 +25,6 @@ class Context(AbstractModelProfile):
     reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L,
                                          default="monthly", max_length=250)
 
-    # FK & alt
-    resources = models.ManyToManyField("onegeo_api.Resource")
-
     class Meta:
         verbose_name = "Contexte"
 
@@ -38,11 +37,10 @@ class Context(AbstractModelProfile):
                                       "le même nom qu'un modèle de recherche.")
         super().save(*args, **kwargs)
 
-    def access_allowed(self, user):
-        for resource in self.resources.all():
-            if resource.source.user != user:
-                return False
-        return True
+    @property
+    def resources(self):
+        Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
+        return Resource.objects.filter(context=self)
 
     def update_clmn_properties(self, list_ppt_clt):
         for ppt in self.clmn_properties:
@@ -51,9 +49,20 @@ class Context(AbstractModelProfile):
                     ppt.update(ppt_clt)
 
     @classmethod
+    def get_from_uuid(cls, short_uuid):
+        for obj in cls.objects.all():
+            if str(obj.uuid)[:len(short_uuid)] == short_uuid:
+                return obj
+        raise Http404
+
+    @classmethod
+    def get_from_name(cls, name):
+        return get_object_or_404(cls, name=name)
+
+    @classmethod
     def get_with_permission(cls, short_uuid, user):
-        instance = cls.cust_obj.get_or_not_found(short_uuid)
-        if not instance.access_allowed(user):
+        instance = cls.get_from_uuid(short_uuid)
+        if instance.user != user:
             raise PermissionDenied
         return instance
 
@@ -62,30 +71,33 @@ class Context(AbstractModelProfile):
 
         return {"location": "/indexes/{}".format(self.short_uuid),
                 "resource": ["/sources/{}/resources/{}".format(
-                    r.source.short_uuid, r.short_uuid) for r in self.resources.all()],
+                    r.source.short_uuid, r.short_uuid) for r in self.resources],
                 "columns": self.clmn_properties,
                 "name": self.name,
                 "reindex_frequency": self.reindex_frequency}
 
     @classmethod
     def list_renderer(cls, user):
-
-        Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
-        contexts = cls.objects.filter(
-            resources__in=Resource.objects.filter(source__user=user))
-
-        return [ctx.detail_renderer for ctx in contexts]
+        instances = cls.objects.filter(user=user)
+        return [context.detail_renderer for context in instances]
 
     @classmethod
-    def create_with_response(cls, request, name, clmn_properties, reindex_frequency, resource):
+    def create_with_response(cls, request, name, clmn_properties, reindex_frequency, resources):
         try:
             context = Context.objects.create(name=name,
+                                             user=request.user,
                                              clmn_properties=clmn_properties,
                                              reindex_frequency=reindex_frequency)
         except ValidationError as e:
             return JsonResponse(data={"error": e.message}, status=409)
 
-        context.resources.add(resource)
+        for resource in resources:
+            resource.context = context
+            try:
+                resource.save()
+            except Exception as e:
+                return JsonResponse(data={"error": e.message}, status=409)
+
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())
         response['Location'] = '{}/{}'.format(uri, context.short_uuid)
@@ -94,7 +106,7 @@ class Context(AbstractModelProfile):
 
     @classmethod
     def delete_with_response(cls, uuid, user):
-        instance = cls.cust_obj.get_or_not_found(uuid)
+        instance = cls.get_or_not_found(uuid)
         if not instance:
             data = {"error": "Echec de la suppression: Aucun context ne correspond à cet identifiant."}
             status = 404

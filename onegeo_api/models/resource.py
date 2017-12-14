@@ -15,6 +15,7 @@ class Resource(AbstractModelProfile):
 
     # FK & alt
     source = models.ForeignKey("onegeo_api.Source", on_delete=models.CASCADE)
+    context = models.ForeignKey("onegeo_api.Context", null=True, blank=True)
 
     class Meta:
         verbose_name = "Resource"
@@ -32,19 +33,13 @@ class Resource(AbstractModelProfile):
 
     @property
     def detail_renderer(self):
-        Context = apps.get_model(app_label='onegeo_api', model_name='Context')
         d = {"id": self.short_uuid,
              "location": "/sources/{}/resources/{}".format(self.source.short_uuid, self.short_uuid),
              "name": self.name,
+             "index": self.context.detail_renderer.get("location", "") if self.context else "",
              "columns": self.columns}
-        try:
-            contexts = Context.objects.filter(resources=self)
-        except Context.DoesNotExist:
-            pass
-        else:
-            d.update(index=[ctx.format_data["location"] for ctx in contexts])
-        finally:
-            return clean_my_obj(d)
+
+        return clean_my_obj(d)
 
     @classmethod
     def list_renderer(cls, src_uuid, user):
@@ -62,7 +57,7 @@ class Resource(AbstractModelProfile):
         for obj in cls.objects.all():
             if str(obj.uuid)[:len(short_uuid)] == short_uuid:
                 return obj
-        raise Http404
+        raise Http404(" not found")
 
     @classmethod
     def get_from_name(cls, name):
@@ -71,43 +66,6 @@ class Resource(AbstractModelProfile):
     @classmethod
     def get_with_permission(cls, short_uuid, user):
         instance = cls.get_from_uuid(short_uuid)
-        if instance.source.user != user:
+        if instance.user != user:
             raise PermissionDenied
         return instance
-
-    # @classmethod
-    # def format_by_filter(cls, src_uuid, user):
-    #     Source = apps.get_model(app_label='onegeo_api', model_name='Source')
-    #     source = Source.get_from_uuid(uuid=src_uuid, user=user)
-    #     rsrc = cls.objects.filter(source=source, source__user=user).order_by("name")
-    #     return [r.format_data for r in rsrc]
-
-    # @classmethod
-    # def custom_get_object_or_404(cls, src_uuid, rsrc_uuid):
-    #     Source = apps.get_model(app_label='onegeo_api', model_name='Source')
-    #     source = Source.custom_get_object_or_404(src_uuid)
-    #     instances = cls.objects.filter(source=source)
-    #     for obj in instances:
-    #         if str(obj.uuid)[:len(rsrc_uuid)] == rsrc_uuid:
-    #             return obj
-    #     raise Http404
-    #
-    # @classmethod
-    # def user_access(cls, src_uuid, rsrc_uuid, user):
-    #     instance = cls.custom_get_object_or_404(src_uuid, rsrc_uuid)
-    #     if instance.user != user:
-    #         raise PermissionDenied
-    #     return instance
-    # @classmethod
-    # def get_from_uuid(cls, src_uuid, rsrc_uuid, user=None):
-    #     Source = apps.get_model(app_label='onegeo_api', model_name='Source')
-    #     src = Source.get_from_uuid(uuid=src_uuid)
-    #     if src:
-    #         if user:
-    #             resources = cls.objects.filter(source__user=user)
-    #         else:
-    #             resources = cls.objects.filter(source=src)
-    #         for rsrc in resources:
-    #             if str(rsrc.uuid)[:len(rsrc_uuid)] == rsrc_uuid:
-    #                 return rsrc
-    #     return None

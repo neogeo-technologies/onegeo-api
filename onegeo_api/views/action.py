@@ -1,22 +1,22 @@
 import json
-from uuid import uuid4
+# from uuid import uuid4
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import JsonResponse
-from django.utils import timezone
+# from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from onegeo_manager.context import Context as OnegeoContext
+# from onegeo_manager.context import Context as OnegeoContext
 # from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
-from onegeo_manager.index import Index as OnegeoIndex
-from onegeo_manager.resource import Resource as OnegeoResource
-from onegeo_manager.source import Source as OnegeoSource
+# from onegeo_manager.index import Index as OnegeoIndex
+# from onegeo_manager.resource import Resource as OnegeoResource
+# from onegeo_manager.source import Source as OnegeoSource
 
-from onegeo_api.elasticsearch_wrapper import elastic_conn
+# from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Context
 from onegeo_api.models import Task
@@ -97,7 +97,7 @@ class ActionView(View):
 
         data = json.loads(request.body.decode("utf-8"))
 
-        ctx = Context.cust_obj.get_or_not_found(uuid=data.get("index", ""))
+        ctx = Context.get_with_permission(uuid=data.get("index", ""), user=request.user)
 
         filters = {"model_type": "context", "model_type_id": ctx.uuid, "user": user}
         last = Task.objects.filter(**filters).order_by("start_date").last()
@@ -106,9 +106,9 @@ class ActionView(View):
                              "Veuillez réessayer plus tard. "}
             return JsonResponse(data, status=423)
 
-        action = data["type"]
+        # # TODO(mmeliani): relation entre context et Resource
+        # action = data["type"]
 
-        # # TODO(mmeliani): relation ManyToMany entre context et Resource
         # rscr = ctx.resource
         # src = rscr.source
         #
@@ -201,4 +201,5 @@ class ActionView(View):
         # status = 202
         # data = {"message": tsk.description}
 
-        return JsonResponse(data, status=status)
+        # return JsonResponse(data, status=status)
+        return JsonResponse({"Tomatoe": "Tomatoe"}, status=418)

@@ -40,7 +40,7 @@ def on_http404(model):
         'Tokenizer': "Aucun jeton ne correspond à votre requête",
         'Various': "Aucun élément ne correspond à votre requête",
         }
-    return JsonResponse(msg[model], status=404)
+    return JsonResponse({model: msg[model]}, status=404)
 
 
 def on_http403(model):
@@ -55,7 +55,7 @@ def on_http403(model):
         'Tokenizer': "Vous n'avez pas la permission d'accéder à ce jeton",
         'Various': "Vous n'avez pas la permission d'accéder à cet élément",
         }
-    return JsonResponse(msg[model], status=403)
+    return JsonResponse({model: msg[model]}, status=403)
 
 
 class BasicAuth(object):

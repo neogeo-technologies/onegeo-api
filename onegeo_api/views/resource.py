@@ -8,10 +8,12 @@ from django.views.generic import View
 
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Resource
+from onegeo_api.models import Source
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
+from onegeo_api.utils import slash_remove
 
 __all__ = ["ResourceView", "ResourceIDView"]
 
@@ -24,9 +26,10 @@ MSG_404 = {"GetResource": {"error": "Aucune resource ne correspond à cette requ
 class ResourceView(View):
 
     @BasicAuth()
+    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Resource")
     def get(self, request, src_uuid):
         user = request.user
-
+        src_uuid = slash_remove(src_uuid)
         try:
             tsk = Task.objects.get(model_type_id=src_uuid, model_type="source")
         except Task.DoesNotExist:
@@ -56,5 +59,8 @@ class ResourceIDView(View):
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Resource")
     def get(self, request, src_uuid, rsrc_uuid):
-        resource = Resource.get_with_permission(rsrc_uuid, request.user)
+        resource = Resource.get_with_permission(slash_remove(rsrc_uuid), request.user)
+        source = Source.get_with_permission(slash_remove(src_uuid), request.user)
+        if resource.source != source:
+            raise Http404
         return JsonResponse(resource.detail_renderer, safe=False)

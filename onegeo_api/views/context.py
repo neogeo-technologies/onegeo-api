@@ -25,15 +25,12 @@ from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
+from onegeo_api.utils import slash_remove
 
 __all__ = ["ContextView", "ContextIDView",
            "ContextIDTaskView", "ContextIDTaskIDView"]
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_406 = "Le format demandé n'est pas pris en charge. "
-MSG_404 = {
-    "GetResource": {"error": "Aucune resource ne correspond à cette requête."},
-    "GetContext": {"error": "Aucun context ne correspond à cette requête."}}
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -49,7 +46,6 @@ class ContextView(View):
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Context")
     def post(self, request):
-
         body_data = json.loads(request.body.decode('utf-8'))
         if "name" not in body_data:
             return JsonResponse({"error": "Echec la création du contexte d'indexation. "
@@ -62,24 +58,39 @@ class ContextView(View):
         if name is None:
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Le nom du context est incorrect. "}, status=400)
-        if Context.objects.filter(name=name).count() > 0:
+        if Context.objects.filter(name=name).exists():
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Un contexte portant le même nom existe déjà. "}, status=409)
 
         reindex_frequency = body_data.get("reindex_frequency", "monthly")
 
-        data = search('^/sources/(\S+)/resources/(\S+)$', body_data['resource'])
-        if not data:
-            return None
-        src_uuid = data.group(1)
-        rsrc_uuid = data.group(2)
+        # data = search('^/sources/(\S+)/resources/(\S+)$', body_data['resource'])
+        # if not data:
+        #     raise Http404
+        # src_uuid = data.group(1)
+        # rsrc_uuid = data.group(2)
+        # resource = Resource.get_with_permission(rsrc_uuid, request.user)
+        # source = Source.get_with_permission(src_uuid, request.user)
+        #
+        # if source != resource.source:
+        #     return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+        #                                   "Les identifiants des source et ressource sont erronées. "}, status=400)
+        resources_to_relate = []
+        for uri in body_data['resource']:
+            data = search('^/sources/(\S+)/resources/(\S+)$', uri)
+            if not data:
+                return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                              "Les identifiants des source et ressource sont erronées. "}, status=400)
+            src_uuid = data.group(1)
+            rsrc_uuid = data.group(2)
 
-        resource = Resource.cust_obj.get_with_permission(rsrc_uuid, request.user)
-        source = Source.cust_obj.get_with_permission(src_uuid, request.user)
+            resource = Resource.get_with_permission(rsrc_uuid, request.user)
+            source = Source.get_with_permission(src_uuid, request.user)
 
-        if source != resource.source:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-                                          "Les identifiants des source et ressource sont erronées. "}, status=400)
+            if source != resource.source:
+                return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                              "Les identifiants des source et ressource sont erronées. "}, status=400)
+            resources_to_relate.append(resource)
 
         onegeo_source = OnegeoSource(source.uri, name, source.mode)
         onegeo_resource = OnegeoResource(onegeo_source, resource.name)
@@ -98,7 +109,7 @@ class ContextView(View):
             clmn_properties.append(ppt.all())
 
         return Context.create_with_response(
-            request, name, clmn_properties, reindex_frequency, resource)
+            request, name, clmn_properties, reindex_frequency, resources_to_relate)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -109,7 +120,7 @@ class ContextIDView(View):
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Context")
     def get(self, request, uuid):
-        context = Context.get_with_permission(uuid, request.user)
+        context = Context.get_with_permission(slash_remove(uuid), request.user)
         return JsonResponse(context.detail_renderer, safe=False, status=200)
 
     @BasicAuth()
@@ -131,14 +142,14 @@ class ContextIDView(View):
         src_uuid = data.group(1)
         rsrc_uuid = data.group(2)
 
-        resource = Resource.cust_obj.get_with_permission(rsrc_uuid, request.user)
-        source = Source.cust_obj.get_with_permission(src_uuid, request.user)
+        resource = Resource.get_with_permission(rsrc_uuid, request.user)
+        source = Source.get_with_permission(src_uuid, request.user)
 
         if source != resource.source:
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Les identifiants des source et ressource sont erronées. "}, status=400)
 
-        context = Context.get_with_permission(ctx_uuid, request.user)
+        context = Context.get_with_permission(slash_remove(ctx_uuid), request.user)
 
         context.update_clmn_properties(list_ppt_clt)
 
@@ -153,7 +164,7 @@ class ContextIDView(View):
 
     @BasicAuth()
     def delete(self, request, uuid):
-        return Context.delete_with_response(uuid, request.user)
+        return Context.delete_with_response(slash_remove(uuid), request.user)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -163,7 +174,7 @@ class ContextIDTaskView(View):
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Context")
     def get(self, request, ctx_uuid):
 
-        context = Context.cust_obj.get_or_not_found(ctx_uuid)
+        context = Context.get_with_permission(slash_remove(ctx_uuid), request.user)
         tasks = Task.objects.filter(
             model_type="context",
             model_type_id=context.uuid,
@@ -179,7 +190,7 @@ class ContextIDTaskIDView(View):
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Various")
     def get(self, request, ctx_uuid, tsk_id):
 
-        context = Context.cust_obj.get_or_not_found(ctx_uuid)
+        context = Context.get_with_permission(slash_remove(ctx_uuid), request.user)
         task = get_object_or_404(
             Task, pk=literal_eval(tsk_id), model_type_id=context.uuid)
 

@@ -4,13 +4,17 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 
-from ..models import Task
+from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.models import Task
+from onegeo_api.utils import on_http403
+from onegeo_api.utils import on_http404
 from onegeo_api.utils import BasicAuth
 
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_404 = {"GetTask": {"error": "Aucune tache ne correspond à cette requête."}}
 
+PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 __all__ = ["TaskView", "TaskIDView"]
 
@@ -20,15 +24,14 @@ class TaskView(View):
 
     @BasicAuth()
     def get(self, request):
-        return JsonResponse(Task.format_by_filter(request.user), safe=False)
+        return JsonResponse(Task.list_renderer(request.user), safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class TaskIDView(View):
 
     @BasicAuth()
+    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Task")
     def get(self, request, id):
-        task = Task.get_from_id(literal_eval(id), request.user)
-        if not task:
-            return JsonResponse(MSG_404["GetTask"], status=404)
-        return JsonResponse(task.format_data, safe=False)
+        task = Task.get_with_permission(literal_eval(id), request.user)
+        return JsonResponse(task.detail_renderer, safe=False)

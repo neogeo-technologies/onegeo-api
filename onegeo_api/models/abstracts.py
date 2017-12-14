@@ -57,6 +57,7 @@ class AbstractModelAnalyzis(models.Model):
 class AbstractModelProfile(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField("Name", max_length=250, unique=True)
+    user = models.ForeignKey(User, blank=True, null=True)
 
     class Meta:
         abstract = True

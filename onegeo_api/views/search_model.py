@@ -32,7 +32,6 @@ __all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_406 = "Le format demandé n'est pas pris en charge. "
 
 
 def search_model_context_task(ctx_uuid, user):

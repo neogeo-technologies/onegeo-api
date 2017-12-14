@@ -1,6 +1,5 @@
 from django.apps import apps
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -29,9 +28,6 @@ class Source(AbstractModelProfile):
 
     mode = models.CharField("Mode", choices=MODE_L, default="pdf", max_length=250)
     uri = models.CharField("URI", max_length=2048)
-
-    # FK & alt
-    user = models.ForeignKey(User)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -116,7 +112,8 @@ def on_save_source(sender, instance, *args, **kwargs):
         try:
             for res in instance.src.get_resources():
                 resource = Resource.objects.create(
-                    source=instance, name=res.name, columns=res.columns)
+                    source=instance, name=res.name,
+                    columns=res.columns, user=instance.user)
                 resource.set_rsrc(res)
             tsk.success = True
             tsk.description = "Les ressources ont été créées avec succès. "

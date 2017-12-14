@@ -15,6 +15,7 @@ from onegeo_api.utils import check_uri
 from onegeo_api.utils import read_name
 from onegeo_api.utils import on_http404
 from onegeo_api.utils import on_http403
+from onegeo_api.utils import slash_remove
 
 __all__ = ["SourceView", "SourceIDView"]
 
@@ -100,13 +101,13 @@ class SourceIDView(View):
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Source")
     def get(self, request, uuid):
-        source = Source.get_with_permission(uuid, request.user)
+        source = Source.get_with_permission(slash_remove(uuid), request.user)
         return JsonResponse(source.detail_renderer, safe=False)
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Source")
     def delete(self, request, uuid):
 
-        source = Source.get_with_permission(uuid, request.user)
+        source = Source.get_with_permission(slash_remove(uuid), request.user)
         source.delete()
         return JsonResponse(data={}, status=204)
