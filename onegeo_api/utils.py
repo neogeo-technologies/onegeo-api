@@ -59,14 +59,14 @@ def format_context(s, r, c):
 
 
 def format_filter(obj):
-    return clean_my_obj({"location": "tokenfilters/{}".format(obj.name),
+    return clean_my_obj({"location": "/tokenfilters/{}".format(obj.name),
                          "name": obj.name,
                          "config": obj.config or None,
                          "reserved": obj.reserved})
 
 
 def format_tokenizer(obj):
-    return clean_my_obj({"location": "tokenizers/{}".format(obj.name),
+    return clean_my_obj({"location": "/tokenizers/{}".format(obj.name),
                          "name": obj.name,
                          "config": obj.config or None,
                          "reserved": obj.reserved})
@@ -80,7 +80,7 @@ def format_analyzer(obj):
         return [s.filter.name for s in set if s.filter.name is not None]
 
     return clean_my_obj({
-        "location": "analyzers/{}".format(obj.name),
+        "location": "/analyzers/{}".format(obj.name),
         "name": obj.name,
         "config": obj.config or None,
         "tokenfilters": retreive_filters(obj.name) or None,
@@ -93,7 +93,7 @@ def format_task(obj):
                 "id": obj.pk,
                 "status": obj.success is None and 'running' or 'done',
                 "description": obj.description,
-                "location": "tasks/{}".format(obj.pk),
+                "location": "/tasks/{}".format(obj.pk),
                 "success": obj.success,
                 "dates": {"start": obj.start_date, "stop": obj.stop_date}})
 
@@ -106,7 +106,7 @@ def format_search_model(obj):
         return [s.context.name for s in set if s.context.name is not None]
 
     response = {
-        "location": "services/{}".format(obj.name),
+        "location": "/services/{}".format(obj.name),
         "name": obj.name,
         "config": obj.config,
         "indexes": retreive_contexts(obj.name)}
