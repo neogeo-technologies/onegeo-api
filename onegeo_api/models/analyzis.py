@@ -2,22 +2,21 @@ from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.http import Http404
 
 from onegeo_api.models import AbstractModelAnalyzis
 from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import slash_remove
 
 
-class RelatedFilters(models.Model):
-    analyzer = models.ForeignKey("Analyzer")
-    filter = models.ForeignKey("Filter")
-
-
 class Analyzer(AbstractModelAnalyzis):
 
-    filters = models.ManyToManyField("Filter", through="RelatedFilters", blank=True)
+    filters = models.ManyToManyField("Filter")
     tokenizer = models.ForeignKey("Tokenizer", blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        kwargs['model_name'] = 'Analyzer'
+        return super().save(*args, **kwargs)
 
     @property
     def detail_renderer(self):
@@ -26,6 +25,7 @@ class Analyzer(AbstractModelAnalyzis):
         return clean_my_obj({
             "location": "analyzers/{0}".format(self.name),
             "name": self.name,
+            "alias": self.alias.handle,
             "config": self.config or None,
             "tokenfilters": filt_names or None,
             "reserved": self.reserved,
@@ -33,132 +33,84 @@ class Analyzer(AbstractModelAnalyzis):
 
     @classmethod
     def list_renderer(cls, user):
-        instances = cls.objects.filter(user=user)
-        return [analyzer.detail_renderer for analyzer in instances]
-
-    @classmethod
-    def create_with_response(cls, request, name, user, config, filters, tokenizer):
-        analyzer, created = cls.objects.get_or_create(
-            name=name, defaults={"user": user, "config": config})
-        if created and len(filters) > 0:
-            for f in filters:
-                try:
-                    flt = Filter.objects.get(name=f)
-                    analyzer.filter.add(flt)
-                    analyzer.save()
-                except Filter.DoesNotExist:
-                    return JsonResponse({"error": "Echec de création de l'analyseur. La liste contient un ou plusieurs filtres n'existant pas. "}, status=400)
-
-        if created and tokenizer:
-            try:
-                tkn_chk = Tokenizer.objects.get(name=tokenizer)
-                analyzer.tokenizer = tkn_chk
-                analyzer.save()
-            except Tokenizer.DoesNotExist:
-                return JsonResponse({"error": "Echec de création de l'analyseur: Le tokenizer n'existe pas. "}, status=400)
-
-        status = created and 201 or 409
-        if created:
-            response = JsonResponse(data={}, status=status)
-            uri = slash_remove(request.build_absolute_uri())
-            response["Location"] = "{0}/{1}".format(uri, analyzer.short_uuid)
-        if created is False:
-            data = {"error": "Echec de la création: L'élément est déjà existant."}
-
-        return JsonResponse(data=data, status=status)
-
-    @classmethod
-    def delete_with_response(cls, name, user):
-
-        instance = cls.get_with_permission(name, user)
-        if instance.reserved is False:
-            instance.delete()
-            status = 204
-            data = {}
-        else:
-            status = 405
-            data = {"error": "Suppression impossible: L'usage de cet élément est réservé."}
-
-        return JsonResponse(data, status=status)
-
-    @classmethod
-    def custom_filter(cls, user):
         instances = cls.objects.filter(Q(user=user) | Q(user=None)).order_by("reserved", "name")
         return [obj.detail_renderer for obj in instances]
 
     @classmethod
-    def get_from_name(cls, name):
-        return get_object_or_404(cls, name=name)
+    def create_with_response(cls, request, defaults, filters):
+        instance = cls.objects.create(**defaults)
+
+        if len(filters) > 0:
+            instance.filters.set(filters, clear=True)
+
+        response = JsonResponse(data={}, status=201)
+        uri = slash_remove(request.build_absolute_uri())
+        response["Location"] = "{0}/{1}".format(uri, instance.alias.handle)
+
+        return response
 
     @classmethod
-    def get_with_permission(cls, name, user):
-        instance = cls.get_from_name(name)
+    def get_with_permission(cls, alias, user):
+        try:
+            instance = cls.objects.get(alias__handle__startswith=alias)
+        except cls.DoesNotExist:
+            raise Http404("Aucun analyseur ne correspond à votre requête")
         if instance.user != user:
-            raise PermissionDenied
+            raise PermissionDenied("Vous n'avez pas la permission d'accéder à cet analyseur")
         return instance
 
 
 class Filter(AbstractModelAnalyzis):
 
+    def save(self, *args, **kwargs):
+        kwargs['model_name'] = 'Filter'
+        return super().save(*args, **kwargs)
+
     @property
     def detail_renderer(self):
         return clean_my_obj({"location": "tokenfilters/{0}".format(self.name),
                              "name": self.name,
+                             "alias": self.alias.handle,
                              "config": self.config or None,
                              "reserved": self.reserved})
 
     @classmethod
     def list_renderer(cls, user):
-        instances = cls.objects.filter(user=user)
-        return [flt.detail_renderer for flt in instances]
+        instances = cls.objects.filter(Q(user=user) | Q(user=None)).order_by("reserved", "name")
+        return [filter.detail_renderer for filter in instances]
 
     @classmethod
-    def create_with_response(cls, request, name, user, config):
-        filter, created = cls.objects.get_or_create(
-            name=name, defaults={"config": config, "user": user})
+    def create_with_response(cls, request, defaults):
+        instance = cls.objects.create(**defaults)
 
-        status = created and 201 or 409
-        if created:
-            response = JsonResponse(data={}, status=status)
-            uri = slash_remove(request.build_absolute_uri())
-            response["Location"] = "{0}/{1}".format(uri, filter.short_uuid)
-        if created is False:
-            data = {"error": "Echec de la création: L'élément est déjà existant."}
+        response = JsonResponse(data={}, status=201)
+        uri = slash_remove(request.build_absolute_uri())
+        response["Location"] = "{0}/{1}".format(uri, instance.alias.handle)
 
-        return JsonResponse(data=data, status=status)
+        return response
 
     @classmethod
-    def delete_with_response(cls, name, user):
-
-        instance = cls.get_with_permission(name, user)
-        if instance.reserved is False:
-            instance.delete()
-            status = 204
-            data = {}
-        else:
-            status = 405
-            data = {"error": "Suppression impossible: L'usage de cet élément est réservé."}
-
-        return JsonResponse(data, status=status)
-
-    @classmethod
-    def get_from_name(cls, name):
-        return get_object_or_404(cls, name=name)
-
-    @classmethod
-    def get_with_permission(cls, name, user):
-        instance = cls.get_from_name(name)
+    def get_with_permission(cls, alias, user):
+        try:
+            instance = cls.objects.get(alias__handle=alias)
+        except cls.DoesNotExist:
+            raise Http404("Aucun filtre ne correspond à votre requête")
         if instance.user != user:
-            raise PermissionDenied
+            raise PermissionDenied("Vous n'avez pas la permission d'accéder à ce filtre")
         return instance
 
 
 class Tokenizer(AbstractModelAnalyzis):
 
+    def save(self, *args, **kwargs):
+        kwargs['model_name'] = 'Tokenizer'
+        return super().save(*args, **kwargs)
+
     @property
     def detail_renderer(self):
         return clean_my_obj({"location": "tokenizers/{0}".format(self.name),
                              "name": self.name,
+                             "alias": self.alias.handle,
                              "config": self.config or None,
                              "reserved": self.reserved})
 
@@ -168,41 +120,19 @@ class Tokenizer(AbstractModelAnalyzis):
         return [token.detail_renderer for token in instances]
 
     @classmethod
-    def create_with_response(cls, request, name, user, config):
-        filter, created = cls.objects.get_or_create(
-            name=name, defaults={"config": config, "user": user})
-
-        status = created and 201 or 409
-        if created:
-            response = JsonResponse(data={}, status=status)
-            uri = slash_remove(request.build_absolute_uri())
-            response["Location"] = "{0}/{1}".format(uri, filter.short_uuid)
-        if created is False:
-            data = {"error": "Echec de la création: L'élément est déjà existant."}
-
-        return JsonResponse(data=data, status=status)
+    def create_with_response(cls, request, defaults):
+        instance = cls.objects.create(**defaults)
+        response = JsonResponse(data={}, status=201)
+        uri = slash_remove(request.build_absolute_uri())
+        response["Location"] = "{0}/{1}".format(uri, instance.alias.handle)
+        return response
 
     @classmethod
-    def delete_with_response(cls, name, user):
-
-        instance = cls.get_with_permission(name, user)
-        if instance.reserved is False:
-            instance.delete()
-            status = 204
-            data = {}
-        else:
-            status = 405
-            data = {"error": "Suppression impossible: L'usage de cet élément est réservé."}
-
-        return JsonResponse(data, status=status)
-
-    @classmethod
-    def get_from_name(cls, name):
-        return get_object_or_404(cls, name=name)
-
-    @classmethod
-    def get_with_permission(cls, name, user):
-        instance = cls.get_from_name(name)
+    def get_with_permission(cls, alias, user):
+        try:
+            instance = cls.objects.get(alias__handle=alias)
+        except cls.DoesNotExist:
+            raise Http404("Aucun jeton ne correspond à votre requête")
         if instance.user != user:
-            raise PermissionDenied
+            raise PermissionDenied("Vous n'avez pas la permission d'accéder à ce jeton")
         return instance

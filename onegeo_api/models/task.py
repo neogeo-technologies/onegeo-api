@@ -18,7 +18,7 @@ class Task(models.Model):
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
     success = models.NullBooleanField("Success")
     model_type = models.CharField("Model relation type", choices=T_L, max_length=250)
-    model_type_id = models.CharField("Id model relation linked", max_length=250)
+    model_type_alias = models.CharField("Alias model relation", max_length=250, default=None)
     description = models.CharField("Description", max_length=250)
 
     # FK & alt
@@ -35,13 +35,16 @@ class Task(models.Model):
             "dates": {"start": self.start_date, "stop": self.stop_date}})
 
     @classmethod
-    def list_renderer(cls, user):
-        tasks = cls.objects.filter(Q(user=user) | Q(user=None)).order_by("-start_date")
+    def list_renderer(cls, defaults):
+        tasks = cls.objects.filter(Q(defaults=defaults) | Q(user=None)).order_by("-start_date")
         return [t.detail_renderer for t in tasks]
 
     @classmethod
-    def get_with_permission(cls, id, user):
-        instance = get_object_or_404(cls, id=id)
-        if instance.user != user:
+    def get_with_permission(cls, id, model_type_alias, model_type, user):
+        instance = get_object_or_404(
+            cls, id=id,
+            model_type_alias=model_type_alias,
+            model_type=model_type)
+        if instance.user and instance.user != user:
             raise PermissionDenied
-        return get_object_or_404(cls, id=id, user=user)
+        return instance

@@ -1,4 +1,5 @@
 from ast import literal_eval
+
 from django.conf import settings
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator

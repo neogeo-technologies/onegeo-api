@@ -1,273 +1,357 @@
-import json
+from django.contrib.auth.models import User
+from django.core.urlresolvers import reverse
+from django.test.utils import override_settings
+from django.test import tag
 
 from django.test import TestCase
+
 from onegeo_api.models import Source
+from onegeo_api.models import Resource
+from onegeo_api.models import Context
+from onegeo_api.models import Alias
+from onegeo_api.utils import check_uri
 
-from django.contrib.auth.models import User, AnonymousUser
-# class SimpleTest(TestCase):
-#
-#     def setUp(self):
-#         self.factory = RequestFactory()
-#
-#         self.user = User.objects.create_user(
-#             username='user1', email='user_test@testing.com', password='passpass')
-#
-#         self.user2 = User.objects.create_user(
-#             username='user2', email='user_test@testing.com', password='passpass')
-#
-#         full_uri = check_uri('file:///RAAD')
-#         self.name_source_legit = "raad0"
-#         Source.objects.create(uri=full_uri, user=self.user, name=self.name_source_legit)
-#
-#     # TESTS SOURCES
-#     def test_source_get_with_anonymous_user(self):
-#         request = self.factory.get('/api/sources/')
-#
-#         request.user = AnonymousUser()
-#         response = SourceView.as_view()(request)
-#         self.assertEqual(response.status_code, 401)
-#
-#     def test_source_get(self):
-#         request = self.factory.get('/api/sources/')
-#
-#         request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='  # base64(user1:passpass)
-#
-#         response = SourceView.as_view()(request)
-#         self.assertEqual(response.status_code, 200)
-#
-#     def test_source_post_create(self):
-#
-#         # Create source
-#         json_str = json.dumps({
-#             "uri": "file:///LYVIA",
-#             "mode": "pdf",
-#             "name": "lyvia0"})
-#         rf = self.factory
-#         request = rf.post(
-#             '/api/sources/',
-#             data=json_str,
-#             content_type="application/json")
-#         request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-#
-#         response = SourceView.as_view()(request)
-#         self.assertEqual(response.status_code, 201)
-#
-#         src = Source.objects.filter(user=self.user, name="lyvia0")
-#         self.assertEqual(src.count(), 1)
-#
-#         src_sum = Source.objects.filter(user=self.user)
-#         self.assertEqual(src_sum.count(), 2)
-#
-#     def test_source_uuid_get(self):
-#
-#         short_uuid = Source.objects.get(user=self.user, name=self.name_source_legit).short_uuid
-#
-#         rf = self.factory
-#         request2 = rf.get('/api/sources/{}'.format(short_uuid))
-#         request2.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='  # base64(user1:passpass)
-#
-#         response2 = SourceView.as_view()(request2)
-#         self.assertEqual(response2.status_code, 200)
-#
-#     def test_source_delete(self):
-#         rf = self.factory
-#
-#         json_str = json.dumps({
-#             "uri": "file:///LYVIA",
-#             "mode": "pdf",
-#             "name": "lyvia1"})
-#         request = rf.post(
-#             '/api/sources/',
-#             data=json_str,
-#             content_type="application/json")
-#         request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='  # base64(user1:passpass)
-#
-#         response = SourceView.as_view()(request)
-#         self.assertEqual(response.status_code, 201)
-#         src = Source.objects.get(user=self.user, name="lyvia1")
-#
-#         rf2 = self.factory
-#         request2 = rf2.delete('/api/sources/{}'.format(src.short_uuid))
-#         request2.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-#         response2 = SourceIDView.as_view()(request2, uuid=str(src.short_uuid))
-#         self.assertEqual(response2.status_code, 204)
-#
-#     # TESTS CONTEXTS
-#     def test_contexts_post(self):
-#         # Utilisation d'une source dont la creation est garentie et de sa resource liée
-#         # Les tests étant réaliser sans garenti d'ordre, on s'assure d'avoir un couple source/resource disponible
-#
-#         src = Source.objects.get(user=self.user, name=self.name_source_legit)
-#         rsrc = Resource.objects.get(source=src)
-#
-#         ctx_post_data = {
-#             "name": "ctxnewname",
-#             "resource": "/sources/{}/resources/{}".format(src.short_uuid, rsrc.short_uuid),
-#             "reindex_frequency": "daily"}
-#
-#         json_str = json.dumps(ctx_post_data)
-#         rf = self.factory
-#         request = rf.post(
-#             '/api/contexts/',
-#             data=json_str,
-#             content_type="application/json")
-#         request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-#
-#         response = ContextView.as_view()(request)
-#         self.assertEqual(response.status_code, 201)
-#
-#         ctx = Context.objects.filter(name="ctxnewname")
-#         self.assertEqual(ctx.count(), 1)
-#
-#     def test_context_id_get(self):
-#         src = Source.objects.get(user=self.user, name=self.name_source_legit)
-#         rsrc = Resource.objects.get(source=src)
-#
-#         Context.objects.create(
-#             resource=rsrc,
-#             name="ctx_name",
-#             clmn_properties={"ppt1": "val1", "ppt2": "val2"})
-#
-#         rf = self.factory
-#         request = rf.get('/api/contexts/{}'.format(rsrc.short_uuid))
-#         request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-#
-#         response = ContextIDView.as_view()(request, uuid=str(rsrc.short_uuid))
-#
-#         self.assertEqual(response.status_code, 200)
-#
-#     def test_context_id_delete(self):
-#         rf = self.factory
-#         src = Source.objects.get(user=self.user, name=self.name_source_legit)
-#         rsrc = Resource.objects.get(source=src)
-#         ctx = Context.objects.create(resource=rsrc, name="ctx_name2", clmn_properties={"ppt1": "val1", "ppt2": "val2"})
-#
-#         request = rf.delete('/api/contexts/{}'.format(ctx.short_uuid))
-#         request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-#
-#         response = ContextIDView.as_view()(request, uuid=(str(ctx.short_uuid)))
-#         self.assertEqual(response.status_code, 204)
-#
-#     def test_context_id_delete_conflict_user(self):
-#         rf = self.factory
-#         user_alt = User.objects.create_user(
-#             username='user_alt', email='user_test@testing.com', password='passpass')
-#
-#         full_uri = check_uri('file:///LYVIA')
-#         Source.objects.create(uri=full_uri, user=user_alt, name="lyvia2")
-#         src_alt = Source.objects.get(name="lyvia2")
-#         rsrc = Resource.objects.get(source=src_alt)
-#         ctx = Context.objects.create(resource=rsrc, name="ctx_name3", clmn_properties={"ppt1": "val1", "ppt2": "val2"})
-#
-#         request = rf.delete('/api/contexts/{}'.format(ctx.short_uuid))
-#         request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-#
-#         response = ContextIDView.as_view()(request, uuid=(str(ctx.short_uuid)))
-#         self.assertEqual(response.status_code, 403)
+import base64
+import json
+from re import search
 
-    # def test_action_view_post(self):
-    #     rf = RequestFactory()
-    #     src = Source.objects.get(user=self.user, name=self.name_source_legit)
-    #     rsrc = Resource.objects.filter(source=src)
-    #     ppt_list = [{"name": "file", "type": "pdf", "occurs": [1, 1]},
-    #                 {"name": "/LOCALISATION", "type": None, "occurs": [0, 1]},
-    #                 {"name": "/DOCUMENT_REF", "type": None, "occurs": [0, 1]},
-    #                 {"name": "/DOSSIER_REF", "type": None, "occurs": [0, 1]},
-    #                 {"name": "/Title", "type": None, "occurs": [0, 1]},
-    #                 {"name": "/CreationDate", "type": None, "occurs": [0, 1]},
-    #                 {"name": "/DateSeance", "type": None, "occurs": [0, 1]}]
-    #     Context.objects.create(resource=rsrc[0], name="ctx_name3", clmn_properties=ppt_list)
-    #     action_post_data = {"index": "ctx_name3",
-    #                         "type": "rebuild"
-    #                         }
-    #     json_str = json.dumps(action_post_data)
-    #     request = rf.post('/api/action/',
-    #                                 data=json_str,
-    #                                 content_type="application/json")
-    #     request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-    #
-    #     response = ActionView.as_view()(request)
-    #     self.assertEqual(response.status_code, 202)
-    #
-    # def test_search_model_post(self):
-    #     rf = RequestFactory()
-    #     model_post_data = {"config":{"daadada":"dedededed"},
-    #                        "contexts":["namecontext"],
-    #                        "name":"modelname"
-    #                        }
-    #     json_str = json.dumps(model_post_data)
-    #     request = rf.post('/api/models/',
-    #                                 data=json_str,
-    #                                 content_type="application/json")
-    #     request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-    #     response = SearchModelView.as_view()(request)
-    #     self.assertEqual(response.status_code, 201)
-    #
-    #
-    #     # Creation context avec le meme nom que le model
-    #     src = Source.objects.get(user=self.user, name=self.name_source_legit)
-    #     rsrc = Resource.objects.filter(source=src)
-    #     ctx_post_data = {"name": "modelname",
-    #                      "resource": "/sources/{}/resources/{}".format(src.id, rsrc[0].id),
-    #                      "reindex_frequency": "daily"
-    #                      }
-    #     json_str = json.dumps(ctx_post_data)
-    #     request = rf.post('/api/contexts/',
-    #                                 data=json_str,
-    #                                 content_type="application/json")
-    #     request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-    #
-    #     response = ContextView.as_view()(request)
-    #     self.assertEqual(response.status_code, 409)
-    #
-    #
-    # def test_search_view_post(self):
-    #     re = RequestFactory()
-    #
-    #     # context
-    #     src = Source.objects.get(user=self.user, name=self.name_source_legit)
-    #     rsrc = Resource.objects.filter(source=src)
-    #
-    #     ctx_post_data = {"name": "ctxname",
-    #                      "resource": "/sources/{}/resources/{}".format(src.id, rsrc[0].id),
-    #                      "reindex_frequency": "daily"
-    #                      }
-    #     request = re.post('/api/contexts/',
-    #                         data=json.dumps(ctx_post_data),
-    #                         content_type="application/json")
-    #     request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-    #     response = ContextView.as_view()(request)
-    #     self.assertEqual(response.status_code, 201)
-    #
-    #
-    #     # search model
-    #     model_post_data = {"config": {"daadada": "dedededed"},
-    #                        "contexts": ["ctxname"],
-    #                        "name": "modelname"
-    #                        }
-    #     request2 = re.post('/api/models/',
-    #                       data=json.dumps(model_post_data),
-    #                       content_type="application/json")
-    #     request2.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-    #     response2 = SearchModelView.as_view()(request2)
-    #     self.assertEqual(response2.status_code, 201)
-    #
-    #
-    #     # Search:
-    #     sm = SearchModel.objects.get(name="modelname")
-    #
-    #     ## request sans mode == 501
-    #     request3 = re.post('/api/models/{}/search/'.format(sm.name),
-    #                       {"mode" : ""},
-    #                       content_type="application/json")
-    #     request3.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-    #     response3 = SearchView.as_view()(request3, name=(str(sm.name)))
-    #     self.assertEqual(response3.status_code, 501)
 
-        # request avec mode -- a completer avec données elastic search pour data
-        # request4 = re.post('/api/models/{}/search/'.format(sm.name),
-        #                    {"mode": "throw"},
-        #                    content_type="application/json")
-        # request4.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjE6cGFzc3Bhc3M='
-        # response4 = SearchView.as_view()(request4, name=(str(sm.name)))
-        # self.assertEqual(response4.status_code, 200)
+class ApiItemsMixin(object):
+
+    def create_user(self, name, email, password):
+        return User.objects.create_user(name, email, password)
+
+    def create_users(self):
+        self.user1 = self.create_user("user1", "bob@loblow.com", "passpass")
+        self.user2 = self.create_user("user2", "jack@.com", "passpass")
+
+    def create_source(self, name, user, uri):
+        uri = check_uri(uri)
+        alias = Alias.objects.create(model_name="Source")
+        src = Source.objects.create(name=name, user=user, uri=uri, alias=alias)
+        return src
+
+    def basic_auth(self, client, str_cred):
+        credentials = base64.b64encode(bytes(str_cred, 'utf8')).decode('utf8')
+        client.defaults['HTTP_AUTHORIZATION'] = 'Basic ' + credentials
+
+
+@tag('unauthentified')
+class BasicAuthTest(ApiItemsMixin, TestCase):
+    def setUp(self):
+        self.create_users()
+        self.source1 = self.create_source('lyvia1', self.user2, 'file:///LYVIA')
+        self.resource1 = Resource.objects.filter(source=self.source1).last()
+        self.basic_auth(self.client, 'user1:poussepousse')
+
+    def test_login_source_detail(self):
+        response = self.client.get("/sources/{}/".format(self.source1.alias.handle))
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_source_list(self):
+        response = self.client.get("/sources")
+        self.assertEqual(response.status_code, 401)
+
+    # def test_login_action(self):
+    #     response = self.client.get(reverse("action"))
+    #     self.assertEqual(response.status_code, 401)
+    #
+    def test_login_context_detail_task_view_list(self):
+        response = self.client.get("/indexes/abc123abc/tasks/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_context_detail_task_view_detail(self):
+        response = self.client.get("/indexes/abc123abc/tasks/1/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_context_detail(self):
+        response = self.client.get("/indexes/abc123")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_context_list(self):
+        response = self.client.get("/indexes/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_context_create(self):
+        body = {
+            "name": "ctx_radie1",
+            "resources": ["/sources/123a465b/resources/123a465b"]
+            }
+        response = self.client.post("/indexes/", data=json.dumps(body), content_type="application/json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_seamod_detail_search(self):
+        response = self.client.get("/services/abc123abc/search/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_seamod_detail(self):
+        response = self.client.get("/services/abc123abc")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_seamod_list(self):
+        response = self.client.get("/services/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_source_detail_resource_detail(self):
+        response = self.client.get("/sources/abc123abc/resources/cde123cde/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_source_detail_resources(self):
+        response = self.client.get("/sources/abc123abc/resources/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_directories(self):
+        response = self.client.get("/sources_directories/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_task_detail(self):
+        response = self.client.get("/tasks/1/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_task_list(self):
+        response = self.client.get("/tasks/")
+        self.assertEqual(response.status_code, 401)
+
+
+@tag('authentified')
+class SourceTestAuthent(ApiItemsMixin, TestCase):
+
+        def setUp(self):
+            self.create_users()
+            self.source2 = self.create_source('src_raad', self.user1, 'file:///RAAD')
+            self.resource2 = Resource.objects.filter(source=self.source2).last()
+            self.basic_auth(self.client, 'user1:passpass')
+
+        def test_sources(self):
+            response = self.client.get(reverse("api:source_list"))
+            self.assertEqual(response.status_code, 200)
+
+        def test_login_source_detail(self):
+            response = self.client.get("/sources/{}/".format(self.source2.alias.handle))
+            self.assertEqual(response.status_code, 200)
+
+        def test_login_source_detail_resources(self):
+            response = self.client.get("/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle))
+            self.assertEqual(response.status_code, 200)
+
+        def test_create_source_w_alias(self):
+
+            body = {
+                "uri": "file:///LYVIA",
+                "mode": "pdf",
+                "name": "lyvia",
+                "alias": "lyvia_is_source"
+                }
+            response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            location = search('^http://testserver/sources/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.get("/sources/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+
+        def test_create_source_wo_alias(self):
+
+            body = {
+                "uri": "file:///LYVIA",
+                "mode": "pdf",
+                "name": "lyvia"
+                }
+            response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            location = search('^http://testserver/sources/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.get("/sources/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+
+        def test_create_source_repeated_alias(self):
+
+            body = {
+                "uri": "file:///LYVIA",
+                "mode": "pdf",
+                "name": "lyvia",
+                "alias": "lyvia_is_source"
+                }
+
+            response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+
+            location = search('^http://testserver/sources/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.get("/sources/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+
+            response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 409)
+
+        def test_create_source_uri_repetitas(self):
+            body = {
+                "uri": "file:///RAAD",
+                "mode": "pdfo",
+                "name": "raado"
+                }
+            response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 400)
+
+            response = self.client.get("/sources")
+            self.assertEqual(len(response.json()), 1)
+
+        def test_delete_source_w_alias(self):
+            alias = "lyvia_is_source"
+            body = {
+                "uri": "file:///LYVIA",
+                "mode": "pdf",
+                "name": "lyvia",
+                "alias": alias
+                }
+            response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            response = self.client.get("/sources/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+            response = self.client.delete("/sources/{}".format(alias))
+            self.assertEqual(response.status_code, 204)
+            alias_still_exists = Alias.objects.filter(handle=alias, model_name="Source").exists()
+            self.assertEqual(alias_still_exists, False)
+
+        def test_delete_source_wo_alias(self):
+
+            body = {
+                "uri": "file:///LYVIA",
+                "mode": "pdf",
+                "name": "lyvia"
+                }
+            response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            location = search('^http://testserver/sources/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.get("/sources/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+            response = self.client.delete("/sources/{}".format(alias))
+            self.assertEqual(response.status_code, 204)
+            alias_still_exists = Alias.objects.filter(handle=alias, model_name="Source").exists()
+            self.assertEqual(alias_still_exists, False)
+
+
+@tag('authentified')
+class ContextTestAuthent(ApiItemsMixin, TestCase):
+
+        def setUp(self):
+            self.create_users()
+            self.source2 = self.create_source('src_raad', self.user1, 'file:///RAAD')
+            self.resource2 = Resource.objects.filter(source=self.source2).last()
+            self.basic_auth(self.client, 'user1:passpass')
+
+        def test_context_create_and_update(self):
+            # Create
+            data = {
+                "name": "context_test2",
+                "resource": ["/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)]
+                }
+            response = self.client.post("/indexes", data=json.dumps(data), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+
+            # get detailed context
+            location = search('^http://testserver/indexes/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+
+            # Update
+            response = self.client.get("/indexes")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()[0]['name'], "context_test2")
+            self.context = Context.objects.get(alias=alias)
+            updated_alias = "updated_alias"
+
+            data = {
+                "location": "/indexes/{}".format(self.context.alias),
+                "alias": "{}".format(updated_alias),
+                "resource": ["/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)],
+                "reindex_frequency": "monthly",
+                "columns": [
+                    {
+                        "type": "pdf",
+                        "occurs": [
+                            1,
+                            1
+                            ],
+                        "analyzer": None,
+                        "pattern": None,
+                        "search_analyzer": None,
+                        "rejected": False,
+                        "alias": None,
+                        "searchable": False,
+                        "count": None,
+                        "weight": None,
+                        "name": "data"
+                        }
+                    ],
+                "name": "context_test2"
+                }
+
+            response = self.client.put("/indexes/{}".format(alias), data=json.dumps(data), content_type="application/json")
+            self.assertEqual(response.status_code, 204)
+            response = self.client.get("/indexes/{}".format("updated_alias"))
+            self.assertEqual(response.status_code, 200)
+            # response = self.client.get("/indexes/{}".format("updated_alia"))
+            # self.assertEqual(response.status_code, 200)
+            # response = self.client.get("/indexes/{}".format("updated_alias2"))
+            # self.assertEqual(response.status_code, 404)
+            response = self.client.get("/indexes/{}".format(updated_alias))
+            self.assertEqual(response.status_code, 200)
+
+@tag('authentified')
+class TokenFilterTestAuthent(ApiItemsMixin, TestCase):
+
+        def setUp(self):
+            self.create_users()
+            self.basic_auth(self.client, 'user1:passpass')
+
+        def test_create_filter_w_alias(self):
+            alias_filter = "alias_filter"
+            body = {
+                "name": "filter_name",
+                "config": {"one": 1, "two": True, "three": "abc", "four": [1, "2", False]},
+                "alias": alias_filter
+                }
+            response = self.client.post("/tokenfilters", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            location = search('^http://testserver/tokenfilters/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.get("/tokenfilters/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+            response = self.client.get("/tokenfilters/{}".format(alias_filter))
+            self.assertEqual(response.status_code, 200)
+
+        def test_create_filter_wo_alias(self):
+
+            body = {
+                "name": "filter_name1",
+                "config": {"one": 1, "two": True, "three": "abc", "four": [1, "2", False]},
+                "alias": None
+                }
+            response = self.client.post("/tokenfilters", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            location = search('^http://testserver/tokenfilters/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.get("/tokenfilters/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+
+        def test_create_filter_w_alias_repeated(self):
+            alias_filter = "alias_filter"
+            body = {
+                "name": "filter_name_1",
+                "config": {"one": 1, "two": True, "three": "abc", "four": [1, "2", False]},
+                "alias": alias_filter
+                }
+            response = self.client.post("/tokenfilters", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+
+            response = self.client.get("/tokenfilters/{}".format(alias_filter))
+            self.assertEqual(response.status_code, 200)
+
+            body = {
+                "name": "filter_name2",
+                "config": {"one": 1, "two": True, "three": "abc", "four": [1, "2", False]},
+                "alias": alias_filter
+                }
+            response = self.client.post("/tokenfilters", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 409)

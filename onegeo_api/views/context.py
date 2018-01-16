@@ -3,7 +3,6 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
@@ -17,6 +16,7 @@ from onegeo_manager.source import Source as OnegeoSource
 
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.models import Alias
 from onegeo_api.models import Context
 from onegeo_api.models import Resource
 from onegeo_api.models import Source
@@ -43,14 +43,14 @@ class ContextView(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Context")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def post(self, request):
+        user = request.user
         body_data = json.loads(request.body.decode('utf-8'))
-        if "name" not in body_data:
+        if not body_data.get('name'):
             return JsonResponse({"error": "Echec la création du contexte d'indexation. "
                                           "Le nom du contexte est manquant. "}, status=400)
-        if "resource" not in body_data:
+        if not body_data.get('resource'):
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                           "Le chemin d'accès est manquant. "}, status=400)
 
@@ -81,35 +81,49 @@ class ContextView(View):
             if not data:
                 return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                               "Les identifiants des source et ressource sont erronées. "}, status=400)
-            src_uuid = data.group(1)
-            rsrc_uuid = data.group(2)
+            src_alias = data.group(1)
+            rsrc_alias = data.group(2)
 
-            resource = Resource.get_with_permission(rsrc_uuid, request.user)
-            source = Source.get_with_permission(src_uuid, request.user)
+            resource = Resource.get_with_permission(rsrc_alias, request.user)
+            try:
+                source = Source.get_with_permission(src_alias, request.user)
+            except:
+                raise
 
             if source != resource.source:
                 return JsonResponse({"error": "Echec de création du contexte d'indexation. "
                                               "Les identifiants des source et ressource sont erronées. "}, status=400)
             resources_to_relate.append(resource)
 
-        onegeo_source = OnegeoSource(source.uri, name, source.mode)
-        onegeo_resource = OnegeoResource(onegeo_source, resource.name)
-        for col in iter(resource.columns):
-            if onegeo_resource.is_existing_column(col["name"]):
-                continue
-            onegeo_resource.add_column(
-                col["name"], column_type=col["type"],
-                occurs=tuple(col["occurs"]), count=col["count"],
-                rule="rule" in col and col["rule"] or None)
+            onegeo_source = OnegeoSource(source.uri, name, source.mode)
+            onegeo_resource = OnegeoResource(onegeo_source, resource.name)
+            for col in iter(resource.columns):
+                if onegeo_resource.is_existing_column(col["name"]):
+                    continue
+                onegeo_resource.add_column(
+                    col["name"], column_type=col["type"],
+                    occurs=tuple(col["occurs"]), count=col["count"],
+                    rule="rule" in col and col["rule"] or None)
 
-        onegeo_index = OnegeoIndex(resource.name)
-        onegeo_context = OnegeoContext(name, onegeo_index, onegeo_resource)
-        clmn_properties = []
-        for ppt in onegeo_context.iter_properties():
-            clmn_properties.append(ppt.all())
+            onegeo_index = OnegeoIndex(resource.name)
+            onegeo_context = OnegeoContext(name, onegeo_index, onegeo_resource)
+            clmn_properties = []
+            for ppt in onegeo_context.iter_properties():
+                clmn_properties.append(ppt.all())
 
+        alias = body_data.get('alias')
+        if alias and Alias.objects.filter(handle=alias).exists():
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Un contexte portant le même alias existe déjà. "}, status=409)
+        defaults = {
+            'user': user,
+            'name': name,
+            'alias': Alias.custom_creator(model_name="Context", handle=alias),
+            'clmn_properties': clmn_properties,
+            'reindex_frequency': reindex_frequency,
+            }
         return Context.create_with_response(
-            request, name, clmn_properties, reindex_frequency, resources_to_relate)
+            request, defaults, resources_to_relate)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -119,8 +133,8 @@ class ContextIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Context")
-    def get(self, request, uuid):
-        context = Context.get_with_permission(slash_remove(uuid), request.user)
+    def get(self, request, alias):
+        context = Context.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(context.detail_renderer, safe=False, status=200)
 
     @BasicAuth()
@@ -128,43 +142,65 @@ class ContextIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Various")
-    def put(self, request, ctx_uuid):
-
+    def put(self, request, alias):
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
         name = body_data.get('name')
         reindex_frequency = body_data.get('reindex_frequency')
         list_ppt_clt = body_data.get('columns', {})
 
-        data = search('^/sources/(\S+)/resources/(\S+)$', body_data['resource'])
-        if not data:
-            return None
-        src_uuid = data.group(1)
-        rsrc_uuid = data.group(2)
+        resources_to_relate = []
+        for uri in body_data['resource']:
+            data = search('^/sources/(\S+)/resources/(\S+)$', uri)
+            if not data:
+                return JsonResponse({"error": "Echec de la modification du contexte d'indexation. "
+                                              "Les identifiants des source et ressource sont erronées. "}, status=400)
+            src_alias = data.group(1)
+            rsrc_alias = data.group(2)
 
-        resource = Resource.get_with_permission(rsrc_uuid, request.user)
-        source = Source.get_with_permission(src_uuid, request.user)
+            resource = Resource.get_with_permission(rsrc_alias, request.user)
+            source = Source.get_with_permission(src_alias, request.user)
 
-        if source != resource.source:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-                                          "Les identifiants des source et ressource sont erronées. "}, status=400)
+            if source != resource.source:
+                return JsonResponse({"error": "Echec de la modification du contexte d'indexation. "
+                                              "Les identifiants des source et ressource sont erronées. "}, status=400)
+            resources_to_relate.append(resource)
 
-        context = Context.get_with_permission(slash_remove(ctx_uuid), request.user)
+        context = Context.get_with_permission(slash_remove(alias), request.user)
+
+        new_alias = body_data.get("alias")
+        if new_alias:
+            if not Alias.updating_is_allowed(new_alias, context.alias.handle):
+                return JsonResponse({"error": "Echec de la création de l'analyseur. Un analyseur portant le même alias existe déjà. "}, status=409)
+            context.alias.custom_updater(new_alias)
 
         context.update_clmn_properties(list_ppt_clt)
 
-        context.resources.add(resource)
+        for resource in resources_to_relate:
+            resource.context = context
+            try:
+                resource.save()
+            except Exception as e:
+                return JsonResponse(data={"error": e.message}, status=409)
+
         if name:
             context.name = name
         if reindex_frequency:
             context.reindex_frequency = reindex_frequency
+
         context.save()
 
         return JsonResponse(data={}, status=204)
 
     @BasicAuth()
-    def delete(self, request, uuid):
-        return Context.delete_with_response(slash_remove(uuid), request.user)
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="Context")
+    def delete(self, request, alias):
+        context = Context.get_with_permission(slash_remove(alias), request.user)
+        context.delete()  # Erreur sur signal delete_context suite a erreur sur elasticsearch_wrapper
+        # CF signals.py "elastic_conn.delete_index_by_alias" a réintégrer
+        return JsonResponse(data={"error": "Context supprimé, elastic_conn.delete_index_by_alias non appliqué"}, status=204)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -172,15 +208,16 @@ class ContextIDTaskView(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Context")
-    def get(self, request, ctx_uuid):
+    def get(self, request, alias):
 
-        context = Context.get_with_permission(slash_remove(ctx_uuid), request.user)
-        tasks = Task.objects.filter(
-            model_type="context",
-            model_type_id=context.uuid,
-            user=request.user).order_by("-start_date")
+        context = Context.get_with_permission(slash_remove(alias), request.user)
+        defaults = {
+            "model_type": "context",
+            "model_type_alias": context.alias.handle,
+            "user": request.user
+            }
 
-        return JsonResponse([task.detail_renderer for task in tasks], safe=False)
+        return JsonResponse(Task.list_renderer(defaults), safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -188,10 +225,7 @@ class ContextIDTaskIDView(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Various")
-    def get(self, request, ctx_uuid, tsk_id):
-
-        context = Context.get_with_permission(slash_remove(ctx_uuid), request.user)
-        task = get_object_or_404(
-            Task, pk=literal_eval(tsk_id), model_type_id=context.uuid)
-
+    def get(self, request, alias, tsk_id):
+        context = Context.get_with_permission(slash_remove(alias), request.user)
+        task = Task.get_with_permission(literal_eval(tsk_id), context.alias.handle, "context", request.user)
         return JsonResponse(task.detail_renderer, safe=False)

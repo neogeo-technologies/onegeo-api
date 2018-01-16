@@ -2,21 +2,26 @@ import json
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import JsonResponse
 from django.http import Http404
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
+from onegeo_api.exceptions import ContentTypeLookUp
+from onegeo_api.exceptions import ExceptionsHandler
+
+from onegeo_api.utils import BasicAuth
+from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
-from onegeo_api.exceptions import BasicAuth
-from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.utils import read_name
+from onegeo_api.utils import slash_remove
+
+from ongeo_api.models import Alias
 from ongeo_api.models import Analyzer
 from ongeo_api.models import Filter
 from ongeo_api.models import Tokenizer
-from onegeo_api.exceptions import ContentTypeLookUp
-from onegeo_api.utils import read_name
 
 
 __all__ = ["AnalyzerView", "AnalyzerIDView"]
@@ -41,18 +46,47 @@ class AnalyzerView(View):
 
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
+
+        # Controle des données clients
         name = read_name(body_data)
         if not name:
             return JsonResponse({"error": "Echec de création de l'analyseur. Le nom de l'analyseur est manquant."}, status=400)
         if Analyzer.objects.filter(name=name).exists():
             return JsonResponse({"error": "Echec de la création de l'analyseur. Un analyseur portant le même nom existe déjà. "}, status=409)
 
-        tokenizer = body_data.get("tokenizer", None)
-        filters = body_data.get("filters", [])
+        alias = body_data.get("alias")
+        if alias and Alias.objects.filter(handle=alias).exists():
+            return JsonResponse({"error": "Echec de la création de l'analyseur. Un analyseur portant le même alias existe déjà. "}, status=409)
+
+        tokenizer_name = body_data.get("tokenizer")
+        if tokenizer_name:
+            try:
+                tokenizer = Tokenizer.objects.get(name=tokenizer_name)
+            except Tokenizer.DoesNotExist:
+                return JsonResponse({"error": "Echec de création de l'analyseur: Le tokenizer n'existe pas. "}, status=400)
+
+        filters_name = body_data.get("filters", [])
+        filters = []
+        for name in filters_name:
+            try:
+                currrent_filter = Filter.objects.get(name=name)
+            except Filter.DoesNotExist:
+                return JsonResponse({"error": "Echec de mise à jour de l'anlyseur. "
+                                              "La liste contient un ou plusieurs "
+                                              "filtres n'existant pas. "}, status=400)
+            else:
+                filters.append(currrent_filter)
+
         config = body_data.get("config", {})
 
-        return Analyzer.create_with_response(
-            request, name, user, config, filters, tokenizer)
+        defaults = {
+            "name": name,
+            "user": user,
+            "config": config,
+            "tokenizer": tokenizer,
+            "alias": Alias.custom_create(model_name="Analyzer", handle=alias)
+            }
+        return Analyzer.create_with_response(request, clean_my_obj(defaults), filters)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -62,70 +96,78 @@ class AnalyzerIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Analyzer")
-    def get(self, request, name):
+    def get(self, request, alias):
         user = user = request.user
-        name = (name.endswith('/') and name[:-1] or name)
-        instance = Analyzer.get_with_permission(name, user)
-        return JsonResponse(instance.detail_renderer)
+        analyzer = Analyzer.get_with_permission(slash_remove(alias), user)
+        return JsonResponse(analyzer.detail_renderer)
 
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Analyzer")
-    def put(self, request, name):
+    def put(self, request, alias):
         user = request.user
+        analyzer = Analyzer.get_with_permission(slash_remove(alias), user)
 
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
-        tokenizer = "tokenizer" in body_data and body_data["tokenizer"] or False
-        filters = "filters" in body_data and body_data["filters"] or []
-        config = "config" in body_data and body_data["config"] or {}
+        new_alias = body_data.get("alias")
+        tokenizer_name = body_data.get("tokenizer")
+        filters_name = body_data.get("filters", [])
+        config = body_data.get("config", {})
 
-        name = (name.endswith('/') and name[:-1] or name)
-        analyzer = Analyzer.get_with_permission(name, user)
-
-        if tokenizer:
+        # Controle des données clients
+        if tokenizer_name:
             try:
-                tkn_chk = Tokenizer.objects.get(name=tokenizer)
+                tokenizer = Tokenizer.objects.get(name=tokenizer_name)
             except Tokenizer.DoesNotExist:
-                return JsonResponse({"error": "Echec de mise à jour du tokenizer. "
+                return JsonResponse({"error": "Echec de mise à jour de l'analyseur. "
                                               "Le tokenizer n'existe pas. "}, status=400)
 
-        if analyzer.user != user:
-            status = 403
-            data = {"error": "Forbidden"}
-        else:
-            status = 204
-            data = {}
-            # On met à jour le champs config
-            analyzer.config = config
+        filters = []
+        for name in filters_name:
+            try:
+                currrent_filter = Filter.objects.get(name=name)
+            except Filter.DoesNotExist:
+                return JsonResponse({"error": "Echec de mise à jour de l'anlyseur. "
+                                              "La liste contient un ou plusieurs "
+                                              "filtres n'existant pas. "}, status=400)
+            else:
+                filters.append(currrent_filter)
+            if not Filter.objects.get(name=name).exists():
+                return JsonResponse({"error": "Echec de mise à jour du tokenizer. "
+                                              "La liste contient un ou plusieurs "
+                                              "filtres n'existant pas. "}, status=400)
 
-            # On s'assure que tous les filtres existent
-            for f in filters:
-                if not Filter.objects.get(name=f).exists():
-                    return JsonResponse({"error": "Echec de mise à jour du tokenizer. "
-                                                  "La liste contient un ou plusieurs "
-                                                  "filtres n'existant pas. "}, status=400)
-            # Si tous corrects, on met à jour depuis un set vide
-            analyzer.filter.set([])
-            for f in filters:
-                analyzer.filter.add(f)
-            if tokenizer:
-                analyzer.tokenizer = tkn_chk
+        if new_alias:
+            if not Alias.updating_is_allowed(new_alias, analyzer.alias.handle):
+                return JsonResponse({"error": "Echec de mise à jour de l'analyseur. "
+                                              "L'alias requis n'est pas disponible. "}, status=409)
+            analyzer.alias.custom_updater(new_alias)
 
-            # On sauvegarde
-            analyzer.save()
+        analyzer.config = config
 
-        return JsonResponse(data, status=status)
+        if tokenizer:
+            analyzer.tokenizer = tokenizer
+
+        if len(filters) > 0:
+            analyzer.filters.set(filters, clear=True)
+
+        if tokenizer:
+            analyzer.tokenizer = tokenizer
+
+        analyzer.save()
+
+        return JsonResponse(data={}, status=204)
 
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Analyzer")
-    def delete(self, request, name):
-        user = request.user
-        name = (name.endswith('/') and name[:-1] or name)
-        return Analyzer.delete_with_response(name, user)
+    def delete(self, request, alias):
+        analyzer = Analyzer.get_with_permission(slash_remove(alias), request.user)
+        analyzer.delete()
+        return JsonResponse(data={}, status=204)

@@ -17,6 +17,7 @@ from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.exceptions import MultiTaskError
+from onegeo_api.models import Alias
 from onegeo_api.models import Context
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Task
@@ -34,11 +35,11 @@ __all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
-def search_model_context_task(ctx_uuid, user):
-    if len(Task.objects.filter(model_type="context",
-                               model_type_id=ctx_uuid,
-                               user=user,
-                               stop_date=None)) > 0:
+def search_model_context_task(ctx_alias, user):
+    if Task.objects.filter(model_type="context",
+                           model_type_alias=ctx_alias,
+                           user=user,
+                           stop_date=None).exists():
         raise MultiTaskError()
     else:
         return True
@@ -49,7 +50,7 @@ def get_param(request, param):
         Retourne la valeur d'une clé param presente dans une requete GET ou POST.
     """
     if request.method == "GET":
-        if param in request.GET:
+        if request.GET.get(param):
             return request.GET[param]
     elif request.method == "POST":
         try:
@@ -81,7 +82,7 @@ def read_params_SM(data):
     items = {"indexes": data.get("indexes", []),
              "config": data.get("config", {})}
     items = clean_my_obj(items)
-    return items["indices"], items["config"]
+    return items["indexes"], items["config"]
 
 
 def get_search_model(name, user_rq, config, method):
@@ -128,7 +129,7 @@ def get_contexts_obj(contexts_clt, user):
         except Context.DoesNotExist:
             raise
         try:
-            search_model_context_task(context.uuid, user)
+            search_model_context_task(context.alias.handle, user)
         except MultiTaskError:
             raise
         contexts_obj.append(context)
@@ -168,7 +169,7 @@ def set_search_model_contexts(search_model, contexts_obj,
             except ValueError:
                 response = JsonResponse({
                     "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
-                             "(par exemple, car une connexion a été réutilisée)."}, status=421)
+                             "(par exemple, une connexion a été réutilisée)."}, status=421)
 
     return response
 
@@ -179,24 +180,36 @@ class SearchModelView(View):
     @BasicAuth()
     def get(self, request):
         user = request.user
-        return JsonResponse(SearchModel.custom_filter(user), safe=False)
+        return JsonResponse(SearchModel.list_renderer(user), safe=False)
 
     @BasicAuth()
     @ContentTypeLookUp()
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="SearchModel")
     def post(self, request):
 
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
         name = read_name(data)
-        contexts_clt, config_clt = read_params_SM(data)
+        if name is None:
+            return JsonResponse({"error": "Echec de création du modele de recherche. "
+                                          "Le nom est incorrect. "}, status=400)
+        if SearchModel.objects.filter(name=name).exists():
+            return JsonResponse({"error": "Echec de création du modele de recherche. "
+                                          "Un modele de recherche portant le même nom existe déjà. "}, status=409)
 
-        search_model, error = \
-            get_search_model(name, user, config_clt, request.method)
-        if error:
-            return error
+        contexts = data.get("indexes", [])
+        config = data.get("config", {})
+
+        search_model, created = SearchModel.objects.get_or_create(
+            name=name, defaults={"user": user, "config": config})
+
+        if not created:
+            return JsonResponse(data={"error": "Conflict"}, status=409)
 
         try:
-            contexts_obj = get_contexts_obj(contexts_clt, user)
+            contexts_obj = get_contexts_obj(contexts, user)
         except Context.DoesNotExist:
             return JsonResponse({
                 "error":
@@ -208,11 +221,19 @@ class SearchModelView(View):
                     "Une autre tâche est en cours d'exécution. "
                     "Veuillez réessayer plus tard. "}, status=423)
 
-        return set_search_model_contexts(search_model,
-                                         contexts_obj,
-                                         contexts_clt,
-                                         request,
-                                         config=None)
+        search_model.context.set(contexts_obj)
+        response = JsonResponse(data={}, status=201)
+        uri = slash_remove(request.build_absolute_uri())
+        response['Location'] = '{0}/{1}'.format(uri, search_model.alias.handle)
+
+        if len(contexts) > 0:
+            try:
+                refresh_search_model(search_model.name, contexts)
+            except ValueError:
+                response = JsonResponse({
+                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
+                             "(par exemple, car une connexion a été réutilisée)."}, status=421)
+        return response
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -222,31 +243,25 @@ class SearchModelIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="SearchModel")
-    def get(self, request, name):
-        user = request.user
-        sm = SearchModel.user_access(slash_remove(name), user)
-        return JsonResponse(sm.format_data, status=200)
+    def get(self, request, alias):
+        search_model = SearchModel.get_with_permision(slash_remove(alias), request.user)
+        return JsonResponse(search_model.detail_renderer, status=200)
 
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="SearchModel")
-    def put(self, request, name):
-        # READ REQUEST DATA
+    def put(self, request, alias):
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
-        name = slash_remove(name)
-        contexts_clt, config_clt = read_params_SM(data)
+        contexts = data.get("indexes", [])
+        config = data.get("config", {})
 
-        # GET SearchModel
-        search_model, error = \
-            get_search_model(name, user(), config_clt, request.method)
-        if error:
-            return error
+        search_model = SearchModel.get_with_permission(slash_remove(alias), user)
 
         try:
-            contexts_obj = get_contexts_obj(contexts_clt, user())
+            contexts_obj = get_contexts_obj(contexts, user)
         except Context.DoesNotExist:
             return JsonResponse({
                 "error":
@@ -258,28 +273,41 @@ class SearchModelIDView(View):
                     "Une autre tâche est en cours d'exécution. "
                     "Veuillez réessayer plus tard. "}, status=423)
 
+        new_alias = data.get("alias", None)
+        if new_alias:
+            if not Alias.updating_is_allowed(new_alias, search_model.alias.handle):
+                return JsonResponse({"error": "Echec de la création du model de recherche. L'alias existe déjà. "}, status=409)
+            search_model.alias.custom_updater(new_alias)
+
         # RETURN RESPONSE
-        return set_search_model_contexts(search_model,
-                                         contexts_obj,
-                                         contexts_clt,
-                                         request,
-                                         config_clt)
+        search_model.context.set(contexts_obj, clear=True)
+        search_model.update(config=config)
+
+        if len(contexts) > 0:
+            try:
+                refresh_search_model(search_model.name, contexts)
+            except ValueError:
+                return JsonResponse({
+                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
+                             "(par exemple, une connexion a été réutilisée)."}, status=421)
+
+        return JsonResponse({}, status=204)
 
     @BasicAuth()
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="SearchModel")
-    def delete(self, request, name):
-        user = request.user
-        sm = SearchModel.user_access(slash_remove(name), user)
-        sm.delete()
+    def delete(self, request, alias):
+        search_model = SearchModel.get_with_permission(slash_remove(alias), request.user)
+        search_model.delete()
         return JsonResponse(data={}, status=204)
 
 
-# TODO(mmeliani): Revoir gestion des plugins
+# TODO(mmeliani): What We Do With Dat?
 @method_decorator(csrf_exempt, name='dispatch')
 class SearchView(View):
 
+    @BasicAuth()
     def get(self, request, name):
 
         user = None

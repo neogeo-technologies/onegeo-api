@@ -9,12 +9,16 @@ import json
 
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.models import Alias
+from onegeo_api.models import Resource
 from onegeo_api.models import Source
+from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import check_uri
-from onegeo_api.utils import read_name
-from onegeo_api.utils import on_http404
+from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import on_http403
+from onegeo_api.utils import on_http404
+from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
 
 __all__ = ["SourceView", "SourceIDView"]
@@ -66,31 +70,42 @@ class SourceView(View):
 
         name = read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-                                          "Le nom du contexte est incorrect. "},
+            return JsonResponse({"error": "Echec de création de la source. "
+                                          "Le nom de la source est incorrect. "},
                                 status=400)
+        if Source.objects.filter(name=name).exists():
+            return JsonResponse({"error": "Echec de création de la source. "
+                                          "Une source portant le même nom existe déjà. "}, status=409)
 
         if not is_valid_uri_for_given_mode(body_data["uri"], body_data["mode"]):
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+            return JsonResponse({"error": "Echec de création de la source. "
                                           "L'uri est incorrecte. "},
                                 status=400)
-        mode = body_data["mode"]
-
+        mode = body_data.get("mode")
+        uri = body_data.get("uri")
         if mode == 'pdf':
-            uri = check_uri(body_data["uri"])
+            uri = check_uri(uri)
             if uri is None:
                 data = {"error": "Echec de création de la source. "
                                  "Le chemin d'accès à la source est incorrect. "}
                 return JsonResponse(data, status=400)
-        else:
-            uri = body_data["uri"]
+        if Source.objects.filter(uri=uri, user=user).exists():
+            data = {"error": "Echec de création de la source. "
+                             "Un usager ne peut pas définir deux sources avec le même chemin d'accés. "}
+            return JsonResponse(data, status=400)
 
+        alias = body_data.get('alias')
+        if alias and Alias.objects.filter(handle=alias).exists():
+            return JsonResponse({"error": "Echec de création de la source. "
+                                          "Une source portant le même alias existe déjà. "}, status=409)
         defaults = {
             'user': user,
             'name': name,
-            'mode': mode}
-
-        return Source.create_with_response(request, uri, defaults)
+            'mode': mode,
+            'alias': Alias.custom_creator(model_name="Source", handle=alias),
+            'uri': uri
+            }
+        return Source.create_with_response(request, clean_my_obj(defaults))
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -100,14 +115,18 @@ class SourceIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Source")
-    def get(self, request, uuid):
-        source = Source.get_with_permission(slash_remove(uuid), request.user)
+    def get(self, request, alias):
+        source = Source.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(source.detail_renderer, safe=False)
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Source")
-    def delete(self, request, uuid):
-
-        source = Source.get_with_permission(slash_remove(uuid), request.user)
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="Source")
+    def delete(self, request, alias):
+        source = Source.get_with_permission(slash_remove(alias), request.user)
+        for resource in Resource.objects.filter(source=source):
+            resource.delete()
+        Task.objects.filter(model_type_alias=source.alias.handle, model_type="source").delete()
         source.delete()
         return JsonResponse(data={}, status=204)

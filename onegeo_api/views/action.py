@@ -9,6 +9,9 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from django.shortcuts import get_object_or_404
+from django.shortcuts import redirect
+
 
 # from onegeo_manager.context import Context as OnegeoContext
 # from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
@@ -17,12 +20,22 @@ from django.views.generic import View
 # from onegeo_manager.source import Source as OnegeoSource
 
 # from onegeo_api.elasticsearch_wrapper import elastic_conn
+from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.models import Alias
+from onegeo_api.models import Analyzer
 from onegeo_api.models import Context
+from onegeo_api.models import Filter
+from onegeo_api.models import Resource
+from onegeo_api.models import SearchModel
+from onegeo_api.models import Source
 from onegeo_api.models import Task
+from onegeo_api.models import Tokenizer
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
+from onegeo_api.utils import slash_remove
+
 
 __all__ = ["ActionView"]
 
@@ -91,15 +104,23 @@ class ActionView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Context")
+    @ContentTypeLookUp()
     def post(self, request):
-
         user = request.user
 
-        data = json.loads(request.body.decode("utf-8"))
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except Exception as e:
+            return JsonResponse({'error': e}, status=400)
 
-        ctx = Context.get_with_permission(uuid=data.get("index", ""), user=request.user)
+        ctx_alias = data.get("index")
+        if not ctx_alias:
+            data = {"error": "L'identifiant du context est manquant "}
+            return JsonResponse(data, status=400)
 
-        filters = {"model_type": "context", "model_type_id": ctx.uuid, "user": user}
+        context = Context.get_with_permission(ctx_alias, request.user)
+
+        filters = {"model_type": "context", "model_type_alias": context.alias.handle, "user": user}
         last = Task.objects.filter(**filters).order_by("start_date").last()
         if last and last.success is None:
             data = {"error": "Une autre tâche est en cours d'exécution. "
@@ -203,3 +224,40 @@ class ActionView(View):
 
         # return JsonResponse(data, status=status)
         return JsonResponse({"Tomatoe": "Tomatoe"}, status=418)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AliasView(View):
+    @BasicAuth()
+    @ExceptionsHandler(
+        actions={Http404: on_http404, PermissionDenied: on_http403},
+        model="Context")
+    def get(self, request, alias):
+        """
+            url(r'^indexes/(\S+)/?$', ContextIDView.as_view(), name="context_detail"),
+            url(r'^services/(\S+)/?$', SearchModelIDView.as_view(), name="seamod_detail"),
+            url(r'^sources/(\S+)/resources/(\S+)/?$', ResourceIDView.as_view(), name="source_detail_resource_detail"),
+            url(r'^sources/(\S+)/?$', SourceIDView.as_view(), name="source_detail"),
+            url(r'^tokenfilters/(\S+)/?$', TokenFilterIDView.as_view()),
+            url(r'^tokenizers/(\S+)/?$', TokenizerIDView.as_view()),
+        """
+        user = request.user
+        alias_instance = get_object_or_404(Alias, handle=slash_remove(alias))
+        d = {
+            "Analyzer": (Analyzer, "/indexes/{0}"),
+            "Source": (Source, "/sources/{0}"),
+            "Resource": (Resource, "/sources/{0}/resources/{1}"),
+            "Context": (Context, "/indexes/{0}"),
+            "Filter": (Filter, "/tokenfilters/{0}"),
+            "Tokenizer": (Tokenizer, "/tokenizer/{0}"),
+            "SearchModel": (SearchModel, "/service/{0}")
+            }
+
+        Model_r = d.get(alias_instance.model_name)[0]
+        instance = Model_r.get_with_permission(alias_instance.handle, user)
+        if alias_instance.model_name == "Resource":
+            url = d.get(alias_instance.model_name)[1].format(instance.source.alias.handle, instance.alias.handle)
+        else:
+            url = d.get(alias_instance.model_name)[1].format(instance.alias.handle)
+
+        return redirect(url)

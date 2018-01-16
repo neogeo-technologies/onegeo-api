@@ -26,18 +26,21 @@ MSG_404 = {"GetResource": {"error": "Aucune resource ne correspond à cette requ
 class ResourceView(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Resource")
-    def get(self, request, src_uuid):
+    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
+    def get(self, request, src_alias):
+
         user = request.user
-        src_uuid = slash_remove(src_uuid)
+        src_alias = slash_remove(src_alias)
+        source = Source.get_with_permission(src_alias, user)
+
         try:
-            tsk = Task.objects.get(model_type_id=src_uuid, model_type="source")
+            tsk = Task.objects.get(model_type_alias=source.alias.handle, model_type="source")
         except Task.DoesNotExist:
-            data = Resource.list_renderer(src_uuid, user=user)
+            data = Resource.list_renderer(src_alias, user)
             opts = {"safe": False}
         else:
             if tsk.stop_date and tsk.success is True:
-                data = Resource.list_renderer(src_uuid, user=user)
+                data = Resource.list_renderer(src_alias, user)
                 opts = {"safe": False}
 
             if tsk.stop_date and tsk.success is False:
@@ -49,7 +52,6 @@ class ResourceView(View):
                 data = {"error": tsk.description,
                         "task": "tasks/{}".format(tsk.id)}
                 opts = {"status": 423}
-
         return JsonResponse(data, **opts)
 
 
@@ -58,9 +60,9 @@ class ResourceIDView(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Resource")
-    def get(self, request, src_uuid, rsrc_uuid):
-        resource = Resource.get_with_permission(slash_remove(rsrc_uuid), request.user)
-        source = Source.get_with_permission(slash_remove(src_uuid), request.user)
+    def get(self, request, src_alias, rsrc_alias):
+        resource = Resource.get_with_permission(slash_remove(rsrc_alias), request.user)
+        source = Source.get_with_permission(slash_remove(src_alias), request.user)
         if resource.source != source:
             raise Http404
         return JsonResponse(resource.detail_renderer, safe=False)

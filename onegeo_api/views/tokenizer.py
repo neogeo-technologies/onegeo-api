@@ -1,22 +1,23 @@
 import json
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
+from onegeo_api.exceptions import ContentTypeLookUp
+from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.models import Alias
 from onegeo_api.models import Tokenizer
-
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
-
+from onegeo_api.utils import BasicAuth
+from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
-from onegeo_api.exceptions import BasicAuth
-from onegeo_api.exceptions import ExceptionsHandler
-from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.utils import read_name
+from onegeo_api.utils import slash_remove
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
@@ -43,8 +44,17 @@ class TokenizerView(View):
             return JsonResponse({"error": "Echec de création du tokenizer. Un tokenizer portant le même nom existe déjà. "}, status=409)
 
         config = body_data.get("config", {})
+        alias = body_data.get("alias", None)
+        if alias and Alias.objects.filter(handle=alias).exists():
+            return JsonResponse({"error": "Echec de création du tokenizer. Un tokenizer portant le même alias existe déjà. "}, status=409)
+        defaults = {
+            "name": name,
+            "config": config,
+            "alias": Alias.custom_creator(model_name="Filter", handle=alias),
+            "user": user
+            }
 
-        return Tokenizer.create_with_response(request, name, user, config)
+        return Tokenizer.create_with_response(request, clean_my_obj(defaults))
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -54,10 +64,8 @@ class TokenizerIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Tokenizer")
-    def get(self, request, name):
-        user = user = request.user
-        name = (name.endswith('/') and name[:-1] or name)
-        instance = Tokenizer.get_with_permission(name, user)
+    def get(self, request, alias):
+        instance = Tokenizer.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(instance.detail_renderer)
 
     @BasicAuth()
@@ -65,22 +73,29 @@ class TokenizerIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Tokenizer")
-    def put(self, request, name):
+    def put(self, request, alias):
 
-        user = request.user
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
+
+        token = Tokenizer.get_with_permission(slash_remove(alias), request.user)
+
+        new_alias = body_data.get("alias", None)
+        if new_alias:
+            if not Alias.updating_is_allowed(new_alias, token.alias.handle):
+                return JsonResponse({"error": "Echec de création du tokenizer. Un tokenizer portant le même alias existe déjà. "}, status=409)
+            token.alias.custom_updater(new_alias)
+
         config = body_data.get("config", {})
-        name = (name.endswith('/') and name[:-1] or name)
-        token = Tokenizer.get_with_permission(name, user)
         token.update(config=config)
+
         return JsonResponse({}, status=204)
 
     @BasicAuth()
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Tokenizer")
-    def delete(self, request, name):
-        user = request.user
-        name = (name.endswith('/') and name[:-1] or name)
-        return Tokenizer.delete_with_response(name, user)
+    def delete(self, request, alias):
+        token = Tokenizer.get_with_permission(slash_remove(alias), request.user)
+        token.delete()
+        return JsonResponse({}, status=204)

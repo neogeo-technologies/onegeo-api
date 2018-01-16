@@ -8,13 +8,16 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from onegeo_api.exceptions import BasicAuth
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
+from onegeo_api.models import Alias
 from onegeo_api.models import Filter
+from onegeo_api.utils import BasicAuth
+from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
+from onegeo_api.utils import slash_remove
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
@@ -41,7 +44,18 @@ class TokenFilterView(View):
             return JsonResponse({"error": "Echec de création du filtre. Un filtre portant le même nom existe déjà. "}, status=409)
 
         config = body_data.get("config", {})
-        return Filter.create_with_response(request, name, user, config)
+        alias = body_data.get("alias")
+        if alias and Alias.objects.filter(handle=alias).exists():
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Un contexte portant le même alias existe déjà. "}, status=409)
+        defaults = {
+            "name": name,
+            "config": config,
+            "alias": Alias.custom_creator(model_name="Filter", handle=alias),
+            "user": user
+            }
+
+        return Filter.create_with_response(request, clean_my_obj(defaults))
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -51,11 +65,8 @@ class TokenFilterIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Filter")
-    def get(self, request, name):
-
-        user = request.user
-        name = (name.endswith('/') and name[:-1] or name)
-        instance = Filter.get_from_name(name, user)
+    def get(self, request, alias):
+        instance = Filter.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(instance.detail_renderer)
 
     @BasicAuth()
@@ -63,22 +74,29 @@ class TokenFilterIDView(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Filter")
-    def put(self, request, name):
+    def put(self, request, alias):
+        instance = Filter.get_with_permission(slash_remove(alias), request.user)
 
-        user = request.user
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
         config = body_data.get("config", {})
-        name = (name.endswith('/') and name[:-1] or name)
-        filter = Filter.get_with_permission(name, user)
-        filter.update(config=config)
+        new_alias = body_data.get("alias", None)
+
+        if new_alias:
+            if not Alias.updating_is_allowed(new_alias, instance.alias.handle):
+                return JsonResponse({"error": "Echec de la création du contexte d'indexation. L'alias existe déjà. "}, status=409)
+            instance.alias.custom_updater(new_alias)
+
+        instance.update(config=config)
+
         return JsonResponse({}, status=204)
 
     @BasicAuth()
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403},
         model="Filter")
-    def delete(self, request, name):
+    def delete(self, request, alias):
         user = request.user
-        name = (name.endswith('/') and name[:-1] or name)
-        return Filter.delete_with_response(name, user)
+        instance = Filter.get_with_permission(slash_remove(alias), user)
+        instance.delete()
+        return JsonResponse(data={}, status=204)
