@@ -1,9 +1,7 @@
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.db import models
-from django.core.exceptions import PermissionDenied
 from django.http import Http404
-# from django.core.exceptions import ValidationError
 
 from onegeo_api.utils import clean_my_obj
 

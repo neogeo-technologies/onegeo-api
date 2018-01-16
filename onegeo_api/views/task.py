@@ -1,6 +1,5 @@
 from ast import literal_eval
 
-from django.conf import settings
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -15,13 +14,8 @@ from onegeo_api.utils import on_http404
 from onegeo_api.utils import BasicAuth
 
 
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-
-__all__ = ["TaskView", "TaskIDView"]
-
-
 @method_decorator(csrf_exempt, name="dispatch")
-class TaskView(View):
+class TasksList(View):
 
     @BasicAuth()
     def get(self, request):
@@ -29,10 +23,10 @@ class TaskView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class TaskIDView(View):
+class TasksDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Task")
     def get(self, request, id):
-        task = Task.get_with_permission(literal_eval(id), request.user)
+        task = Task.get_with_permission({"id": literal_eval(id)}, request.user)
         return JsonResponse(task.detail_renderer, safe=False)

@@ -3,7 +3,6 @@ from importlib import import_module
 import json
 from requests.exceptions import HTTPError  # TODO
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -27,12 +26,6 @@ from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
-
-
-__all__ = ["SearchModelView", "SearchModelIDView", "SearchView"]
-
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
 def search_model_context_task(ctx_alias, user):
@@ -105,18 +98,16 @@ def get_search_model(name, user_rq, config, method):
             sm = SearchModel.objects.get(name=name)
         except SearchModel.DoesNotExist:
             sm = None
-            error = JsonResponse({
-                        "error":
-                            "Modification du modèle de recherche impossible. "
-                            "Le modèle de recherche '{}' n'existe pas. ".format(name)
-                        }, status=404)
+            error = JsonResponse(
+                {"error": ("Modification du modèle de recherche impossible. "
+                           "Le modèle de recherche '{}' n'existe pas. ").format(name)},
+                status=404)
 
         if not error and sm.user != user_rq:
             sm = None
-            error = JsonResponse({
-                        "error":
-                            "Modification du modèle de recherche impossible. "
-                            "Son usage est réservé."}, status=403)
+            error = JsonResponse(
+                {"error": ("Modification du modèle de recherche impossible. "
+                           "Son usage est réservé.")}, status=403)
     return sm, error
 
 
@@ -175,7 +166,7 @@ def set_search_model_contexts(search_model, contexts_obj,
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class SearchModelView(View):
+class SearchModelsList(View):
 
     @BasicAuth()
     def get(self, request):
@@ -236,7 +227,7 @@ class SearchModelView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class SearchModelIDView(View):
+class SearchModelsDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
@@ -304,7 +295,7 @@ class SearchModelIDView(View):
 
 # TODO(mmeliani): What We Do With Dat?
 @method_decorator(csrf_exempt, name='dispatch')
-class SearchView(View):
+class Search(View):
 
     @BasicAuth()
     def get(self, request, name):

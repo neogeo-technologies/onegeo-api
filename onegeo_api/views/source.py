@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import JsonResponse
@@ -21,12 +20,6 @@ from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
 
-__all__ = ["SourceView", "SourceIDView"]
-
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_404 = {"GetSource": {"error": "Aucune source ne correspond à cette requête."}}
-
 
 def is_valid_uri_for_given_mode(uri, mode):
     # TODO: Utiliser des expressions régulières mais la flemme dans l'immédiat
@@ -38,7 +31,7 @@ def is_valid_uri_for_given_mode(uri, mode):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class SourceView(View):
+class SourcesList(View):
 
     @BasicAuth()
     def get(self, request):
@@ -109,7 +102,7 @@ class SourceView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class SourceIDView(View):
+class SourcesDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(

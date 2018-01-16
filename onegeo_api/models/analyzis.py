@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.http import Http404
 
-from onegeo_api.models import AbstractModelAnalyzis
+from onegeo_api.models.abstracts import AbstractModelAnalyzis
 from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import slash_remove
 

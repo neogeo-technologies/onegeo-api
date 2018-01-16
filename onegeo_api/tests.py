@@ -1,6 +1,5 @@
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
-from django.test.utils import override_settings
 from django.test import tag
 
 from django.test import TestCase

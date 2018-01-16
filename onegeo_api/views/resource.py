@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import JsonResponse
@@ -15,15 +14,9 @@ from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
 from onegeo_api.utils import slash_remove
 
-__all__ = ["ResourceView", "ResourceIDView"]
-
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-MSG_404 = {"GetResource": {"error": "Aucune resource ne correspond à cette requête."}}
-
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ResourceView(View):
+class ResourcesList(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
@@ -56,7 +49,7 @@ class ResourceView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ResourceIDView(View):
+class ResourcesDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})

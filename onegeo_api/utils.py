@@ -29,32 +29,10 @@ def read_name(body_data):
 
 
 def on_http404(message):
-    # msg = {
-    #     'Analyzer': "Aucun analyseur ne correspond à votre requête",
-    #     'Context': "Aucun contexte ne correspond à votre requête",
-    #     'Filter': "Aucun filtre ne correspond à votre requête",
-    #     'Resource': "Aucune ressource ne correspond à votre requête",
-    #     'SearchModel': "Aucun modèle de recherche ne correspond à votre requête",
-    #     'Source': "Aucune source ne correspond à votre requête",
-    #     'Task': "Aucune tâche ne correspond à votre requête",
-    #     'Tokenizer': "Aucun jeton ne correspond à votre requête",
-    #     'Various': "Aucun élément ne correspond à votre requête",
-    #     }
     return JsonResponse({"error": message}, status=404)
 
 
 def on_http403(message):
-    # msg = {
-    #     'Analyzer': "Vous n'avez pas la permission d'accéder à cet analyseur",
-    #     'Context': "Vous n'avez pas la permission d'accéder à ce contexte",
-    #     'Filter': "Vous n'avez pas la permission d'accéder à ce filtre",
-    #     'Resource': "Vous n'avez pas la permission d'accéder à cette ressource",
-    #     'SearchModel': "Vous n'avez pas la permission d'accéder à ce modèle de recherche",
-    #     'Source': "Vous n'avez pas la permission d'accéder à cette source",
-    #     'Task': "Vous n'avez pas la permission d'accéder à cette tâche",
-    #     'Tokenizer': "Vous n'avez pas la permission d'accéder à ce jeton",
-    #     'Various': "Vous n'avez pas la permission d'accéder à cet élément",
-    #     }
     return JsonResponse({"error": message}, status=403)
 
 

@@ -5,7 +5,7 @@ from django.db import models
 from django.core.exceptions import PermissionDenied
 
 from onegeo_api.utils import clean_my_obj
-from onegeo_api.models import AbstractModelProfile
+from onegeo_api.models.abstracts import AbstractModelProfile
 
 
 class Resource(AbstractModelProfile):

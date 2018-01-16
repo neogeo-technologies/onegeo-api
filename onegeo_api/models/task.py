@@ -1,19 +1,15 @@
 from django.core.exceptions import PermissionDenied
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
 from django.http import Http404
 
 from onegeo_api.utils import clean_my_obj
 
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-
 
 class Task(models.Model):
-    T_L = (("source", "source"),
-           ("context", "context"))
+    T_L = (("Source", "Source"),
+           ("Context", "Context"))
 
     start_date = models.DateTimeField("Start", auto_now_add=True)
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
@@ -41,14 +37,11 @@ class Task(models.Model):
         return [t.detail_renderer for t in tasks]
 
     @classmethod
-    def get_with_permission(cls, id, model_type_alias, model_type, user):
+    def get_with_permission(cls, defaults, user):
         try:
-            instance = cls.objects.get(
-                id=id,
-                model_type_alias=model_type_alias,
-                model_type=model_type)
+            instance = cls.objects.get(**defaults)
         except cls.DoesNotExist:
             raise Http404("Aucune tâche ne correspond à votre requête")
         if instance.user and instance.user != user:
-            raise PermissionDenied
+            raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette tâche")
         return instance

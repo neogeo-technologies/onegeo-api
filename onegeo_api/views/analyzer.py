@@ -1,5 +1,4 @@
 import json
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.http import Http404
@@ -18,20 +17,14 @@ from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
 
-from ongeo_api.models import Alias
-from ongeo_api.models import Analyzer
-from ongeo_api.models import Filter
-from ongeo_api.models import Tokenizer
-
-
-__all__ = ["AnalyzerView", "AnalyzerIDView"]
-
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
+from onegeo_api.models import Alias
+from onegeo_api.models import Analyzer
+from onegeo_api.models import Filter
+from onegeo_api.models import Tokenizer
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class AnalyzerView(View):
+class AnalyzersList(View):
 
     @BasicAuth()
     def get(self, request):
@@ -90,7 +83,7 @@ class AnalyzerView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class AnalyzerIDView(View):
+class AnalyzersDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(

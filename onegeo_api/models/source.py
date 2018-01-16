@@ -1,20 +1,15 @@
-from django.conf import settings
 from django.db import models
 from django.http import JsonResponse
-
 from django.http import Http404
-from re import search
-# from threading import Thread
 from django.core.exceptions import PermissionDenied
-# from django.core.exceptions import ValidationError
+
+from re import search
 
 from onegeo_manager.source import Source as OnegeoSource
 
 from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import does_file_uri_exist
-from onegeo_api.models import AbstractModelProfile
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
+from onegeo_api.models.abstracts import AbstractModelProfile
 
 
 class Source(AbstractModelProfile):
@@ -32,9 +27,6 @@ class Source(AbstractModelProfile):
 
     def save(self, *args, **kwargs):
         kwargs['model_name'] = 'Source'
-        # Alias = apps.get_model(app_label='onegeo_api', model_name='Alias')
-        # if not self.alias:
-        #     self.alias = Alias.objects.create(model_name="Source")
         if self.mode == 'pdf' and not does_file_uri_exist(str(self.uri)):
             raise Exception()  # TODO
         self.__src = OnegeoSource(self.uri, self.name, self.mode)
@@ -72,14 +64,6 @@ class Source(AbstractModelProfile):
     def create_with_response(cls, request, defaults):
         instance = cls.objects.create(**defaults)
 
-        # if alias:
-        #     try:
-        #         instance.save(handle=alias)
-        #     except Exception as e:
-        #         instance.delete()
-        #         data = {"error": e.message}
-        #         return JsonResponse(data=data, status=409)
-
         response = JsonResponse(data={}, status=201)
         uri = request.build_absolute_uri()
         uri = uri.endswith('/') and uri[:-1] or uri
@@ -92,7 +76,7 @@ class Source(AbstractModelProfile):
         try:
             instance = cls.objects.get(alias__handle__startswith=alias)
         except cls.DoesNotExist:
-            raise Http404("Aucune source ne correspond à votre requete")
+            raise Http404("Aucune source ne correspond à votre requete. ")
         if instance.user != user:
             raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette source")
         return instance

@@ -7,7 +7,7 @@ from django.db import models
 from django.http import JsonResponse
 from django.http import Http404
 
-from onegeo_api.models import AbstractModelProfile
+from onegeo_api.models.abstracts import AbstractModelProfile
 from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import slash_remove
 
@@ -34,11 +34,6 @@ class Context(AbstractModelProfile):
         if SearchModel.objects.filter(name=self.name).exists():
             raise ValidationError("Un contexte d'indexation ne peut avoir "
                                   "le même nom qu'un modèle de recherche.")
-        # set_names_sm = SearchModel.objects.all()
-        # for s in set_names_sm:
-        #     if self.name == s.name:
-        #         raise ValidationError("Un contexte d'indexation ne peut avoir "
-        #                               "le même nom qu'un modèle de recherche.")
         return super().save(*args, **kwargs)
 
     @property

@@ -1,5 +1,4 @@
 from django.apps import apps
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import PermissionDenied
@@ -13,9 +12,7 @@ from importlib import import_module
 
 from onegeo_api.exceptions import MultiTaskError
 from onegeo_api.utils import clean_my_obj
-from onegeo_api.models import AbstractModelProfile
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
+from onegeo_api.models.abstracts import AbstractModelProfile
 
 
 class SearchModel(AbstractModelProfile):
@@ -34,11 +31,6 @@ class SearchModel(AbstractModelProfile):
         if Context.objects.filter(name=self.name).exists():
             raise ValidationError("Un modèle de recherche ne peut avoir "
                                   "le même nom qu'un contexte d'indexation.")
-        # set_names_ctx = Context.objects.all()
-        # for c in set_names_ctx:
-        #     if self.name == c.name:
-        #         raise ValidationError("Un modèle de recherche ne peut avoir "
-        #                               "le même nom qu'un contexte d'indexation.")
         return super().save(*args, **kwargs)
 
     @classmethod

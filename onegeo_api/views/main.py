@@ -9,9 +9,6 @@ from onegeo_api.utils import BasicAuth
 from onegeo_api.models import Source
 
 
-__all__ = ["Directories", "SupportedModes"]
-
-
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 

@@ -1,6 +1,5 @@
 import json
 
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import JsonResponse
@@ -20,11 +19,8 @@ from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
 
 
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-
-
 @method_decorator(csrf_exempt, name="dispatch")
-class TokenFilterView(View):
+class TokenFiltersList(View):
 
     @BasicAuth()
     def get(self, request):
@@ -59,7 +55,7 @@ class TokenFilterView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class TokenFilterIDView(View):
+class TokenFiltersDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(

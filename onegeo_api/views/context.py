@@ -1,5 +1,4 @@
 from ast import literal_eval
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import JsonResponse
@@ -27,14 +26,9 @@ from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
 
-__all__ = ["ContextView", "ContextIDView",
-           "ContextIDTaskView", "ContextIDTaskIDView"]
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
-
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ContextView(View):
+class ContextsList(View):
 
     @BasicAuth()
     def get(self, request):
@@ -127,7 +121,7 @@ class ContextView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ContextIDView(View):
+class ContextsDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
@@ -201,7 +195,7 @@ class ContextIDView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ContextIDTaskView(View):
+class ContextsTasksList(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
@@ -218,11 +212,16 @@ class ContextIDTaskView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ContextIDTaskIDView(View):
+class ContextsTasksDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias, tsk_id):
         context = Context.get_with_permission(slash_remove(alias), request.user)
-        task = Task.get_with_permission(literal_eval(tsk_id), context.alias.handle, "context", request.user)
+        defaults = {
+            "id": literal_eval(tsk_id),
+            "model_type_alias": context.alias.handle,
+            "model_type": "Context"
+            }
+        task = Task.get_with_permission(defaults, request.user)
         return JsonResponse(task.detail_renderer, safe=False)

@@ -1,7 +1,6 @@
 import json
 # from uuid import uuid4
 
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import JsonResponse
@@ -9,9 +8,9 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
-
+from django.apps import apps
+from django.urls import reverse
 
 # from onegeo_manager.context import Context as OnegeoContext
 # from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
@@ -23,24 +22,12 @@ from django.shortcuts import redirect
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
-from onegeo_api.models import Analyzer
 from onegeo_api.models import Context
-from onegeo_api.models import Filter
-from onegeo_api.models import Resource
-from onegeo_api.models import SearchModel
-from onegeo_api.models import Source
 from onegeo_api.models import Task
-from onegeo_api.models import Tokenizer
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import on_http403
 from onegeo_api.utils import on_http404
 from onegeo_api.utils import slash_remove
-
-
-__all__ = ["ActionView"]
-
-
-PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
 # def iter_flt_from_anl(anl_name):
@@ -50,7 +37,7 @@ PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ActionView(View):
+class Action(View):
 
     # def _retreive_analysis(self, analyzers):
     #
@@ -226,30 +213,60 @@ class ActionView(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class AliasView(View):
+class AliasDetail(View):
     @BasicAuth()
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
 
         user = request.user
-        alias_instance = Alias.get_with_permission(handle=alias)
-
-        d = {
-            "Analyzer": (Analyzer, "/indexes/{0}"),
-            "Source": (Source, "/sources/{0}"),
-            "Resource": (Resource, "/sources/{0}/resources/{1}"),
-            "Context": (Context, "/indexes/{0}"),
-            "Filter": (Filter, "/tokenfilters/{0}"),
-            "Tokenizer": (Tokenizer, "/tokenizer/{0}"),
-            "SearchModel": (SearchModel, "/service/{0}")
+        alias_instance = Alias.get_with_permission(slash_remove(alias))
+        path = {
+            "Analyzer": "onegeo_api:analyzers_detail",
+            "Source": "onegeo_api:sources_detail",
+            "Resource": "onegeo_api:resources_detail",
+            "Context": "onegeo_api:indexes_detail",
+            "Filter": "onegeo_api:tokenfilters",
+            "Tokenizer": "onegeo_api:tokenizer",
+            "SearchModel": "onegeo_api:seamod_detail"
             }
 
-        Model_r = d.get(alias_instance.model_name)[0]
+        Model_r = apps.get_model(app_label='onegeo_api', model_name=alias_instance.model_name)
         instance = Model_r.get_with_permission(alias_instance.handle, user)
+        namespace = path.get(alias_instance.model_name)
         if alias_instance.model_name == "Resource":
-            url = d.get(alias_instance.model_name)[1].format(instance.source.alias.handle, instance.alias.handle)
+            kwargs = {'src_alias': instance.source.alias.handle, 'rsrc_alias': instance.alias.handle}
         else:
-            url = d.get(alias_instance.model_name)[1].format(instance.alias.handle)
+            kwargs = {'alias': instance.alias.handle}
+        return redirect(reverse(namespace, kwargs=kwargs))
 
-        return redirect(url)
+
+@method_decorator(csrf_exempt, name="dispatch")
+class Bulk(View):
+        @BasicAuth()
+        @ContentTypeLookUp()
+        @ExceptionsHandler(
+            actions={Http404: on_http404, PermissionDenied: on_http403})
+        def post(self, request):
+
+            user = request.user
+            body_data = json.loads(request.body.decode('utf-8'))
+            """
+                {
+                    "post": [
+                        {
+                            "model_name": {"body_data_create_key": "body_data_create_value"},
+                            "model_name_2": {"body_data_create_key": "body_data_create_value"}
+                            }],
+                    "put": [
+                        {
+                            "alias_1": {"body_data_update_key": "body_data_update_value"},
+                            "alias_2": {"body_data_update_key": "body_data_update_value"}
+                        }
+                     ],
+                     "delete": [ "alias_1", "alias_2"]
+                }
+
+            """
+            print(body_data)
+            return JsonResponse({}, status=200)

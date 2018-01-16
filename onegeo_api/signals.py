@@ -3,14 +3,14 @@ from django.dispatch import receiver
 from django.apps import apps
 from django.utils import timezone
 
-from onegeo_api.elasticsearch_wrapper import elastic_conn
-from onegeo_api.models.analyzis import Analyzer
-from onegeo_api.models.analyzis import Filter
-from onegeo_api.models.analyzis import Tokenizer
-from onegeo_api.models.context import Context
-from onegeo_api.models.resource import Resource
-from onegeo_api.models.search_model import SearchModel
-from onegeo_api.models.source import Source
+# from onegeo_api.elasticsearch_wrapper import elastic_conn
+from onegeo_api.models import Analyzer
+from onegeo_api.models import Filter
+from onegeo_api.models import Tokenizer
+from onegeo_api.models import Context
+from onegeo_api.models import Resource
+from onegeo_api.models import SearchModel
+from onegeo_api.models import Source
 
 
 #Ces connecteurs de signaux ont été enregistré dans les modules apps.py et __init__.py de l'application
