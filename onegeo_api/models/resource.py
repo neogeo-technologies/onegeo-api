@@ -3,7 +3,6 @@ from django.contrib.postgres.fields import JSONField
 from django.http import Http404
 from django.db import models
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import get_object_or_404
 
 from onegeo_api.utils import clean_my_obj
 from onegeo_api.models import AbstractModelProfile

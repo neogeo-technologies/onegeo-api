@@ -1,11 +1,9 @@
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.db import models
-# from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 # from django.core.exceptions import ValidationError
-
-from django.db.models.signals import post_delete
-from django.dispatch import receiver
 
 from onegeo_api.utils import clean_my_obj
 
@@ -50,6 +48,14 @@ class Alias(models.Model):
             if cls.objects.filter(handle=new_handle).exists():
                 return False
         return True
+
+    @classmethod
+    def get_with_permission(cls, alias):
+        try:
+            instance = cls.objects.get(handle=alias)
+        except cls.DoesNotExist:
+            raise Http404("Aucun alias ne correspond à votre requête")
+        return instance
 
 
 class AbstractModelAnalyzis(models.Model):

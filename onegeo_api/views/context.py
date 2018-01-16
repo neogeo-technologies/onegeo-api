@@ -131,8 +131,7 @@ class ContextIDView(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Context")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
         context = Context.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(context.detail_renderer, safe=False, status=200)
@@ -140,8 +139,7 @@ class ContextIDView(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Various")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def put(self, request, alias):
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
@@ -194,8 +192,7 @@ class ContextIDView(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Context")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def delete(self, request, alias):
         context = Context.get_with_permission(slash_remove(alias), request.user)
         context.delete()  # Erreur sur signal delete_context suite a erreur sur elasticsearch_wrapper
@@ -207,7 +204,7 @@ class ContextIDView(View):
 class ContextIDTaskView(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Context")
+    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
 
         context = Context.get_with_permission(slash_remove(alias), request.user)
@@ -224,7 +221,7 @@ class ContextIDTaskView(View):
 class ContextIDTaskIDView(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Various")
+    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias, tsk_id):
         context = Context.get_with_permission(slash_remove(alias), request.user)
         task = Task.get_with_permission(literal_eval(tsk_id), context.alias.handle, "context", request.user)

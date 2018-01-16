@@ -59,7 +59,7 @@ class ResourceView(View):
 class ResourceIDView(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Resource")
+    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, src_alias, rsrc_alias):
         resource = Resource.get_with_permission(slash_remove(rsrc_alias), request.user)
         source = Source.get_with_permission(slash_remove(src_alias), request.user)

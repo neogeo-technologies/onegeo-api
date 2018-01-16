@@ -185,18 +185,17 @@ class SearchModelView(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="SearchModel")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def post(self, request):
 
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
         name = read_name(data)
         if name is None:
-            return JsonResponse({"error": "Echec de création du modele de recherche. "
+            return JsonResponse({"error": "Echec de création du modèle de recherche. "
                                           "Le nom est incorrect. "}, status=400)
         if SearchModel.objects.filter(name=name).exists():
-            return JsonResponse({"error": "Echec de création du modele de recherche. "
+            return JsonResponse({"error": "Echec de création du modèle de recherche. "
                                           "Un modele de recherche portant le même nom existe déjà. "}, status=409)
 
         contexts = data.get("indexes", [])
@@ -213,7 +212,7 @@ class SearchModelView(View):
         except Context.DoesNotExist:
             return JsonResponse({
                 "error":
-                    "Echec de l'enregistrement du model de recherche. "
+                    "Echec de l'enregistrement du modèl de recherche. "
                     "La liste de contexte est erronée"}, status=400)
         except MultiTaskError:
             return JsonResponse({
@@ -241,8 +240,7 @@ class SearchModelIDView(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="SearchModel")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
         search_model = SearchModel.get_with_permision(slash_remove(alias), request.user)
         return JsonResponse(search_model.detail_renderer, status=200)
@@ -250,8 +248,7 @@ class SearchModelIDView(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="SearchModel")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def put(self, request, alias):
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
@@ -265,7 +262,7 @@ class SearchModelIDView(View):
         except Context.DoesNotExist:
             return JsonResponse({
                 "error":
-                    "Echec de l'enregistrement du model de recherche. "
+                    "Echec de l'enregistrement du modèle de recherche. "
                     "La liste de contexte est erronée"}, status=400)
         except MultiTaskError:
             return JsonResponse({
@@ -276,7 +273,9 @@ class SearchModelIDView(View):
         new_alias = data.get("alias", None)
         if new_alias:
             if not Alias.updating_is_allowed(new_alias, search_model.alias.handle):
-                return JsonResponse({"error": "Echec de la création du model de recherche. L'alias existe déjà. "}, status=409)
+                return JsonResponse({
+                    "error": "Echec de la modification du modèle de recherche. "
+                    "L'alias existe déjà. "}, status=409)
             search_model.alias.custom_updater(new_alias)
 
         # RETURN RESPONSE

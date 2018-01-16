@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 
 from onegeo_api.utils import clean_my_obj
 
@@ -41,10 +42,13 @@ class Task(models.Model):
 
     @classmethod
     def get_with_permission(cls, id, model_type_alias, model_type, user):
-        instance = get_object_or_404(
-            cls, id=id,
-            model_type_alias=model_type_alias,
-            model_type=model_type)
+        try:
+            instance = cls.objects.get(
+                id=id,
+                model_type_alias=model_type_alias,
+                model_type=model_type)
+        except cls.DoesNotExist:
+            raise Http404("Aucune tâche ne correspond à votre requête")
         if instance.user and instance.user != user:
             raise PermissionDenied
         return instance

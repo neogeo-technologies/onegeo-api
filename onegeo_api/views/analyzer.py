@@ -94,8 +94,7 @@ class AnalyzerIDView(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Analyzer")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
         user = user = request.user
         analyzer = Analyzer.get_with_permission(slash_remove(alias), user)
@@ -104,8 +103,7 @@ class AnalyzerIDView(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Analyzer")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def put(self, request, alias):
         user = request.user
         analyzer = Analyzer.get_with_permission(slash_remove(alias), user)
@@ -165,8 +163,7 @@ class AnalyzerIDView(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Analyzer")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def delete(self, request, alias):
         analyzer = Analyzer.get_with_permission(slash_remove(alias), request.user)
         analyzer.delete()

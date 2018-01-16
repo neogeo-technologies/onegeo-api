@@ -7,8 +7,6 @@ from django.db import models
 from django.http import JsonResponse
 from django.http import Http404
 
-
-
 from onegeo_api.models import AbstractModelProfile
 from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import slash_remove

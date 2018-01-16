@@ -63,8 +63,7 @@ class TokenFilterIDView(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Filter")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
         instance = Filter.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(instance.detail_renderer)
@@ -72,8 +71,7 @@ class TokenFilterIDView(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Filter")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def put(self, request, alias):
         instance = Filter.get_with_permission(slash_remove(alias), request.user)
 
@@ -93,8 +91,7 @@ class TokenFilterIDView(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Filter")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def delete(self, request, alias):
         user = request.user
         instance = Filter.get_with_permission(slash_remove(alias), user)

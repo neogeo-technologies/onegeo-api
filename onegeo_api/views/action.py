@@ -102,8 +102,7 @@ class ActionView(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Context")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     @ContentTypeLookUp()
     def post(self, request):
         user = request.user
@@ -230,19 +229,12 @@ class ActionView(View):
 class AliasView(View):
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Context")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
-        """
-            url(r'^indexes/(\S+)/?$', ContextIDView.as_view(), name="context_detail"),
-            url(r'^services/(\S+)/?$', SearchModelIDView.as_view(), name="seamod_detail"),
-            url(r'^sources/(\S+)/resources/(\S+)/?$', ResourceIDView.as_view(), name="source_detail_resource_detail"),
-            url(r'^sources/(\S+)/?$', SourceIDView.as_view(), name="source_detail"),
-            url(r'^tokenfilters/(\S+)/?$', TokenFilterIDView.as_view()),
-            url(r'^tokenizers/(\S+)/?$', TokenizerIDView.as_view()),
-        """
+
         user = request.user
-        alias_instance = get_object_or_404(Alias, handle=slash_remove(alias))
+        alias_instance = Alias.get_with_permission(handle=alias)
+
         d = {
             "Analyzer": (Analyzer, "/indexes/{0}"),
             "Source": (Source, "/sources/{0}"),

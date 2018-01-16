@@ -41,30 +41,6 @@ class ContentTypeLookUp:
         return wrapper
 
 
-# class ExceptionsHandler(object):
-#
-#     def __init__(self, actions=None, model=None):
-#         self.actions = actions or {}
-#         self.model = model or ""
-#
-#     def __call__(self, f):
-#
-#         @wraps(f)
-#         def wrapper(*args, **kwargs):
-#
-#             try:
-#                 return f(*args, **kwargs)
-#             except Exception as e:
-#                 for exception, callback in self.actions.items():
-#                     if isinstance(e, exception):
-#                         return callback(self.model)
-#
-#         return wrapper
-#
-#     def is_ignored(self, exception):
-#         return type(exception) in self.ignore
-
-
 class ExceptionsHandler(object):
 
     def __init__(self, actions=None, model=None):
