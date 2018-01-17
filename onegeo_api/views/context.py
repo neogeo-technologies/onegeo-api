@@ -69,41 +69,36 @@ class ContextsList(View):
         # if source != resource.source:
         #     return JsonResponse({"error": "Echec de création du contexte d'indexation. "
         #                                   "Les identifiants des source et ressource sont erronées. "}, status=400)
-        resources_to_relate = []
-        for uri in body_data['resource']:
-            data = search('^/sources/(\S+)/resources/(\S+)$', uri)
-            if not data:
-                return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-                                              "Les identifiants des source et ressource sont erronées. "}, status=400)
-            src_alias = data.group(1)
-            rsrc_alias = data.group(2)
 
-            resource = Resource.get_with_permission(rsrc_alias, request.user)
-            try:
-                source = Source.get_with_permission(src_alias, request.user)
-            except:
-                raise
+        data = search('^/sources/(\S+)/resources/(\S+)$', body_data.get('resource'))
+        if not data:
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Les identifiants des source et ressource sont erronées. "}, status=400)
+        src_alias = data.group(1)
+        rsrc_alias = data.group(2)
 
-            if source != resource.source:
-                return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-                                              "Les identifiants des source et ressource sont erronées. "}, status=400)
-            resources_to_relate.append(resource)
+        resource = Resource.get_with_permission(rsrc_alias, request.user)
+        source = Source.get_with_permission(src_alias, request.user)
 
-            onegeo_source = OnegeoSource(source.uri, name, source.mode)
-            onegeo_resource = OnegeoResource(onegeo_source, resource.name)
-            for col in iter(resource.columns):
-                if onegeo_resource.is_existing_column(col["name"]):
-                    continue
-                onegeo_resource.add_column(
-                    col["name"], column_type=col["type"],
-                    occurs=tuple(col["occurs"]), count=col["count"],
-                    rule="rule" in col and col["rule"] or None)
+        if source != resource.source:
+            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
+                                          "Les identifiants des source et ressource sont erronées. "}, status=400)
 
-            onegeo_index = OnegeoIndex(resource.name)
-            onegeo_context = OnegeoContext(name, onegeo_index, onegeo_resource)
-            clmn_properties = []
-            for ppt in onegeo_context.iter_properties():
-                clmn_properties.append(ppt.all())
+        onegeo_source = OnegeoSource(source.uri, name, source.mode)
+        onegeo_resource = OnegeoResource(onegeo_source, resource.name)
+        for col in iter(resource.columns):
+            if onegeo_resource.is_existing_column(col["name"]):
+                continue
+            onegeo_resource.add_column(
+                col["name"], column_type=col["type"],
+                occurs=tuple(col["occurs"]), count=col["count"],
+                rule="rule" in col and col["rule"] or None)
+
+        onegeo_index = OnegeoIndex(resource.name)
+        onegeo_context = OnegeoContext(name, onegeo_index, onegeo_resource)
+        clmn_properties = []
+        for ppt in onegeo_context.iter_properties():
+            clmn_properties.append(ppt.all())
 
         alias = body_data.get('alias')
         if alias and Alias.objects.filter(handle=alias).exists():
@@ -117,7 +112,7 @@ class ContextsList(View):
             'reindex_frequency': reindex_frequency,
             }
         return Context.create_with_response(
-            request, defaults, resources_to_relate)
+            request, defaults, resource)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -135,45 +130,40 @@ class ContextsDetail(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403})
     def put(self, request, alias):
+        context = Context.get_with_permission(slash_remove(alias), request.user)
+
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
         name = body_data.get('name')
         reindex_frequency = body_data.get('reindex_frequency')
         list_ppt_clt = body_data.get('columns', {})
 
-        resources_to_relate = []
-        for uri in body_data['resource']:
-            data = search('^/sources/(\S+)/resources/(\S+)$', uri)
-            if not data:
-                return JsonResponse({"error": "Echec de la modification du contexte d'indexation. "
-                                              "Les identifiants des source et ressource sont erronées. "}, status=400)
-            src_alias = data.group(1)
-            rsrc_alias = data.group(2)
+        data = search('^/sources/(\S+)/resources/(\S+)$', body_data.get('resource'))
+        if not data:
+            return JsonResponse({"error": "Echec de la modification du contexte d'indexation. "
+                                          "Les identifiants des source et ressource sont erronées. "}, status=400)
+        src_alias = data.group(1)
+        rsrc_alias = data.group(2)
 
-            resource = Resource.get_with_permission(rsrc_alias, request.user)
-            source = Source.get_with_permission(src_alias, request.user)
+        resource = Resource.get_with_permission(rsrc_alias, request.user)
+        source = Source.get_with_permission(src_alias, request.user)
 
-            if source != resource.source:
-                return JsonResponse({"error": "Echec de la modification du contexte d'indexation. "
-                                              "Les identifiants des source et ressource sont erronées. "}, status=400)
-            resources_to_relate.append(resource)
-
-        context = Context.get_with_permission(slash_remove(alias), request.user)
+        if source != resource.source:
+            return JsonResponse({"error": "Echec de la modification du contexte d'indexation. "
+                                          "Les identifiants des source et ressource sont erronées. "}, status=400)
+        resource.context = context
+        try:
+            resource.save()
+        except Exception as e:
+            return JsonResponse(data={"error": e.message}, status=409)
 
         new_alias = body_data.get("alias")
         if new_alias:
             if not Alias.updating_is_allowed(new_alias, context.alias.handle):
                 return JsonResponse({"error": "Echec de la création de l'analyseur. Un analyseur portant le même alias existe déjà. "}, status=409)
-            context.alias.custom_updater(new_alias)
+            context.alias.update_handle(new_alias)
 
         context.update_clmn_properties(list_ppt_clt)
-
-        for resource in resources_to_relate:
-            resource.context = context
-            try:
-                resource.save()
-            except Exception as e:
-                return JsonResponse(data={"error": e.message}, status=409)
 
         if name:
             context.name = name
@@ -190,7 +180,7 @@ class ContextsDetail(View):
     def delete(self, request, alias):
         context = Context.get_with_permission(slash_remove(alias), request.user)
         context.delete()  # Erreur sur signal delete_context suite a erreur sur elasticsearch_wrapper
-        # CF signals.py "elastic_conn.delete_index_by_alias" a réintégrer
+        # CF signals.py "elastic_conn.delete_index_by_alias" doit etre réintégrer
         return JsonResponse(data={"error": "Context supprimé, elastic_conn.delete_index_by_alias non appliqué"}, status=204)
 
 

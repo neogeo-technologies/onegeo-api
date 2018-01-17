@@ -10,7 +10,6 @@ from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
 from onegeo_api.models import Source
-from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import check_uri
 from onegeo_api.utils import clean_my_obj

@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.db import models
 from django.http import Http404
+from django.apps import apps
 
 from onegeo_api.utils import clean_my_obj
 
@@ -36,8 +37,8 @@ class Alias(models.Model):
     def custom_create(cls, model_name, handle=None):
         return cls.objects.create(**clean_my_obj({"model_name": model_name, "handle": handle}))
 
-    def custom_updater(self, custom_handle):
-        self.handle = custom_handle
+    def update_handle(self, new_handle):
+        self.handle = new_handle
         self.save()
 
     @classmethod
@@ -48,7 +49,16 @@ class Alias(models.Model):
         return True
 
     @classmethod
-    def get_with_permission(cls, alias):
+    def get_related_instance(cls, alias, user):
+        Model_r = apps.get_model(app_label='onegeo_api', model_name=alias.model_name)
+        try:
+            instance = Model_r.get_with_permission(alias.handle, user)
+        except:
+            raise
+        return instance
+
+    @classmethod
+    def get_or_not_found(cls, alias, user):
         try:
             instance = cls.objects.get(handle=alias)
         except cls.DoesNotExist:

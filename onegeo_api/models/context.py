@@ -37,9 +37,8 @@ class Context(AbstractModelProfile):
         return super().save(*args, **kwargs)
 
     @property
-    def resources(self):
-        Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
-        return Resource.objects.filter(context=self)
+    def resource(self):
+        return self.resource_set.get(context=self)
 
     def update_clmn_properties(self, list_ppt_clt):
         for ppt in self.clmn_properties:
@@ -61,8 +60,8 @@ class Context(AbstractModelProfile):
     def detail_renderer(self):
         d = {
             "location": "/indexes/{}".format(self.alias.handle),
-            "resources": ["/sources/{}/resources/{}".format(
-                r.source.alias.handle, r.alias.handle) for r in self.resources],
+            "resource": "/sources/{}/resources/{}".format(
+                self.resource.source.alias.handle, self.resource.alias.handle),
             "columns": self.clmn_properties,
             "name": self.name,
             "alias": self.alias.handle,
@@ -75,17 +74,16 @@ class Context(AbstractModelProfile):
         return [context.detail_renderer for context in instances]
 
     @classmethod
-    def create_with_response(cls, request, defaults, resources_to_relate):
+    def create_with_response(cls, request, defaults, resource):
 
         instance = Context.objects.create(**defaults)
 
-        for resource in resources_to_relate:
-            resource.context = instance
-            try:
-                resource.save()
-            except Exception as e:
-                instance.delete()
-                return JsonResponse(data={"error": e.message}, status=409)
+        resource.context = instance
+        try:
+            resource.save()
+        except Exception as e:
+            instance.delete()
+            return JsonResponse(data={"error": e.message}, status=409)
 
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())

@@ -218,9 +218,6 @@ class AliasDetail(View):
     @ExceptionsHandler(
         actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
-
-        user = request.user
-        alias_instance = Alias.get_with_permission(slash_remove(alias))
         path = {
             "Analyzer": "onegeo_api:analyzers_detail",
             "Source": "onegeo_api:sources_detail",
@@ -231,14 +228,14 @@ class AliasDetail(View):
             "SearchModel": "onegeo_api:seamod_detail"
             }
 
-        Model_r = apps.get_model(app_label='onegeo_api', model_name=alias_instance.model_name)
-        instance = Model_r.get_with_permission(alias_instance.handle, user)
-        namespace = path.get(alias_instance.model_name)
+        user = request.user
+        alias_instance = Alias.get_or_not_found(slash_remove(alias), user)
+        instance = Alias.get_related_instance(alias_instance, user)
         if alias_instance.model_name == "Resource":
             kwargs = {'src_alias': instance.source.alias.handle, 'rsrc_alias': instance.alias.handle}
         else:
             kwargs = {'alias': instance.alias.handle}
-        return redirect(reverse(namespace, kwargs=kwargs))
+        return redirect(reverse(path.get(alias_instance.model_name), kwargs=kwargs))
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -249,7 +246,6 @@ class Bulk(View):
             actions={Http404: on_http404, PermissionDenied: on_http403})
         def post(self, request):
 
-            user = request.user
             body_data = json.loads(request.body.decode('utf-8'))
             """
                 {
@@ -268,10 +264,11 @@ class Bulk(View):
                 }
 
             """
-            # Creation de sources / resources
+            # Creation
             for post_requested in body_data.get("post", []):
+                # sources / resources
                 for source in post_requested.get("sources", []):
                     print(source)
-            # Création de contexts
+            # contexts
 
             return JsonResponse({}, status=200)

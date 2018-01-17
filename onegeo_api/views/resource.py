@@ -57,5 +57,5 @@ class ResourcesDetail(View):
         resource = Resource.get_with_permission(slash_remove(rsrc_alias), request.user)
         source = Source.get_with_permission(slash_remove(src_alias), request.user)
         if resource.source != source:
-            raise Http404
+            raise Http404("Les identifiants des source et ressource sont erronées. ")
         return JsonResponse(resource.detail_renderer, safe=False)

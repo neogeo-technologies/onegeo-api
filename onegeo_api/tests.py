@@ -1,5 +1,4 @@
 from django.contrib.auth.models import User
-from django.core.urlresolvers import reverse
 from django.test import tag
 
 from django.test import TestCase
@@ -149,6 +148,9 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             self.assertEqual(response.status_code, 200)
             response = self.client.get("/alias/{}".format(alias))
             self.assertEqual(response.status_code, 302)
+            self.basic_auth(self.client, 'user2:passpass')
+            response = self.client.get("/alias/{}".format(alias))
+            self.assertEqual(response.status_code, 403)
 
         def test_create_source_resource_context(self):
 
@@ -172,7 +174,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
                 data = {
                     "name": "context_test_{}".format(idx),
                     "alias": ctx_alias,
-                    "resource": [res.get("location")]
+                    "resource": res.get("location")
                     }
                 response = self.client.post("/indexes", data=json.dumps(data), content_type="application/json")
                 self.assertEqual(response.status_code, 201)
@@ -276,7 +278,7 @@ class ContextTestAuthent(ApiItemsMixin, TestCase):
             # Create
             data = {
                 "name": "context_test2",
-                "resource": ["/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)]
+                "resource": "/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)
                 }
             response = self.client.post("/indexes", data=json.dumps(data), content_type="application/json")
             self.assertEqual(response.status_code, 201)
@@ -287,16 +289,16 @@ class ContextTestAuthent(ApiItemsMixin, TestCase):
 
             # Update
             response = self.client.get("/indexes")
-
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()[0]['name'], "context_test2")
+
             self.context = Context.objects.get(alias=alias)
             updated_alias = "updated_alias"
 
             data = {
                 "location": "/indexes/{}".format(self.context.alias),
                 "alias": updated_alias,
-                "resource": ["/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)],
+                "resource": "/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle),
                 "reindex_frequency": "monthly",
                 "columns": [
                     {

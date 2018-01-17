@@ -58,8 +58,7 @@ class TokenizersDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Tokenizer")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
         instance = Tokenizer.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(instance.detail_renderer)
@@ -67,8 +66,7 @@ class TokenizersDetail(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Tokenizer")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def put(self, request, alias):
 
         data = request.body.decode('utf-8')
@@ -80,7 +78,7 @@ class TokenizersDetail(View):
         if new_alias:
             if not Alias.updating_is_allowed(new_alias, token.alias.handle):
                 return JsonResponse({"error": "Echec de création du tokenizer. Un tokenizer portant le même alias existe déjà. "}, status=409)
-            token.alias.custom_updater(new_alias)
+            token.alias.update(handle=new_alias)
 
         config = body_data.get("config", {})
         token.update(config=config)
@@ -89,8 +87,7 @@ class TokenizersDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Tokenizer")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def delete(self, request, alias):
         token = Tokenizer.get_with_permission(slash_remove(alias), request.user)
         token.delete()

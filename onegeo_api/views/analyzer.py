@@ -136,7 +136,7 @@ class AnalyzersDetail(View):
             if not Alias.updating_is_allowed(new_alias, analyzer.alias.handle):
                 return JsonResponse({"error": "Echec de mise à jour de l'analyseur. "
                                               "L'alias requis n'est pas disponible. "}, status=409)
-            analyzer.alias.custom_updater(new_alias)
+            analyzer.alias.update_handle(new_alias)
 
         analyzer.config = config
 

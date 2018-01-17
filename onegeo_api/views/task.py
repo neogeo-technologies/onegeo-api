@@ -26,7 +26,7 @@ class TasksList(View):
 class TasksDetail(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403}, model="Task")
+    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, id):
         task = Task.get_with_permission({"id": literal_eval(id)}, request.user)
         return JsonResponse(task.detail_renderer, safe=False)

@@ -267,7 +267,7 @@ class SearchModelsDetail(View):
                 return JsonResponse({
                     "error": "Echec de la modification du modèle de recherche. "
                     "L'alias existe déjà. "}, status=409)
-            search_model.alias.custom_updater(new_alias)
+            search_model.alias.update_handle(new_alias)
 
         # RETURN RESPONSE
         search_model.context.set(contexts_obj, clear=True)
