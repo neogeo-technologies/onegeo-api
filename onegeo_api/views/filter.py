@@ -47,7 +47,7 @@ class TokenFiltersList(View):
         defaults = {
             "name": name,
             "config": config,
-            "alias": Alias.custom_creator(model_name="Filter", handle=alias),
+            "alias": Alias.custom_create(model_name="Filter", handle=alias),
             "user": user
             }
 

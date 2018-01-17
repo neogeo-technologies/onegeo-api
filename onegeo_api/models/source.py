@@ -27,6 +27,7 @@ class Source(AbstractModelProfile):
 
     def save(self, *args, **kwargs):
         kwargs['model_name'] = 'Source'
+
         if self.mode == 'pdf' and not does_file_uri_exist(str(self.uri)):
             raise Exception()  # TODO
         self.__src = OnegeoSource(self.uri, self.name, self.mode)
@@ -74,7 +75,7 @@ class Source(AbstractModelProfile):
     @classmethod
     def get_with_permission(cls, alias, user):
         try:
-            instance = cls.objects.get(alias__handle__startswith=alias)
+            instance = cls.objects.get(alias__handle=alias)
         except cls.DoesNotExist:
             raise Http404("Aucune source ne correspond à votre requete. ")
         if instance.user != user:

@@ -106,7 +106,7 @@ class Action(View):
 
         context = Context.get_with_permission(ctx_alias, request.user)
 
-        filters = {"model_type": "context", "model_type_alias": context.alias.handle, "user": user}
+        filters = {"model_type": "Context", "model_type_alias": context.alias.handle, "user": user}
         last = Task.objects.filter(**filters).order_by("start_date").last()
         if last and last.success is None:
             data = {"error": "Une autre tâche est en cours d'exécution. "
@@ -180,7 +180,7 @@ class Action(View):
         #
         # description = ("Les données sont en cours d'indexation "
         #                "(id de l'index: '{0}'). ").format(index_uuid)
-        # tsk = Task.objects.create(model_type="context", description=description,
+        # tsk = Task.objects.create(model_type="Context", description=description,
         #                           user=user, model_type_id=ctx.uuid)
         #
         # def on_index_error(desc):
@@ -268,5 +268,10 @@ class Bulk(View):
                 }
 
             """
-            print(body_data)
+            # Creation de sources / resources
+            for post_requested in body_data.get("post", []):
+                for source in post_requested.get("sources", []):
+                    print(source)
+            # Création de contexts
+
             return JsonResponse({}, status=200)

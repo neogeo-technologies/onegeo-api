@@ -52,7 +52,7 @@ class Analyzer(AbstractModelAnalyzis):
     @classmethod
     def get_with_permission(cls, alias, user):
         try:
-            instance = cls.objects.get(alias__handle__startswith=alias)
+            instance = cls.objects.get(alias__handle=alias)
         except cls.DoesNotExist:
             raise Http404("Aucun analyseur ne correspond à votre requête")
         if instance.user != user:

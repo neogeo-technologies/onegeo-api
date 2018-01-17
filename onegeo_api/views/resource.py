@@ -27,7 +27,7 @@ class ResourcesList(View):
         source = Source.get_with_permission(src_alias, user)
 
         try:
-            tsk = Task.objects.get(model_type_alias=source.alias.handle, model_type="source")
+            tsk = Task.objects.get(model_type_alias=source.alias.handle, model_type="Source")
         except Task.DoesNotExist:
             data = Resource.list_renderer(src_alias, user)
             opts = {"safe": False}

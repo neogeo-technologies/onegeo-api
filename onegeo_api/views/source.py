@@ -9,7 +9,6 @@ import json
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
-from onegeo_api.models import Resource
 from onegeo_api.models import Source
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
@@ -95,7 +94,7 @@ class SourcesList(View):
             'user': user,
             'name': name,
             'mode': mode,
-            'alias': Alias.custom_creator(model_name="Source", handle=alias),
+            'alias': Alias.custom_create(model_name="Source", handle=alias),
             'uri': uri
             }
         return Source.create_with_response(request, clean_my_obj(defaults))
@@ -106,20 +105,15 @@ class SourcesDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Source")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def get(self, request, alias):
         source = Source.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(source.detail_renderer, safe=False)
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="Source")
+        actions={Http404: on_http404, PermissionDenied: on_http403})
     def delete(self, request, alias):
         source = Source.get_with_permission(slash_remove(alias), request.user)
-        for resource in Resource.objects.filter(source=source):
-            resource.delete()
-        Task.objects.filter(model_type_alias=source.alias.handle, model_type="source").delete()
         source.delete()
         return JsonResponse(data={}, status=204)

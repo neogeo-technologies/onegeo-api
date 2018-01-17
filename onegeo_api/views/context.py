@@ -112,7 +112,7 @@ class ContextsList(View):
         defaults = {
             'user': user,
             'name': name,
-            'alias': Alias.custom_creator(model_name="Context", handle=alias),
+            'alias': Alias.custom_create(model_name="Context", handle=alias),
             'clmn_properties': clmn_properties,
             'reindex_frequency': reindex_frequency,
             }
@@ -203,7 +203,7 @@ class ContextsTasksList(View):
 
         context = Context.get_with_permission(slash_remove(alias), request.user)
         defaults = {
-            "model_type": "context",
+            "model_type": "Context",
             "model_type_alias": context.alias.handle,
             "user": request.user
             }

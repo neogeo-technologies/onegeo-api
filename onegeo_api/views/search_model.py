@@ -29,7 +29,7 @@ from onegeo_api.utils import slash_remove
 
 
 def search_model_context_task(ctx_alias, user):
-    if Task.objects.filter(model_type="context",
+    if Task.objects.filter(model_type="Context",
                            model_type_alias=ctx_alias,
                            user=user,
                            stop_date=None).exists():

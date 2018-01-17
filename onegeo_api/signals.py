@@ -32,13 +32,12 @@ def on_post_save_source(sender, instance, *args, **kwargs):
     Task = apps.get_model(app_label='onegeo_api', model_name='Task')
     Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
 
-    def create_resources(instance, tsk):
+    def create_resources_with_log(instance, tsk):
         try:
             for res in instance.src.get_resources():
-                # resource = Resource.custom_create(instance, res.name, res.columns, instance.user)
-                resource = Resource.objects.create(
-                    source=instance, name=res.name,
-                    columns=res.columns, user=instance.user)
+                # Le nom de la resource est utilisé en tant qu'alias,
+                # à voir si on a besoin de faire autrement plus tard
+                resource = Resource.custom_create(instance, res.name, res.columns, instance.user, res.name)
                 resource.set_rsrc(res)
             tsk.success = True
             tsk.description = "Les ressources ont été créées avec succès. "
@@ -53,9 +52,9 @@ def on_post_save_source(sender, instance, *args, **kwargs):
                    "Cette opération peut prendre plusieurs minutes. ")
 
     tsk = Task.objects.create(
-        model_type="source", user=instance.user,
+        model_type="Source", user=instance.user,
         model_type_alias=instance.alias.handle, description=description)
-    create_resources(instance, tsk)
+    create_resources_with_log(instance, tsk)
     # TODO: Mis en echec des test lors de l'utilisation de thread
     # thread = Thread(target=create_resources, args=(instance, tsk))
     # thread.start()
@@ -64,5 +63,17 @@ def on_post_save_source(sender, instance, *args, **kwargs):
 @receiver(post_delete, sender=Context)
 def on_delete_context(sender, instance, *args, **kwargs):
     Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-    Task.objects.filter(model_type_alias=instance.alias.handle, model_type="context").delete()
+    Task.objects.filter(model_type_alias=instance.alias.handle, model_type="Context").delete()
     # elastic_conn.delete_index_by_alias(instance.name) #Erreur sur l'attribut indices à None
+
+
+@receiver(post_delete, sender=Source)
+def on_delete_source(sender, instance, *args, **kwargs):
+    Task = apps.get_model(app_label='onegeo_api', model_name='Task')
+    Task.objects.filter(model_type_alias=instance.alias.handle, model_type="Source").delete()
+
+
+@receiver(post_delete, sender=Resource)
+def on_delete_resource(sender, instance, *args, **kwargs):
+    if instance.context:
+        instance.context.delete()

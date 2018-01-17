@@ -33,7 +33,7 @@ class Alias(models.Model):
         return super().save(*args, **kwargs)
 
     @classmethod
-    def custom_creator(cls, model_name, handle=None):
+    def custom_create(cls, model_name, handle=None):
         return cls.objects.create(**clean_my_obj({"model_name": model_name, "handle": handle}))
 
     def custom_updater(self, custom_handle):

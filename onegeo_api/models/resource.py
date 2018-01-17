@@ -52,10 +52,12 @@ class Resource(AbstractModelProfile):
         return [resource.detail_renderer for resource in instances]
 
     @classmethod
-    def custom_create(cls, source, name, columns, user):
+    def custom_create(cls, source, name, columns, user, alias):
+        Alias = apps.get_model(app_label='onegeo_api', model_name='Alias')
+        alias = Alias.custom_create(model_name="Resource", handle=alias)
         resource = cls.objects.create(
             source=source, name=name,
-            columns=columns, user=user)
+            columns=columns, user=user, alias=alias)
         return resource
 
     @classmethod

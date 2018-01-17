@@ -122,7 +122,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             self.basic_auth(self.client, 'user1:passpass')
 
         def test_sources(self):
-            response = self.client.get(reverse("api:source_list"))
+            response = self.client.get("/sources/")
             self.assertEqual(response.status_code, 200)
 
         def test_login_source_detail(self):
@@ -147,6 +147,39 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             alias = location.group(1)
             response = self.client.get("/sources/{}".format(alias))
             self.assertEqual(response.status_code, 200)
+            response = self.client.get("/alias/{}".format(alias))
+            self.assertEqual(response.status_code, 302)
+
+        def test_create_source_resource_context(self):
+
+            body = {
+                "uri": "file:///LYVIA",
+                "mode": "pdf",
+                "name": "lyvia",
+                "alias": "lyvia_is_source"
+                }
+            # Create sources an related resources
+            response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            location = search('^http://testserver/sources/(\S+)$', response._headers.get("location")[1])
+            src_alias = location.group(1)
+
+            # Create contexts from related resources
+            response = self.client.get("/sources/{}/resources".format(src_alias))
+            resources_list = response.json()
+            for idx, res in enumerate(resources_list):
+                ctx_alias = "context_alias_{}".format(idx)
+                data = {
+                    "name": "context_test_{}".format(idx),
+                    "alias": ctx_alias,
+                    "resource": [res.get("location")]
+                    }
+                response = self.client.post("/indexes", data=json.dumps(data), content_type="application/json")
+                self.assertEqual(response.status_code, 201)
+                get_ind = self.client.get("/indexes/{}".format(ctx_alias))
+                self.assertEqual(get_ind.status_code, 200)
+                get_al = self.client.get("/alias/{}".format(ctx_alias))
+                self.assertEqual(get_al.status_code, 302)
 
         def test_create_source_wo_alias(self):
 
@@ -262,7 +295,7 @@ class ContextTestAuthent(ApiItemsMixin, TestCase):
 
             data = {
                 "location": "/indexes/{}".format(self.context.alias),
-                "alias": "{}".format(updated_alias),
+                "alias": updated_alias,
                 "resource": ["/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)],
                 "reindex_frequency": "monthly",
                 "columns": [
@@ -296,6 +329,9 @@ class ContextTestAuthent(ApiItemsMixin, TestCase):
             # self.assertEqual(response.status_code, 404)
             response = self.client.get("/indexes/{}".format(updated_alias))
             self.assertEqual(response.status_code, 200)
+            response = self.client.get("/alias/{}".format(updated_alias))
+            self.assertEqual(response.status_code, 302)
+
 
 @tag('authentified')
 class TokenFilterTestAuthent(ApiItemsMixin, TestCase):
