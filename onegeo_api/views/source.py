@@ -114,5 +114,8 @@ class SourcesDetail(View):
         actions={Http404: on_http404, PermissionDenied: on_http403})
     def delete(self, request, alias):
         source = Source.get_with_permission(slash_remove(alias), request.user)
-        source.delete()
+        try:
+            source.delete()
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
         return JsonResponse(data={}, status=204)

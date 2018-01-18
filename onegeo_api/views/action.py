@@ -94,11 +94,7 @@ class Action(View):
     def post(self, request):
         user = request.user
 
-        try:
-            data = json.loads(request.body.decode("utf-8"))
-        except Exception as e:
-            return JsonResponse({'error': e}, status=400)
-
+        data = json.loads(request.body.decode("utf-8"))
         ctx_alias = data.get("index")
         if not ctx_alias:
             data = {"error": "L'identifiant du context est manquant "}

@@ -35,15 +35,20 @@ class TokenFiltersList(View):
         body_data = json.loads(data)
         name = read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de création du filtre. Le nom du filtre est manquant. "}, status=400)
+            return JsonResponse(
+                {"error": "Echec de création du filtre. "
+                          "Le nom du filtre est manquant. "}, status=400)
         if Filter.objects.filter(name=name).exists():
-            return JsonResponse({"error": "Echec de création du filtre. Un filtre portant le même nom existe déjà. "}, status=409)
+            return JsonResponse(
+                {"error": "Echec de création du filtre. "
+                          "Un filtre portant le même nom existe déjà. "}, status=409)
 
         config = body_data.get("config", {})
         alias = body_data.get("alias")
         if alias and Alias.objects.filter(handle=alias).exists():
-            return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-                                          "Un contexte portant le même alias existe déjà. "}, status=409)
+            return JsonResponse(
+                {"error": "Echec de création du filtre. "
+                          "Un filtre portant le même alias existe déjà. "}, status=409)
         defaults = {
             "name": name,
             "config": config,

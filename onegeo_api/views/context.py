@@ -58,18 +58,6 @@ class ContextsList(View):
 
         reindex_frequency = body_data.get("reindex_frequency", "monthly")
 
-        # data = search('^/sources/(\S+)/resources/(\S+)$', body_data['resource'])
-        # if not data:
-        #     raise Http404
-        # src_uuid = data.group(1)
-        # rsrc_uuid = data.group(2)
-        # resource = Resource.get_with_permission(rsrc_uuid, request.user)
-        # source = Source.get_with_permission(src_uuid, request.user)
-        #
-        # if source != resource.source:
-        #     return JsonResponse({"error": "Echec de création du contexte d'indexation. "
-        #                                   "Les identifiants des source et ressource sont erronées. "}, status=400)
-
         data = search('^/sources/(\S+)/resources/(\S+)$', body_data.get('resource'))
         if not data:
             return JsonResponse({"error": "Echec de création du contexte d'indexation. "
@@ -132,8 +120,7 @@ class ContextsDetail(View):
     def put(self, request, alias):
         context = Context.get_with_permission(slash_remove(alias), request.user)
 
-        data = request.body.decode('utf-8')
-        body_data = json.loads(data)
+        body_data = json.loads(request.body.decode('utf-8'))
         name = body_data.get('name')
         reindex_frequency = body_data.get('reindex_frequency')
         list_ppt_clt = body_data.get('columns', {})
@@ -179,9 +166,10 @@ class ContextsDetail(View):
         actions={Http404: on_http404, PermissionDenied: on_http403})
     def delete(self, request, alias):
         context = Context.get_with_permission(slash_remove(alias), request.user)
-        context.delete()  # Erreur sur signal delete_context suite a erreur sur elasticsearch_wrapper
-        # CF signals.py "elastic_conn.delete_index_by_alias" doit etre réintégrer
-        return JsonResponse(data={"error": "Context supprimé, elastic_conn.delete_index_by_alias non appliqué"}, status=204)
+        # Erreur sur Context.delete() suite a erreur sur elasticsearch_wrapper
+        # "elastic_conn.delete_index_by_alias" doit etre réintégrer
+        context.delete()
+        return JsonResponse(data={}, status=204)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

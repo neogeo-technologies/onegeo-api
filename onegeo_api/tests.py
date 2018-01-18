@@ -3,10 +3,11 @@ from django.test import tag
 
 from django.test import TestCase
 
-from onegeo_api.models import Source
-from onegeo_api.models import Resource
-from onegeo_api.models import Context
 from onegeo_api.models import Alias
+from onegeo_api.models import Context
+from onegeo_api.models import Resource
+from onegeo_api.models import Source
+from onegeo_api.models import Task
 from onegeo_api.utils import check_uri
 
 import base64
@@ -50,10 +51,14 @@ class BasicAuthTest(ApiItemsMixin, TestCase):
         response = self.client.get("/sources")
         self.assertEqual(response.status_code, 401)
 
-    # def test_login_action(self):
-    #     response = self.client.get(reverse("action"))
-    #     self.assertEqual(response.status_code, 401)
-    #
+    def test_login_action(self):
+        body = {
+            "name": "ctx_radie1",
+            "resource": "/sources/123a465b/resources/123a465b"
+            }
+        response = self.client.post("/action", data=json.dumps(body), content_type="application/json")
+        self.assertEqual(response.status_code, 401)
+
     def test_login_context_detail_task_view_list(self):
         response = self.client.get("/indexes/abc123abc/tasks/")
         self.assertEqual(response.status_code, 401)
@@ -73,7 +78,7 @@ class BasicAuthTest(ApiItemsMixin, TestCase):
     def test_login_context_create(self):
         body = {
             "name": "ctx_radie1",
-            "resources": ["/sources/123a465b/resources/123a465b"]
+            "resource": "/sources/123a465b/resources/123a465b"
             }
         response = self.client.post("/indexes/", data=json.dumps(body), content_type="application/json")
         self.assertEqual(response.status_code, 401)
@@ -108,6 +113,10 @@ class BasicAuthTest(ApiItemsMixin, TestCase):
 
     def test_login_task_list(self):
         response = self.client.get("/tasks/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_alias(self):
+        response = self.client.get("/alias/132abc")
         self.assertEqual(response.status_code, 401)
 
 
@@ -148,6 +157,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             self.assertEqual(response.status_code, 200)
             response = self.client.get("/alias/{}".format(alias))
             self.assertEqual(response.status_code, 302)
+
             self.basic_auth(self.client, 'user2:passpass')
             response = self.client.get("/alias/{}".format(alias))
             self.assertEqual(response.status_code, 403)
@@ -182,6 +192,12 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
                 self.assertEqual(get_ind.status_code, 200)
                 get_al = self.client.get("/alias/{}".format(ctx_alias))
                 self.assertEqual(get_al.status_code, 302)
+
+                self.basic_auth(self.client, 'user2:passpass')
+                response = self.client.get("/indexes/{}".format(ctx_alias))
+                self.assertEqual(response.status_code, 403)
+                response = self.client.get("/alias/{}".format(ctx_alias))
+                self.assertEqual(response.status_code, 403)
 
         def test_create_source_wo_alias(self):
 
@@ -243,10 +259,15 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             self.assertEqual(response.status_code, 200)
             response = self.client.delete("/sources/{}".format(alias))
             self.assertEqual(response.status_code, 204)
-            alias_still_exists = Alias.objects.filter(handle=alias, model_name="Source").exists()
-            self.assertEqual(alias_still_exists, False)
 
-        def test_delete_source_wo_alias(self):
+            source_still_exists = Source.objects.filter(alias__handle=alias).exists()
+            alias_still_exists = Alias.objects.filter(handle=alias, model_name="Source").exists()
+            task_still_exists = Task.objects.filter(model_type="Source", model_type_alias=alias).exists()
+            self.assertEqual(source_still_exists, False)
+            self.assertEqual(alias_still_exists, False)
+            self.assertEqual(task_still_exists, False)
+
+        def test_delete_source_wrong_user(self):
 
             body = {
                 "uri": "file:///LYVIA",
@@ -259,10 +280,18 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             alias = location.group(1)
             response = self.client.get("/sources/{}".format(alias))
             self.assertEqual(response.status_code, 200)
+
+            self.basic_auth(self.client, 'user2:passpass')
             response = self.client.delete("/sources/{}".format(alias))
-            self.assertEqual(response.status_code, 204)
+            self.assertEqual(response.status_code, 403)
+
+            source_still_exists = Source.objects.filter(alias__handle=alias).exists()
             alias_still_exists = Alias.objects.filter(handle=alias, model_name="Source").exists()
-            self.assertEqual(alias_still_exists, False)
+            task_still_exists = Task.objects.filter(model_type="Source", model_type_alias=alias).exists()
+
+            self.assertEqual(source_still_exists, True)
+            self.assertEqual(alias_still_exists, True)
+            self.assertEqual(task_still_exists, True)
 
 
 @tag('authentified')
@@ -325,14 +354,26 @@ class ContextTestAuthent(ApiItemsMixin, TestCase):
             self.assertEqual(response.status_code, 204)
             response = self.client.get("/indexes/{}".format("updated_alias"))
             self.assertEqual(response.status_code, 200)
-            # response = self.client.get("/indexes/{}".format("updated_alia"))
-            # self.assertEqual(response.status_code, 200)
-            # response = self.client.get("/indexes/{}".format("updated_alias2"))
-            # self.assertEqual(response.status_code, 404)
             response = self.client.get("/indexes/{}".format(updated_alias))
             self.assertEqual(response.status_code, 200)
             response = self.client.get("/alias/{}".format(updated_alias))
             self.assertEqual(response.status_code, 302)
+
+        def test_context_create_and_delete(self):
+            data = {
+                "name": "context_test2",
+                "resource": "/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)
+                }
+            response = self.client.post("/indexes", data=json.dumps(data), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+
+            location = search('^http://testserver/indexes/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.get("/indexes/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+
+            response = self.client.delete("/indexes/{}".format(alias))
+            self.assertEqual(response.status_code, 204)
 
 
 @tag('authentified')
@@ -358,6 +399,18 @@ class TokenFilterTestAuthent(ApiItemsMixin, TestCase):
             response = self.client.get("/tokenfilters/{}".format(alias_filter))
             self.assertEqual(response.status_code, 200)
 
+        def test_create_filter_w_alias_delete(self):
+            alias_filter = "alias_filter"
+            body = {
+                "name": "filter_name",
+                "config": {"one": 1, "two": True, "three": "abc", "four": [1, "2", False]},
+                "alias": alias_filter
+                }
+            response = self.client.post("/tokenfilters", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            response = self.client.delete("/tokenfilters/{}".format(alias_filter))
+            self.assertEqual(response.status_code, 204)
+
         def test_create_filter_wo_alias(self):
 
             body = {
@@ -371,6 +424,20 @@ class TokenFilterTestAuthent(ApiItemsMixin, TestCase):
             alias = location.group(1)
             response = self.client.get("/tokenfilters/{}".format(alias))
             self.assertEqual(response.status_code, 200)
+
+        def test_create_filter_wo_alias_delete(self):
+
+            body = {
+                "name": "filter_name1",
+                "config": {"one": 1, "two": True, "three": "abc", "four": [1, "2", False]},
+                "alias": None
+                }
+            response = self.client.post("/tokenfilters", data=json.dumps(body), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+            location = search('^http://testserver/tokenfilters/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.delete("/tokenfilters/{}".format(alias))
+            self.assertEqual(response.status_code, 204)
 
         def test_create_filter_w_alias_repeated(self):
             alias_filter = "alias_filter"

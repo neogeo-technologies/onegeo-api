@@ -12,19 +12,7 @@ from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Source
 
-
-#Ces connecteurs de signaux ont été enregistré dans les modules apps.py et __init__.py de l'application
-
-@receiver(post_delete, sender=Analyzer)
-@receiver(post_delete, sender=Context)
-@receiver(post_delete, sender=Filter)
-@receiver(post_delete, sender=Resource)
-@receiver(post_delete, sender=SearchModel)
-@receiver(post_delete, sender=Source)
-@receiver(post_delete, sender=Tokenizer)
-def delete_related_alias(sender, instance, **kwargs):
-    if instance.alias:
-        instance.alias.delete()
+# Ces connecteurs de signaux ont été enregistré dans les modules apps.py et __init__.py de l'application
 
 
 @receiver(post_save, sender=Source)
@@ -60,20 +48,13 @@ def on_post_save_source(sender, instance, *args, **kwargs):
     # thread.start()
 
 
-@receiver(post_delete, sender=Context)
-def on_delete_context(sender, instance, *args, **kwargs):
-    Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-    Task.objects.filter(model_type_alias=instance.alias.handle, model_type="Context").delete()
-    # elastic_conn.delete_index_by_alias(instance.name) #Erreur sur l'attribut indices à None
-
-
+@receiver(post_delete, sender=Analyzer)
+@receiver(post_delete, sender=Filter)
+@receiver(post_delete, sender=SearchModel)
+@receiver(post_delete, sender=Tokenizer)
 @receiver(post_delete, sender=Source)
-def on_delete_source(sender, instance, *args, **kwargs):
-    Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-    Task.objects.filter(model_type_alias=instance.alias.handle, model_type="Source").delete()
-
-
 @receiver(post_delete, sender=Resource)
-def on_delete_resource(sender, instance, *args, **kwargs):
-    if instance.context:
-        instance.context.delete()
+@receiver(post_delete, sender=Context)
+def delete_related_alias(sender, instance, **kwargs):
+    if instance.alias:
+        instance.alias.delete()

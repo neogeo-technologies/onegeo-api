@@ -27,6 +27,12 @@ class Resource(AbstractModelProfile):
         kwargs['model_name'] = 'Resource'
         return super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        if self.context:
+            self.context.delete()
+        if self.alias:
+            self.alias.delete()
+
     @property
     def rsrc(self):
         return self.__rsrc

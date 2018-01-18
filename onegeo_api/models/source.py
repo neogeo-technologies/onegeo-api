@@ -2,7 +2,7 @@ from django.db import models
 from django.http import JsonResponse
 from django.http import Http404
 from django.core.exceptions import PermissionDenied
-
+from django.apps import apps
 from re import search
 
 from onegeo_manager.source import Source as OnegeoSource
@@ -32,6 +32,13 @@ class Source(AbstractModelProfile):
             raise Exception()  # TODO
         self.__src = OnegeoSource(self.uri, self.name, self.mode)
         return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        Task = apps.get_model(app_label='onegeo_api', model_name='Task')
+        Task.objects.filter(model_type_alias=self.alias.handle, model_type="Source").delete()
+        Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
+        Resource.objects.filter(source=self).delete()
+        return super().delete(*args, **kwargs)
 
     @property
     def src(self):

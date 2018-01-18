@@ -11,6 +11,8 @@ from onegeo_api.models.abstracts import AbstractModelProfile
 from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import slash_remove
 
+# from onegeo_api.elasticsearch_wrapper import elastic_conn
+
 
 class Context(AbstractModelProfile):
 
@@ -35,6 +37,12 @@ class Context(AbstractModelProfile):
             raise ValidationError("Un contexte d'indexation ne peut avoir "
                                   "le même nom qu'un modèle de recherche.")
         return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        Task = apps.get_model(app_label='onegeo_api', model_name='Task')
+        Task.objects.filter(model_type_alias=self.alias.handle, model_type="Context").delete()
+        # elastic_conn.delete_index_by_alias(instance.name) #Erreur sur l'attribut indices à None
+        return super().delete(*args, **kwargs)
 
     @property
     def resource(self):
