@@ -1,6 +1,4 @@
 from ast import literal_eval
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -21,10 +19,9 @@ from onegeo_api.models import Resource
 from onegeo_api.models import Source
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
-from onegeo_api.utils import on_http403
-from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
+from onegeo_api.utils import errors_on_call
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -37,7 +34,7 @@ class ContextsList(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def post(self, request):
         user = request.user
         body_data = json.loads(request.body.decode('utf-8'))
@@ -108,7 +105,7 @@ class ContextsDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def get(self, request, alias):
         context = Context.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(context.detail_renderer, safe=False, status=200)
@@ -116,7 +113,7 @@ class ContextsDetail(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def put(self, request, alias):
         context = Context.get_with_permission(slash_remove(alias), request.user)
 
@@ -163,7 +160,7 @@ class ContextsDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def delete(self, request, alias):
         context = Context.get_with_permission(slash_remove(alias), request.user)
         # Erreur sur Context.delete() suite a erreur sur elasticsearch_wrapper
@@ -176,7 +173,7 @@ class ContextsDetail(View):
 class ContextsTasksList(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
+    @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, alias):
 
         context = Context.get_with_permission(slash_remove(alias), request.user)
@@ -193,7 +190,7 @@ class ContextsTasksList(View):
 class ContextsTasksDetail(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
+    @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, alias, tsk_id):
         context = Context.get_with_permission(slash_remove(alias), request.user)
         defaults = {

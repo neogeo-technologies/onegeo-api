@@ -1,7 +1,5 @@
 import json
-from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import Http404
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -12,10 +10,9 @@ from onegeo_api.exceptions import ExceptionsHandler
 
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import clean_my_obj
-from onegeo_api.utils import on_http403
-from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
+from onegeo_api.utils import errors_on_call
 
 from onegeo_api.models import Alias
 from onegeo_api.models import Analyzer
@@ -87,7 +84,7 @@ class AnalyzersDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def get(self, request, alias):
         user = user = request.user
         analyzer = Analyzer.get_with_permission(slash_remove(alias), user)
@@ -96,7 +93,7 @@ class AnalyzersDetail(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def put(self, request, alias):
         user = request.user
         analyzer = Analyzer.get_with_permission(slash_remove(alias), user)
@@ -156,7 +153,7 @@ class AnalyzersDetail(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def delete(self, request, alias):
         analyzer = Analyzer.get_with_permission(slash_remove(alias), request.user)
         analyzer.delete()

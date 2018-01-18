@@ -1,12 +1,16 @@
 from base64 import b64decode
-from django.conf import settings
-from django.contrib.auth import authenticate
-from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpResponse
-from django.http import JsonResponse
 from functools import wraps
+from json.decoder import JSONDecodeError
 from pathlib import Path
 from re import search
+
+from django.conf import settings
+from django.contrib.auth import authenticate
+from django.core.exceptions import PermissionDenied
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import Http404
+from django.http import HttpResponse
+from django.http import JsonResponse
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR
@@ -28,12 +32,31 @@ def read_name(body_data):
     return name
 
 
+def retrieve_parameter(request, param):
+    return request.GET.get(param, request.POST.get(param, None))
+
+
+def url_params(request):
+
+    return dict((k, ','.join(v)) for k, v in dict(request.GET).items())
+
+
 def on_http404(message):
     return JsonResponse({"error": message}, status=404)
 
 
 def on_http403(message):
     return JsonResponse({"error": message}, status=403)
+
+
+def on_json_decode_error(message):
+    return JsonResponse({"error": "la chaine de caractère à analyser ne correspond pas à un JSON valide: {} ".format(message)}, status=400)
+
+
+def errors_on_call():
+    return {
+        Http404: on_http404, PermissionDenied: on_http403,
+        JSONDecodeError: on_json_decode_error}
 
 
 class BasicAuth(object):

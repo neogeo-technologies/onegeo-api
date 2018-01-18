@@ -1,6 +1,7 @@
 from base64 import b64decode
 from importlib import import_module
 import json
+from json.decoder import JSONDecodeError
 from requests.exceptions import HTTPError  # TODO
 
 from django.core.exceptions import ValidationError
@@ -22,10 +23,10 @@ from onegeo_api.models import SearchModel
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import clean_my_obj
-from onegeo_api.utils import on_http403
-from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
+from onegeo_api.utils import retrieve_parameter
+from onegeo_api.utils import errors_on_call
 
 
 def search_model_context_task(ctx_alias, user):
@@ -36,21 +37,6 @@ def search_model_context_task(ctx_alias, user):
         raise MultiTaskError()
     else:
         return True
-
-
-def get_param(request, param):
-    """
-        Retourne la valeur d'une clé param presente dans une requete GET ou POST.
-    """
-    if request.method == "GET":
-        if request.GET.get(param):
-            return request.GET[param]
-    elif request.method == "POST":
-        try:
-            param_read = request.POST.get(param, request.GET.get(param))
-        except KeyError:
-            return None
-        return param_read
 
 
 def refresh_search_model(mdl_name, ctx_name_l):
@@ -176,9 +162,8 @@ class SearchModelsList(View):
     @BasicAuth()
     @ContentTypeLookUp()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def post(self, request):
-
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
         name = read_name(data)
@@ -194,7 +179,6 @@ class SearchModelsList(View):
 
         search_model, created = SearchModel.objects.get_or_create(
             name=name, defaults={"user": user, "config": config})
-
         if not created:
             return JsonResponse(data={"error": "Conflict"}, status=409)
 
@@ -231,15 +215,14 @@ class SearchModelsDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def get(self, request, alias):
         search_model = SearchModel.get_with_permision(slash_remove(alias), request.user)
         return JsonResponse(search_model.detail_renderer, status=200)
 
     @BasicAuth()
     @ContentTypeLookUp()
-    @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+    @ExceptionsHandler(actions=errors_on_call())
     def put(self, request, alias):
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
@@ -284,9 +267,7 @@ class SearchModelsDetail(View):
         return JsonResponse({}, status=204)
 
     @BasicAuth()
-    @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403},
-        model="SearchModel")
+    @ExceptionsHandler(actions=errors_on_call())
     def delete(self, request, alias):
         search_model = SearchModel.get_with_permission(slash_remove(alias), request.user)
         search_model.delete()
@@ -310,9 +291,10 @@ class Search(View):
         search_model = get_object_or_404(SearchModel, name=name)
         params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
 
-        if 'mode' in params and params['mode'] == 'throw':
+        if params.get('mode', '') == 'throw':
             return JsonResponse(data={'error': 'Not implemented.'}, status=501)
-        # else:
+
+        return JsonResponse(data={'error': 'Not implemented.'}, status=501)
 
         try:
             ext = import_module('...extensions.{0}'.format(name), __name__)
@@ -340,22 +322,19 @@ class Search(View):
             return plugin.output(res)
 
     @BasicAuth()
-    def post(self, request, name):
+    @ExceptionsHandler(actions=errors_on_call())
+    def post(self, request, alias):
 
         user = request.user
 
-        search_model = get_object_or_404(SearchModel, name=name)
-        if not search_model.user == user:
-            return JsonResponse({
-                'error': "Modification du modèle de recherche impossible. "
-                         "Son usage est réservé."}, status=403)
+        search_model = SearchModel.get_with_permission(slash_remove(alias), user)
 
         body = request.body.decode('utf-8')
         if not body:
             body = None
 
-        if get_param(request, 'mode') == 'throw':
-            data = elastic_conn.search(index=name, body=body)
+        if retrieve_parameter(request, 'mode') == 'throw':
+            data = elastic_conn.search(index=search_model.name, body=body)
             return JsonResponse(data=data, safe=False, status=200)
         else:
             return JsonResponse(data={'error': 'Not implemented.'}, status=501)

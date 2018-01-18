@@ -1,5 +1,3 @@
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -13,10 +11,9 @@ from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import check_uri
 from onegeo_api.utils import clean_my_obj
-from onegeo_api.utils import on_http403
-from onegeo_api.utils import on_http404
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
+from onegeo_api.utils import errors_on_call
 
 
 def is_valid_uri_for_given_mode(uri, mode):
@@ -37,6 +34,7 @@ class SourcesList(View):
 
     @BasicAuth()
     @ContentTypeLookUp()
+    @ExceptionsHandler(actions=errors_on_call())
     def post(self, request):
         user = request.user
 
@@ -104,14 +102,14 @@ class SourcesDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def get(self, request, alias):
         source = Source.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(source.detail_renderer, safe=False)
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def delete(self, request, alias):
         source = Source.get_with_permission(slash_remove(alias), request.user)
         try:

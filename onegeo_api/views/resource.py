@@ -1,4 +1,3 @@
-from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
@@ -10,8 +9,7 @@ from onegeo_api.models import Resource
 from onegeo_api.models import Source
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
-from onegeo_api.utils import on_http403
-from onegeo_api.utils import on_http404
+from onegeo_api.utils import errors_on_call
 from onegeo_api.utils import slash_remove
 
 
@@ -19,7 +17,7 @@ from onegeo_api.utils import slash_remove
 class ResourcesList(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
+    @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, src_alias):
 
         user = request.user
@@ -52,7 +50,7 @@ class ResourcesList(View):
 class ResourcesDetail(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions={Http404: on_http404, PermissionDenied: on_http403})
+    @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, src_alias, rsrc_alias):
         resource = Resource.get_with_permission(slash_remove(rsrc_alias), request.user)
         source = Source.get_with_permission(slash_remove(src_alias), request.user)

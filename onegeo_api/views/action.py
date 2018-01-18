@@ -9,7 +9,6 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from django.shortcuts import redirect
-from django.apps import apps
 from django.urls import reverse
 
 # from onegeo_manager.context import Context as OnegeoContext
@@ -25,9 +24,8 @@ from onegeo_api.models import Alias
 from onegeo_api.models import Context
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
-from onegeo_api.utils import on_http403
-from onegeo_api.utils import on_http404
 from onegeo_api.utils import slash_remove
+from onegeo_api.utils import errors_on_call
 
 
 # def iter_flt_from_anl(anl_name):
@@ -89,7 +87,7 @@ class Action(View):
 
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     @ContentTypeLookUp()
     def post(self, request):
         user = request.user
@@ -212,7 +210,7 @@ class Action(View):
 class AliasDetail(View):
     @BasicAuth()
     @ExceptionsHandler(
-        actions={Http404: on_http404, PermissionDenied: on_http403})
+        actions=errors_on_call())
     def get(self, request, alias):
         path = {
             "Analyzer": "onegeo_api:analyzers_detail",
@@ -239,7 +237,7 @@ class Bulk(View):
         @BasicAuth()
         @ContentTypeLookUp()
         @ExceptionsHandler(
-            actions={Http404: on_http404, PermissionDenied: on_http403})
+            actions=errors_on_call())
         def post(self, request):
 
             body_data = json.loads(request.body.decode('utf-8'))
