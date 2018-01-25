@@ -25,7 +25,7 @@ def on_post_save_source(sender, instance, *args, **kwargs):
             for res in instance.src.get_resources():
                 # Le nom de la resource est utilisé en tant qu'alias,
                 # à voir si on a besoin de faire autrement plus tard
-                resource = Resource.custom_create(instance, res.name, res.columns, instance.user, res.name)
+                resource = Resource.custom_create(instance, res.name, res.columns, instance.user)
                 resource.set_rsrc(res)
             tsk.success = True
             tsk.description = "Les ressources ont été créées avec succès. "
