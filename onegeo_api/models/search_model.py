@@ -21,16 +21,16 @@ class SearchModel(AbstractModelProfile):
 
     # FK & alt
     user = models.ForeignKey(User, blank=True, null=True)
-    contexts = models.ManyToManyField("onegeo_api.Context")
+    index_profiles = models.ManyToManyField("onegeo_api.IndexProfile")
 
     def save(self, *args, **kwargs):
 
         kwargs['model_name'] = 'SearchModel'
 
-        Context = apps.get_model(app_label='onegeo_api', model_name='Context')
-        if Context.objects.filter(name=self.name).exists():
+        IndexProfile = apps.get_model(app_label='onegeo_api', model_name='IndexProfile')
+        if IndexProfile.objects.filter(name=self.name).exists():
             raise ValidationError("Un modèle de recherche ne peut avoir "
-                                  "le même nom qu'un contexte d'indexation.")
+                                  "le même nom qu'un profil d'indexation.")
         return super().save(*args, **kwargs)
 
     @classmethod
@@ -59,7 +59,7 @@ class SearchModel(AbstractModelProfile):
             "name": self.name,
             "alias": self.alias.handle,
             "config": self.config,
-            "indexes": [ctx.alias.handle for ctx in self.contexts]}
+            "indexes": [ctx.alias.handle for ctx in self.index_profiles]}
 
         try:
             ext = import_module('..extensions.{0}'.format(self.name), __name__)
@@ -67,7 +67,7 @@ class SearchModel(AbstractModelProfile):
         except ImportError:
             ext = import_module('..extensions.__init__', __name__)
         finally:
-            plugin = ext.plugin(self.config, [ctx for ctx in self.contexts])
+            plugin = ext.plugin(self.config, [ctx for ctx in self.index_profiles])
             if plugin.qs:
                 response['qs_params'] = [{'key': e[0],
                                           'description': e[1],
@@ -81,72 +81,27 @@ class SearchModel(AbstractModelProfile):
         return [search_model.detail_renderer for search_model in instances]
 
     @property
-    def get_available_contexts_from_alias(self, contexts_aliases, user):
-        Context = apps.get_model(app_label='onegeo_api', model_name='Context')
+    def get_available_index_profiles_from_alias(self, index_profiles_aliases, user):
+        IndexProfile = apps.get_model(app_label='onegeo_api', model_name='IndexProfile')
         Task = apps.get_model(app_label='onegeo_api', model_name='Task')
 
-        contexts_available = []
-        for alias in contexts_aliases:
+        index_profiles_available = []
+        for alias in index_profiles_aliases:
             try:
-                # ctx = Context.get_with_permission(alias, user)  # Si restriction sur user
-                ctx = Context.objects.get(alias__handle=alias)
+                # index_profile = IndexProfile.get_with_permission(alias, user)  # Si restriction sur user
+                index_profile = IndexProfile.objects.get(alias__handle=alias)
             except Exception:
                 raise
-            if Task.objects.filter(model_type="context",
-                                   model_type_alias=ctx.alias.handle,
+            if Task.objects.filter(alias__handle=index_profile.alias.handle,
                                    user=user,
                                    stop_date=None).exists():
                 raise MultiTaskError()
             else:
-                contexts_available.append(ctx)
-        return contexts_available
-
-    #To be eradicated
-    @property
-    def format_data(self):
-
-        def retreive_contexts(name):
-            smc = SearchModel.context.through
-            set = smc.objects.filter(searchmodel__name=name)
-            return [s.context.name for s in set if s.context.name is not None]
-
-        response = {
-            "location": "profiles/{}".format(self.name),
-            "name": self.name,
-            "config": self.config,
-            "indexes": retreive_contexts(self.name)}
-
-        contexts = [e.context for e in
-                    SearchModel.context.through.objects.filter(searchmodel=self)]
-
-        try:
-            ext = import_module('..extensions.{0}'.format(self.name), __name__)
-            response['extended'] = True
-        except ImportError:
-            ext = import_module('..extensions.__init__', __name__)
-        finally:
-            plugin = ext.plugin(self.config, contexts)
-            if plugin.qs:
-                response['qs_params'] = [{'key': e[0],
-                                          'description': e[1],
-                                          'type': e[2]} for e in plugin.qs]
-
-        return clean_my_obj(response)
-
-    @classmethod
-    def custom_filter(cls, user):
-        search_model = SearchModel.objects.filter(Q(user=user) | Q(user=None)).order_by("name")
-        return [sm.format_data for sm in search_model]
-
-    @classmethod
-    def user_access(cls, name, user):
-        sm = get_object_or_404(cls, name=name)
-        if sm.user != user:
-            raise PermissionDenied
-        return sm
+                index_profiles_available.append(index_profile)
+        return index_profiles_available
 
     # TODO(cbenhabib): A implementer pour remplacer:
-    # get_search_model(), get_contexts_obj(), set_search_model_contexts()
+    # get_search_model(), get_index_profiles_obj(), set_search_model_index_profiles()
     @classmethod
     def custom_create(cls, name, user, config):
         error = None

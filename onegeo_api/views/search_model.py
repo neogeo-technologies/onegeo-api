@@ -1,7 +1,6 @@
 from base64 import b64decode
 from importlib import import_module
 import json
-from json.decoder import JSONDecodeError
 from requests.exceptions import HTTPError  # TODO
 
 from django.core.exceptions import ValidationError
@@ -10,15 +9,14 @@ from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
+
 
 from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.exceptions import MultiTaskError
 from onegeo_api.models import Alias
-from onegeo_api.models import Context
+from onegeo_api.models import IndexProfile
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
@@ -29,9 +27,8 @@ from onegeo_api.utils import retrieve_parameter
 from onegeo_api.utils import errors_on_call
 
 
-def search_model_context_task(ctx_alias, user):
-    if Task.objects.filter(model_type="Context",
-                           model_type_alias=ctx_alias,
+def search_model_index_profile_task(index_profile_alias, user):
+    if Task.objects.filter(alias__handle=index_profile_alias,
                            user=user,
                            stop_date=None).exists():
         raise MultiTaskError()
@@ -39,7 +36,7 @@ def search_model_context_task(ctx_alias, user):
         return True
 
 
-def refresh_search_model(mdl_name, ctx_name_l):
+def refresh_search_model(mdl_name, index_profiles_name_l):
     """
         Mise à jour des aliases dans ElasticSearch.
     """
@@ -49,8 +46,8 @@ def refresh_search_model(mdl_name, ctx_name_l):
     for index in elastic_conn.get_indices_by_alias(name=mdl_name):
         body["actions"].append({"remove": {"index": index, "alias": mdl_name}})
 
-    for context in iter(ctx_name_l):
-        for index in elastic_conn.get_indices_by_alias(name=context):
+    for index_profile in iter(index_profiles_name_l):
+        for index in elastic_conn.get_indices_by_alias(name=index_profile):
             body["actions"].append({"add": {"index": index, "alias": mdl_name}})
 
     elastic_conn.update_aliases(body)
@@ -97,58 +94,20 @@ def get_search_model(name, user_rq, config, method):
     return sm, error
 
 
-def get_contexts_obj(contexts_clt, user):
+def get_index_profile_obj(index_profiles_clt, user):
 
-    contexts_obj = []
-    for context_name in contexts_clt:
+    index_profiles_obj = []
+    for index_profile_name in index_profiles_clt:
         try:
-            context = Context.objects.get(name=context_name)
-        except Context.DoesNotExist:
+            index_profile = IndexProfile.objects.get(name=index_profile_name)
+        except IndexProfile.DoesNotExist:
             raise
         try:
-            search_model_context_task(context.alias.handle, user)
+            search_model_index_profile_task(index_profile.alias.handle, user)
         except MultiTaskError:
             raise
-        contexts_obj.append(context)
-    return contexts_obj
-
-
-def set_search_model_contexts(search_model, contexts_obj,
-                              contexts_clt, request, config=None):
-
-    response = None
-
-    if request.method == "POST":
-        search_model.context.set(contexts_obj)
-        search_model.save()
-        response = JsonResponse(data={}, status=201)
-        uri = slash_remove(request.build_absolute_uri())
-        response['Location'] = '{0}/{1}'.format(uri, search_model.name)
-
-        if len(contexts_clt) > 0:
-            try:
-                refresh_search_model(search_model.name, contexts_clt)
-            except ValueError:
-                response = JsonResponse({
-                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
-                             "(par exemple, car une connexion a été réutilisée)."}, status=421)
-
-    if request.method == "PUT":
-        search_model.context.clear()
-        search_model.context.set(contexts_obj)
-        search_model.config = config
-        search_model.save()
-        response = JsonResponse({}, status=204)
-
-        if len(contexts_clt) > 0:
-            try:
-                refresh_search_model(search_model.name, contexts_clt)
-            except ValueError:
-                response = JsonResponse({
-                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
-                             "(par exemple, une connexion a été réutilisée)."}, status=421)
-
-    return response
+        index_profiles_obj.append(index_profile)
+    return index_profiles_obj
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -174,7 +133,7 @@ class SearchModelsList(View):
             return JsonResponse({"error": "Echec de création du modèle de recherche. "
                                           "Un modele de recherche portant le même nom existe déjà. "}, status=409)
 
-        contexts = data.get("indexes", [])
+        index_profiles = data.get("indexes", [])
         config = data.get("config", {})
 
         search_model, created = SearchModel.objects.get_or_create(
@@ -183,26 +142,26 @@ class SearchModelsList(View):
             return JsonResponse(data={"error": "Conflict"}, status=409)
 
         try:
-            contexts_obj = get_contexts_obj(contexts, user)
-        except Context.DoesNotExist:
+            index_profiles_obj = get_index_profile_obj(index_profiles, user)
+        except IndexProfile.DoesNotExist:
             return JsonResponse({
                 "error":
                     "Echec de l'enregistrement du modèl de recherche. "
-                    "La liste de contexte est erronée"}, status=400)
+                    "La liste de IndexProfilee est erronée"}, status=400)
         except MultiTaskError:
             return JsonResponse({
                 "error":
                     "Une autre tâche est en cours d'exécution. "
                     "Veuillez réessayer plus tard. "}, status=423)
 
-        search_model.context.set(contexts_obj)
+        search_model.index_profile.set(index_profiles_obj)
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())
         response['Location'] = '{0}/{1}'.format(uri, search_model.alias.handle)
 
-        if len(contexts) > 0:
+        if len(index_profiles) > 0:
             try:
-                refresh_search_model(search_model.name, contexts)
+                refresh_search_model(search_model.name, index_profiles)
             except ValueError:
                 response = JsonResponse({
                     "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
@@ -214,8 +173,7 @@ class SearchModelsList(View):
 class SearchModelsDetail(View):
 
     @BasicAuth()
-    @ExceptionsHandler(
-        actions=errors_on_call())
+    @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, alias):
         search_model = SearchModel.get_with_permision(slash_remove(alias), request.user)
         return JsonResponse(search_model.detail_renderer, status=200)
@@ -226,18 +184,18 @@ class SearchModelsDetail(View):
     def put(self, request, alias):
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
-        contexts = data.get("indexes", [])
+        index_profiles = data.get("indexes", [])
         config = data.get("config", {})
 
         search_model = SearchModel.get_with_permission(slash_remove(alias), user)
 
         try:
-            contexts_obj = get_contexts_obj(contexts, user)
-        except Context.DoesNotExist:
+            index_profiles_obj = get_index_profile_obj(index_profiles, user)
+        except IndexProfile.DoesNotExist:
             return JsonResponse({
                 "error":
                     "Echec de l'enregistrement du modèle de recherche. "
-                    "La liste de contexte est erronée"}, status=400)
+                    "La liste de IndexProfilee est erronée"}, status=400)
         except MultiTaskError:
             return JsonResponse({
                 "error":
@@ -253,12 +211,12 @@ class SearchModelsDetail(View):
             search_model.alias.update_handle(new_alias)
 
         # RETURN RESPONSE
-        search_model.context.set(contexts_obj, clear=True)
+        search_model.index_profile.set(index_profiles_obj, clear=True)
         search_model.update(config=config)
 
-        if len(contexts) > 0:
+        if len(index_profiles) > 0:
             try:
-                refresh_search_model(search_model.name, contexts)
+                refresh_search_model(search_model.name, index_profiles)
             except ValueError:
                 return JsonResponse({
                     "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
@@ -301,13 +259,14 @@ class Search(View):
         except ImportError:
             ext = import_module('...extensions.__init__', __name__)
 
-        contexts = [e.context
-                    for e in SearchModel.context.through.objects.filter(
-                        searchmodel=search_model)]
+        index_profiles = [
+            e.index_profile
+            for e in SearchModel.index_profile.through.objects.filter(
+                earchmodel=search_model)]
 
         try:
             plugin = ext.plugin(
-                search_model.config, contexts, user=user, password=password)
+                search_model.config, index_profiles, user=user, password=password)
         except HTTPError as err:
             return JsonResponse({"error": str(err)}, status=err.response.status_code)
         except Exception as err:
@@ -321,6 +280,7 @@ class Search(View):
         else:
             return plugin.output(res)
 
+    # @ContentTypeLookUp()
     @BasicAuth()
     @ExceptionsHandler(actions=errors_on_call())
     def post(self, request, alias):

@@ -74,8 +74,8 @@ class AnalyzersList(View):
             "user": user,
             "config": config,
             "tokenizer": tokenizer,
-            "alias": Alias.custom_create(model_name="Analyzer", handle=alias)
-            }
+            "alias": Alias.custom_create(model_name="Analyzer", handle=alias)}
+
         return Analyzer.create_with_response(request, clean_my_obj(defaults), filters)
 
 

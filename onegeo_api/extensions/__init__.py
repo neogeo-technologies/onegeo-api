@@ -28,15 +28,15 @@ def input_parser(f):
 
 class AbstractPlugin(metaclass=ABCMeta):
 
-    def __init__(self, config, contexts, **kwargs):
+    def __init__(self, config, index_profiles, **kwargs):
         self.config = config
-        self.contexts = contexts
+        self.index_profiles = index_profiles
 
         self.columns_by_index = {}
-        for context in self.contexts:
-            self.columns_by_index[context.name] = tuple(
+        for index_profile in self.index_profiles:
+            self.columns_by_index[index_profile.name] = tuple(
                     (p['alias'] and p['alias'] or p['name'], p['type'])
-                    for p in context.clmn_properties if not p['rejected'])
+                    for p in index_profile.clmn_properties if not p['rejected'])
 
         self.qs = []
         for find in findall('\{\%\w+\%\}', dumps(self.config)):
@@ -55,8 +55,8 @@ class AbstractPlugin(metaclass=ABCMeta):
 
 class Plugin(AbstractPlugin):
 
-    def __init__(self, config, contexts, **kwargs):
-        super().__init__(config, contexts, **kwargs)
+    def __init__(self, config, index_profiles, **kwargs):
+        super().__init__(config, index_profiles, **kwargs)
 
     @input_parser
     def input(self, **params):

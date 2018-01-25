@@ -86,7 +86,7 @@ class BasicAuth(object):
 
         response = HttpResponse()
         response.status_code = 401
-        response['WWW-Authenticate'] = 'Basic realm="Basic Auth Protected"'
+        # response['WWW-Authenticate'] = 'Basic realm="Basic Auth Protected"'
         return response
 
     def __call__(self, f):

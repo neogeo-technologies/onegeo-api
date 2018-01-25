@@ -5,10 +5,10 @@ from onegeo_api.views.action import AliasDetail
 from onegeo_api.views.action import Bulk
 from onegeo_api.views.analyzer import AnalyzersDetail
 from onegeo_api.views.analyzer import AnalyzersList
-from onegeo_api.views.context import ContextsDetail
-from onegeo_api.views.context import ContextsList
-from onegeo_api.views.context import ContextsTasksDetail
-from onegeo_api.views.context import ContextsTasksList
+from onegeo_api.views.index_profile import IndexProfilesDetail
+from onegeo_api.views.index_profile import IndexProfilesList
+from onegeo_api.views.index_profile import IndexProfilesTasksDetail
+from onegeo_api.views.index_profile import IndexProfilesTasksList
 from onegeo_api.views.filter import TokenFiltersDetail
 from onegeo_api.views.filter import TokenFiltersList
 from onegeo_api.views.main import Directories, SupportedModes
@@ -32,10 +32,10 @@ urlpatterns = [
     url(r'^action/?$', Action.as_view(), name="action"),
     url(r'^analyzers/(?P<alias>\S+)/?$', AnalyzersDetail.as_view(), name="analyzers_detail"),
     url(r'^analyzers/?$', AnalyzersList.as_view(), name="analyzers_list"),
-    url(r'^indexes/(\S+)/tasks/?$', ContextsTasksList.as_view(), name="indexes_task_view_list"),
-    url(r'^indexes/(\S+)/tasks/(\d+)/?$', ContextsTasksDetail.as_view(), name="indexes_task_view_detail"),
-    url(r'^indexes/(?P<alias>\S+)/?$', ContextsDetail.as_view(), name="indexes_detail"),
-    url(r'^indexes/?$', ContextsList.as_view(), name="indexes_list"),
+    url(r'^indexes/(\S+)/tasks/?$', IndexProfilesTasksList.as_view(), name="indexes_task_view_list"),
+    url(r'^indexes/(\S+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name="indexes_task_view_detail"),
+    url(r'^indexes/(?P<alias>\S+)/?$', IndexProfilesDetail.as_view(), name="indexes_detail"),
+    url(r'^indexes/?$', IndexProfilesList.as_view(), name="indexes_list"),
     url(r'^services/(?P<alias>\S+)/search/?$', Search.as_view(), name="seamod_detail_search"),
     url(r'^services/(?P<alias>\S+)/?$', SearchModelsDetail.as_view(), name="seamod_detail"),
     url(r'^services/?$', SearchModelsList.as_view(), name="seamod_list"),

@@ -4,7 +4,7 @@ from django.test import tag
 from django.test import TestCase
 
 from onegeo_api.models import Alias
-from onegeo_api.models import Context
+from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import Source
 from onegeo_api.models import Task
@@ -59,23 +59,23 @@ class BasicAuthTest(ApiItemsMixin, TestCase):
         response = self.client.post("/action", data=json.dumps(body), content_type="application/json")
         self.assertEqual(response.status_code, 401)
 
-    def test_login_context_detail_task_view_list(self):
+    def test_login_index_profile_detail_task_view_list(self):
         response = self.client.get("/indexes/abc123abc/tasks/")
         self.assertEqual(response.status_code, 401)
 
-    def test_login_context_detail_task_view_detail(self):
+    def test_login_index_profile_detail_task_view_detail(self):
         response = self.client.get("/indexes/abc123abc/tasks/1/")
         self.assertEqual(response.status_code, 401)
 
-    def test_login_context_detail(self):
+    def test_login_index_profile_detail(self):
         response = self.client.get("/indexes/abc123")
         self.assertEqual(response.status_code, 401)
 
-    def test_login_context_list(self):
+    def test_login_index_profile_list(self):
         response = self.client.get("/indexes/")
         self.assertEqual(response.status_code, 401)
 
-    def test_login_context_create(self):
+    def test_login_index_profile_create(self):
         body = {
             "name": "ctx_radie1",
             "resource": "/sources/123a465b/resources/123a465b"
@@ -162,7 +162,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             response = self.client.get("/alias/{}".format(alias))
             self.assertEqual(response.status_code, 403)
 
-        def test_create_source_resource_context(self):
+        def test_create_source_resource_index_profile(self):
 
             body = {
                 "uri": "file:///LYVIA",
@@ -176,13 +176,13 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             location = search('^http://testserver/sources/(\S+)$', response._headers.get("location")[1])
             src_alias = location.group(1)
 
-            # Create contexts from related resources
+            # Create IndexProfiles from related resources
             response = self.client.get("/sources/{}/resources".format(src_alias))
             resources_list = response.json()
             for idx, res in enumerate(resources_list):
-                ctx_alias = "context_alias_{}".format(idx)
+                ctx_alias = "index_profile_alias_{}".format(idx)
                 data = {
-                    "name": "context_test_{}".format(idx),
+                    "name": "index_profile_test_{}".format(idx),
                     "alias": ctx_alias,
                     "resource": res.get("location")
                     }
@@ -262,7 +262,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
 
             source_still_exists = Source.objects.filter(alias__handle=alias).exists()
             alias_still_exists = Alias.objects.filter(handle=alias, model_name="Source").exists()
-            task_still_exists = Task.objects.filter(model_type="Source", model_type_alias=alias).exists()
+            task_still_exists = Task.objects.filter(alias__handle=alias).exists()
             self.assertEqual(source_still_exists, False)
             self.assertEqual(alias_still_exists, False)
             self.assertEqual(task_still_exists, False)
@@ -287,7 +287,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
 
             source_still_exists = Source.objects.filter(alias__handle=alias).exists()
             alias_still_exists = Alias.objects.filter(handle=alias, model_name="Source").exists()
-            task_still_exists = Task.objects.filter(model_type="Source", model_type_alias=alias).exists()
+            task_still_exists = Task.objects.filter(alias__handle=alias).exists()
 
             self.assertEqual(source_still_exists, True)
             self.assertEqual(alias_still_exists, True)
@@ -295,7 +295,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
 
 
 @tag('authentified')
-class ContextTestAuthent(ApiItemsMixin, TestCase):
+class IndexProfileTestAuthent(ApiItemsMixin, TestCase):
 
         def setUp(self):
             self.create_users()
@@ -303,29 +303,29 @@ class ContextTestAuthent(ApiItemsMixin, TestCase):
             self.resource2 = Resource.objects.filter(source=self.source2).last()
             self.basic_auth(self.client, 'user1:passpass')
 
-        def test_context_create_and_update(self):
+        def test_index_profile_create_and_update(self):
             # Create
             data = {
-                "name": "context_test2",
+                "name": "index_profile_test2",
                 "resource": "/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)
                 }
             response = self.client.post("/indexes", data=json.dumps(data), content_type="application/json")
             self.assertEqual(response.status_code, 201)
 
-            # get detailed context
+            # get detailed IndexProfile
             location = search('^http://testserver/indexes/(\S+)$', response._headers.get("location")[1])
             alias = location.group(1)
 
             # Update
             response = self.client.get("/indexes")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json()[0]['name'], "context_test2")
+            self.assertEqual(response.json()[0]['name'], "index_profile_test2")
 
-            self.context = Context.objects.get(alias=alias)
+            self.index_profile = IndexProfile.objects.get(alias=alias)
             updated_alias = "updated_alias"
 
             data = {
-                "location": "/indexes/{}".format(self.context.alias),
+                "location": "/indexes/{}".format(self.index_profile.alias),
                 "alias": updated_alias,
                 "resource": "/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle),
                 "reindex_frequency": "monthly",
@@ -347,7 +347,7 @@ class ContextTestAuthent(ApiItemsMixin, TestCase):
                         "name": "data"
                         }
                     ],
-                "name": "context_test2"
+                "name": "index_profile_test2"
                 }
 
             response = self.client.put("/indexes/{}".format(alias), data=json.dumps(data), content_type="application/json")
@@ -359,9 +359,9 @@ class ContextTestAuthent(ApiItemsMixin, TestCase):
             response = self.client.get("/alias/{}".format(updated_alias))
             self.assertEqual(response.status_code, 302)
 
-        def test_context_create_and_delete(self):
+        def test_index_profile_create_and_delete(self):
             data = {
-                "name": "context_test2",
+                "name": "index_profile_test2",
                 "resource": "/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)
                 }
             response = self.client.post("/indexes", data=json.dumps(data), content_type="application/json")

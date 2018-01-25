@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.models import Group
 
 
-from onegeo_api.models import Context
+from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Source
@@ -11,8 +11,8 @@ from onegeo_api.models import Source
 admin.site.unregister(Group)
 
 
-@admin.register(Context)
-class ContextAdmin(admin.ModelAdmin):
+@admin.register(IndexProfile)
+class IndexProfileAdmin(admin.ModelAdmin):
     list_display = ['name']
     ordering = ['name']
 

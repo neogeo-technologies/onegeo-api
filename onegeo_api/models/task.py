@@ -9,13 +9,12 @@ from onegeo_api.utils import clean_my_obj
 
 class Task(models.Model):
     T_L = (("Source", "Source"),
-           ("Context", "Context"))
+           ("IndexProfile", "IndexProfile"))
 
     start_date = models.DateTimeField("Start", auto_now_add=True)
     stop_date = models.DateTimeField("Stop", null=True, blank=True)
     success = models.NullBooleanField("Success")
-    model_type = models.CharField("Model relation type", choices=T_L, max_length=250)
-    model_type_alias = models.CharField("Alias model relation", max_length=250, default=None)
+    alias = models.OneToOneField("onegeo_api.Alias", on_delete=models.CASCADE)
     description = models.CharField("Description", max_length=250)
 
     # FK & alt

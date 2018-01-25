@@ -11,8 +11,8 @@ from django.views.generic import View
 from django.shortcuts import redirect
 from django.urls import reverse
 
-# from onegeo_manager.context import Context as OnegeoContext
-# from onegeo_manager.context import PropertyColumn as OnegeoPropertyColumn
+# from onegeo_manager.IndexProfile import IndexProfile as OnegeoIndexProfile
+# from onegeo_manager.IndexProfile import PropertyColumn as OnegeoPropertyColumn
 # from onegeo_manager.index import Index as OnegeoIndex
 # from onegeo_manager.resource import Resource as OnegeoResource
 # from onegeo_manager.source import Source as OnegeoSource
@@ -21,7 +21,7 @@ from django.urls import reverse
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
-from onegeo_api.models import Context
+from onegeo_api.models import IndexProfile
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import slash_remove
@@ -75,10 +75,10 @@ class Action(View):
     #
     #     return analysis
     #
-    # def _retreive_analyzers(self, context):
+    # def _retreive_analyzers(self, IndexProfile):
     #
     #     analyzers = []
-    #     for prop in context.iter_properties():
+    #     for prop in IndexProfile.iter_properties():
     #         if prop.analyzer not in analyzers:
     #             analyzers.append(prop.analyzer)
     #         if prop.search_analyzer not in analyzers:
@@ -93,21 +93,24 @@ class Action(View):
         user = request.user
 
         data = json.loads(request.body.decode("utf-8"))
-        ctx_alias = data.get("index")
-        if not ctx_alias:
-            data = {"error": "L'identifiant du context est manquant "}
+        index_profile_alias = data.get("index")
+        if not index_profile_alias:
+            data = {"error": "L'identifiant du IndexProfile est manquant "}
             return JsonResponse(data, status=400)
 
-        context = Context.get_with_permission(ctx_alias, request.user)
+        index_profile = IndexProfile.get_with_permission(
+            index_profile_alias, request.user)
 
-        filters = {"model_type": "Context", "model_type_alias": context.alias.handle, "user": user}
+        filters = {
+            "alias": index_profile.alias,
+            "user": user}
         last = Task.objects.filter(**filters).order_by("start_date").last()
         if last and last.success is None:
             data = {"error": "Une autre tâche est en cours d'exécution. "
                              "Veuillez réessayer plus tard. "}
             return JsonResponse(data, status=423)
 
-        # # TODO(mmeliani): relation entre context et Resource
+        # # TODO(mmeliani): relation entre IndexProfile et Resource
         # action = data["type"]
 
         # rscr = ctx.resource
@@ -127,28 +130,28 @@ class Action(View):
         #         rule="rule" in column and column["rule"] or None)
         #
         # onegeo_index = OnegeoIndex(rscr.name)
-        # onegeo_context = OnegeoContext(ctx.name, onegeo_index, onegeo_resource)
+        # onegeo_IndexProfile = OnegeoIndexProfile(ctx.name, onegeo_index, onegeo_resource)
         #
         # for col_property in iter(ctx.clmn_properties):
-        #     context_name = col_property.pop('name')
-        #     onegeo_context.update_property(
-        #         context_name, 'alias', col_property['alias'])
-        #     onegeo_context.update_property(
-        #         context_name, 'type', col_property['type'])
-        #     onegeo_context.update_property(
-        #         context_name, 'pattern', col_property['pattern'])
-        #     onegeo_context.update_property(
-        #         context_name, 'occurs', col_property['occurs'])
-        #     onegeo_context.update_property(
-        #         context_name, 'rejected', col_property['rejected'])
-        #     onegeo_context.update_property(
-        #         context_name, 'searchable', col_property['searchable'])
-        #     onegeo_context.update_property(
-        #         context_name, 'weight', col_property['weight'])
-        #     onegeo_context.update_property(
-        #         context_name, 'analyzer', col_property['analyzer'])
-        #     onegeo_context.update_property(
-        #         context_name, 'search_analyzer', col_property['search_analyzer'])
+        #     IndexProfile_name = col_property.pop('name')
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'alias', col_property['alias'])
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'type', col_property['type'])
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'pattern', col_property['pattern'])
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'occurs', col_property['occurs'])
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'rejected', col_property['rejected'])
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'searchable', col_property['searchable'])
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'weight', col_property['weight'])
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'analyzer', col_property['analyzer'])
+        #     onegeo_IndexProfile.update_property(
+        #         IndexProfile_name, 'search_analyzer', col_property['search_analyzer'])
         #
         # opts = {}
         #
@@ -158,23 +161,23 @@ class Action(View):
         #     opts.update({"pipeline": pipeline})
         #
         # if action == "rebuild":
-        #     opts.update({"collections": onegeo_context.get_collection()})
+        #     opts.update({"collections": onegeo_IndexProfile.get_collection()})
         #
         # if action == "reindex":
         #     pass  # Action par défaut
         #
         # # TODO(mmeliani): check _retreive_analysis() & _retreive_analyzers
         # empty_data = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
-        # body = {'mappings': onegeo_context.generate_elastic_mapping(),
+        # body = {'mappings': onegeo_IndexProfile.generate_elastic_mapping(),
         #         'settings': {'analysis': empty_data}}
         #             # 'analysis': self._retreive_analysis(
-        #             #     self._retreive_analyzers(onegeo_context))}}
+        #             #     self._retreive_analyzers(onegeo_IndexProfile))}}
         #
         # index_uuid = str(uuid4())[0:7]
         #
         # description = ("Les données sont en cours d'indexation "
         #                "(id de l'index: '{0}'). ").format(index_uuid)
-        # tsk = Task.objects.create(model_type="Context", description=description,
+        # tsk = Task.objects.create(model_type="IndexProfile", description=description,
         #                           user=user, model_type_id=ctx.uuid)
         #
         # def on_index_error(desc):
@@ -216,7 +219,7 @@ class AliasDetail(View):
             "Analyzer": "onegeo_api:analyzers_detail",
             "Source": "onegeo_api:sources_detail",
             "Resource": "onegeo_api:resources_detail",
-            "Context": "onegeo_api:indexes_detail",
+            "IndexProfile": "onegeo_api:indexes_detail",
             "Filter": "onegeo_api:tokenfilters",
             "Tokenizer": "onegeo_api:tokenizer",
             "SearchModel": "onegeo_api:seamod_detail"
@@ -263,6 +266,6 @@ class Bulk(View):
                 # sources / resources
                 for source in post_requested.get("sources", []):
                     print(source)
-            # contexts
+            # IndexProfiles
 
             return JsonResponse({}, status=200)

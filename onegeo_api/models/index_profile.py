@@ -14,7 +14,7 @@ from onegeo_api.utils import slash_remove
 # from onegeo_api.elasticsearch_wrapper import elastic_conn
 
 
-class Context(AbstractModelProfile):
+class IndexProfile(AbstractModelProfile):
 
     RF_L = (
         ("daily", "daily"),
@@ -26,27 +26,27 @@ class Context(AbstractModelProfile):
                                          default="monthly", max_length=250)
 
     class Meta:
-        verbose_name = "Contexte"
+        verbose_name = "Profil d'indexation"
 
     def save(self, *args, **kwargs):
 
-        kwargs['model_name'] = 'Context'
+        kwargs['model_name'] = 'IndexProfile'
 
         SearchModel = apps.get_model(app_label='onegeo_api', model_name='SearchModel')
         if SearchModel.objects.filter(name=self.name).exists():
-            raise ValidationError("Un contexte d'indexation ne peut avoir "
+            raise ValidationError("Un profile d'indexation ne peut avoir "
                                   "le même nom qu'un modèle de recherche.")
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-        Task.objects.filter(model_type_alias=self.alias.handle, model_type="Context").delete()
+        Task.objects.filter(alias__handle=self.alias.handle).delete()
         # elastic_conn.delete_index_by_alias(instance.name) #Erreur sur l'attribut indices à None
         return super().delete(*args, **kwargs)
 
     @property
     def resource(self):
-        return self.resource_set.get(context=self)
+        return self.resource_set.get(index_profile=self)
 
     def update_clmn_properties(self, list_ppt_clt):
         for ppt in self.clmn_properties:
@@ -59,9 +59,9 @@ class Context(AbstractModelProfile):
         try:
             instance = cls.objects.get(alias__handle=alias)
         except cls.DoesNotExist:
-            raise Http404("Aucun context d'indexation ne correspond à votre requête")
+            raise Http404("Aucun profile d'indexation ne correspond à votre requête")
         if instance.user != user:
-            raise PermissionDenied("Vous n'avez pas la permission d'accéder à ce contexte d'indexation")
+            raise PermissionDenied("Vous n'avez pas la permission d'accéder à ce profile d'indexation")
         return instance
 
     @property
@@ -79,14 +79,14 @@ class Context(AbstractModelProfile):
     @classmethod
     def list_renderer(cls, user):
         instances = cls.objects.filter(user=user)
-        return [context.detail_renderer for context in instances]
+        return [index_profile.detail_renderer for index_profile in instances]
 
     @classmethod
     def create_with_response(cls, request, defaults, resource):
 
-        instance = Context.objects.create(**defaults)
+        instance = IndexProfile.objects.create(**defaults)
 
-        resource.context = instance
+        resource.index_profile = instance
         try:
             resource.save()
         except Exception as e:

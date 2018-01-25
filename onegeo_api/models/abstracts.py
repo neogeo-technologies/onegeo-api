@@ -15,7 +15,7 @@ class Alias(models.Model):
     """
     MODELS_CHOICES = (
         ('Analyzer', 'Analyzer'),
-        ('Context', 'Context'),
+        ('IndexProfile', 'IndexProfile'),
         ('Filter', 'Filter'),
         ('Resource', 'Resource'),
         ('SearchModel', 'SearchModel'),
@@ -106,14 +106,6 @@ class AbstractModelAnalyzis(models.Model):
 
     @property
     def delete_with_response(self):
-        raise NotImplemented
-
-    @classmethod
-    def custom_filter(cls, *args, **kwargs):
-        raise NotImplemented
-
-    @classmethod
-    def get_from_name(cls, *args, **kwargs):
         raise NotImplemented
 
     @classmethod

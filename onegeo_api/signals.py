@@ -7,7 +7,7 @@ from django.utils import timezone
 from onegeo_api.models import Analyzer
 from onegeo_api.models import Filter
 from onegeo_api.models import Tokenizer
-from onegeo_api.models import Context
+from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Source
@@ -40,8 +40,8 @@ def on_post_save_source(sender, instance, *args, **kwargs):
                    "Cette opération peut prendre plusieurs minutes. ")
 
     tsk = Task.objects.create(
-        model_type="Source", user=instance.user,
-        model_type_alias=instance.alias.handle, description=description)
+        user=instance.user,
+        alias=instance.alias, description=description)
     create_resources_with_log(instance, tsk)
     # TODO: Mis en echec des test lors de l'utilisation de thread
     # thread = Thread(target=create_resources, args=(instance, tsk))
@@ -54,7 +54,7 @@ def on_post_save_source(sender, instance, *args, **kwargs):
 @receiver(post_delete, sender=Tokenizer)
 @receiver(post_delete, sender=Source)
 @receiver(post_delete, sender=Resource)
-@receiver(post_delete, sender=Context)
+@receiver(post_delete, sender=IndexProfile)
 def delete_related_alias(sender, instance, **kwargs):
     if instance.alias:
         instance.alias.delete()

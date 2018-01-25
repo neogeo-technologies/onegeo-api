@@ -35,7 +35,7 @@ class Source(AbstractModelProfile):
 
     def delete(self, *args, **kwargs):
         Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-        Task.objects.filter(model_type_alias=self.alias.handle, model_type="Source").delete()
+        Task.objects.filter(alias=self.alias).delete()
         Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
         Resource.objects.filter(source=self).delete()
         return super().delete(*args, **kwargs)

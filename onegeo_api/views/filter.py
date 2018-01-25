@@ -81,7 +81,7 @@ class TokenFiltersDetail(View):
 
         if new_alias:
             if not Alias.updating_is_allowed(new_alias, instance.alias.handle):
-                return JsonResponse({"error": "Echec de la création du contexte d'indexation. L'alias existe déjà. "}, status=409)
+                return JsonResponse({"error": "Echec de la création du IndexProfilee d'indexation. L'alias existe déjà. "}, status=409)
             instance.alias.update_handle(new_alias)
 
         instance.update(config=config)
