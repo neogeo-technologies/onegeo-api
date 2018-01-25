@@ -46,7 +46,6 @@ class Source(AbstractModelProfile):
 
     class Meta:
         verbose_name = "Source"
-        unique_together = (("uri", "user"), )
 
     @property
     def s_uri(self):

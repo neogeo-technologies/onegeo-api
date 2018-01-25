@@ -36,8 +36,8 @@ class SourcesList(View):
     @ContentTypeLookUp()
     @ExceptionsHandler(actions=errors_on_call())
     def post(self, request):
-        user = request.user
 
+        user = request.user
         data = request.body.decode('utf-8')
         body_data = json.loads(data)
 
