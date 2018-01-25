@@ -69,7 +69,7 @@ class IndexProfilesList(View):
             return JsonResponse({"error": "Echec de création du IndexProfilee d'indexation. "
                                           "Les identifiants des source et ressource sont erronées. "}, status=400)
 
-        onegeo_source = OnegeoSource(source.uri, name, source.mode)
+        onegeo_source = OnegeoSource(source.uri, name, source.protocol)
         onegeo_resource = OnegeoResource(onegeo_source, resource.name)
         for col in iter(resource.columns):
             if onegeo_resource.is_existing_column(col["name"]):
@@ -178,8 +178,7 @@ class IndexProfilesTasksList(View):
 
         index_profile = IndexProfile.get_with_permission(slash_remove(alias), request.user)
         defaults = {
-            "model_type": "IndexProfile",
-            "model_type_alias": index_profile.alias.handle,
+            "alias": index_profile.alias,
             "user": request.user
             }
 

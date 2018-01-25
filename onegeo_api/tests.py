@@ -272,8 +272,8 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             body = {
                 "uri": "file:///LYVIA",
                 "protocol": "pdf",
-                "name": "lyvia"
-                }
+                "name": "lyvia"}
+
             response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
             self.assertEqual(response.status_code, 201)
             location = search('^http://testserver/sources/(\S+)$', response._headers.get("location")[1])
@@ -321,7 +321,7 @@ class IndexProfileTestAuthent(ApiItemsMixin, TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()[0]['name'], "index_profile_test2")
 
-            self.index_profile = IndexProfile.objects.get(alias=alias)
+            self.index_profile = IndexProfile.objects.get(alias__handle=alias)
             updated_alias = "updated_alias"
 
             data = {

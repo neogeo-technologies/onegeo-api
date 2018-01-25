@@ -16,11 +16,11 @@ from onegeo_api.utils import slash_remove
 from onegeo_api.utils import errors_on_call
 
 
-def is_valid_uri_for_given_mode(uri, mode):
+def is_valid_uri_for_given_protocol(uri, protocol):
     # TODO: Utiliser des expressions régulières mais la flemme dans l'immédiat
-    if mode == "pdf" and uri[0:7] == "file://":
+    if protocol == "pdf" and uri[0:7] == "file://":
         return True
-    if mode in ("wfs", "geonet") and uri[0:8] in ("https://", "http://"):
+    if protocol in ("wfs", "geonet") and uri[0:8] in ("https://", "http://"):
         return True
     return False
 
@@ -46,7 +46,7 @@ class SourcesList(View):
             data = {"error": "Echec de création de la source. "
                              "Le chemin d'accès à la source est manquant. "}
             field_missing = True
-        if "mode" not in body_data:
+        if "protocol" not in body_data:
             data = {"error": "Echec de création de la source. "
                              "Le type de la source est manquant. "}
             field_missing = True
@@ -66,13 +66,13 @@ class SourcesList(View):
         #     return JsonResponse({"error": "Echec de création de la source. "
         #                                   "Une source portant le même nom existe déjà. "}, status=409)
 
-        if not is_valid_uri_for_given_mode(body_data["uri"], body_data["mode"]):
+        if not is_valid_uri_for_given_protocol(body_data["uri"], body_data["protocol"]):
             return JsonResponse({"error": "Echec de création de la source. "
                                           "L'uri est incorrecte. "},
                                 status=400)
-        mode = body_data.get("mode")
+        protocol = body_data.get("protocol")
         uri = body_data.get("uri")
-        if mode == 'pdf':
+        if protocol == 'pdf':
             uri = check_uri(uri)
             if uri is None:
                 data = {"error": "Echec de création de la source. "
@@ -90,7 +90,7 @@ class SourcesList(View):
         defaults = {
             'user': user,
             'name': name,
-            'mode': mode,
+            'protocol': protocol,
             'alias': Alias.custom_create(model_name="Source", handle=alias),
             'uri': uri
             }
@@ -104,7 +104,6 @@ class SourcesDetail(View):
     @ExceptionsHandler(
         actions=errors_on_call())
     def get(self, request, alias):
-        import pdb; pdb.set_trace()
         source = Source.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(source.detail_renderer, safe=False)
 
