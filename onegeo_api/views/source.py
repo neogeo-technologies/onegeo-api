@@ -78,10 +78,10 @@ class SourcesList(View):
                 data = {"error": "Echec de création de la source. "
                                  "Le chemin d'accès à la source est incorrect. "}
                 return JsonResponse(data, status=400)
-        if Source.objects.filter(uri=uri, user=user).exists():
-            data = {"error": "Echec de création de la source. "
-                             "Un usager ne peut pas définir deux sources avec le même chemin d'accés. "}
-            return JsonResponse(data, status=400)
+        # if Source.objects.filter(uri=uri, user=user).exists():
+        #     data = {"error": "Echec de création de la source. "
+        #                      "Un usager ne peut pas définir deux sources avec le même chemin d'accés. "}
+        #     return JsonResponse(data, status=400)
 
         alias = body_data.get('alias')
         if alias and Alias.objects.filter(handle=alias).exists():

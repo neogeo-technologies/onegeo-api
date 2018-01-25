@@ -115,7 +115,7 @@ class AbstractModelAnalyzis(models.Model):
 
 class AbstractModelProfile(models.Model):
 
-    name = models.CharField("Name", max_length=250, unique=True)
+    name = models.CharField("Name", max_length=250)
     user = models.ForeignKey(User, blank=True, null=True)
 
     alias = models.OneToOneField("Alias", on_delete=models.CASCADE)
