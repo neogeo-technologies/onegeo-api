@@ -145,7 +145,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
 
             body = {
                 "uri": "file:///LYVIA",
-                "mode": "pdf",
+                "protocol": "pdf",
                 "name": "lyvia",
                 "alias": "lyvia_is_source"
                 }
@@ -166,7 +166,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
 
             body = {
                 "uri": "file:///LYVIA",
-                "mode": "pdf",
+                "protocol": "pdf",
                 "name": "lyvia",
                 "alias": "lyvia_is_source"
                 }
@@ -203,7 +203,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
 
             body = {
                 "uri": "file:///LYVIA",
-                "mode": "pdf",
+                "protocol": "pdf",
                 "name": "lyvia"
                 }
             response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
@@ -217,7 +217,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
 
             body = {
                 "uri": "file:///LYVIA",
-                "mode": "pdf",
+                "protocol": "pdf",
                 "name": "lyvia",
                 "alias": "lyvia_is_source"
                 }
@@ -236,7 +236,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
         def test_create_source_uri_repetitas(self):
             body = {
                 "uri": "file:///RAAD",
-                "mode": "pdfo",
+                "protocol": "pdfo",
                 "name": "raado"
                 }
             response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")
@@ -249,7 +249,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             alias = "lyvia_is_source"
             body = {
                 "uri": "file:///LYVIA",
-                "mode": "pdf",
+                "protocol": "pdf",
                 "name": "lyvia",
                 "alias": alias
                 }
@@ -271,7 +271,7 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
 
             body = {
                 "uri": "file:///LYVIA",
-                "mode": "pdf",
+                "protocol": "pdf",
                 "name": "lyvia"
                 }
             response = self.client.post("/sources", data=json.dumps(body), content_type="application/json")

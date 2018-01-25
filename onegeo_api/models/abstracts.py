@@ -30,7 +30,7 @@ class Alias(models.Model):
     def save(self, *args, **kwargs):
         # Si creation sans alias depuis les modeles.
         if not self.handle:
-            self.handle = str(self.uuid)
+            self.handle = str(self.uuid)[:7]
         return super().save(*args, **kwargs)
 
     @classmethod

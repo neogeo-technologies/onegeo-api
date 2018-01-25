@@ -62,9 +62,9 @@ class SourcesList(View):
             return JsonResponse({"error": "Echec de création de la source. "
                                           "Le nom de la source est incorrect. "},
                                 status=400)
-        if Source.objects.filter(name=name).exists():
-            return JsonResponse({"error": "Echec de création de la source. "
-                                          "Une source portant le même nom existe déjà. "}, status=409)
+        # if Source.objects.filter(name=name).exists():
+        #     return JsonResponse({"error": "Echec de création de la source. "
+        #                                   "Une source portant le même nom existe déjà. "}, status=409)
 
         if not is_valid_uri_for_given_mode(body_data["uri"], body_data["mode"]):
             return JsonResponse({"error": "Echec de création de la source. "
@@ -104,6 +104,7 @@ class SourcesDetail(View):
     @ExceptionsHandler(
         actions=errors_on_call())
     def get(self, request, alias):
+        import pdb; pdb.set_trace()
         source = Source.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(source.detail_renderer, safe=False)
 

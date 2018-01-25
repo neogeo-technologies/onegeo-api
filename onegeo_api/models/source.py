@@ -18,7 +18,7 @@ class Source(AbstractModelProfile):
               ("pdf", "Répertoire contenant des fichiers PDF"),
               ("wfs", "Service OGC:WFS"))
 
-    mode = models.CharField("Mode", choices=MODE_L, default="pdf", max_length=250)
+    protocol = models.CharField("Protocole", choices=MODE_L, default="pdf", max_length=250)
     uri = models.CharField("URI", max_length=2048)
 
     def __init__(self, *args, **kwargs):
@@ -28,9 +28,9 @@ class Source(AbstractModelProfile):
     def save(self, *args, **kwargs):
         kwargs['model_name'] = 'Source'
 
-        if self.mode == 'pdf' and not does_file_uri_exist(str(self.uri)):
+        if self.protocol == 'pdf' and not does_file_uri_exist(str(self.uri)):
             raise Exception()  # TODO
-        self.__src = OnegeoSource(self.uri, self.name, self.mode)
+        self.__src = OnegeoSource(self.uri, self.name, self.protocol)
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -50,7 +50,7 @@ class Source(AbstractModelProfile):
 
     @property
     def s_uri(self):
-        if self.mode == "pdf":
+        if self.protocol == "pdf":
             dir_name = search("(\S+)/(\S+)", str(self.uri))
             return "file:///{}".format(dir_name.group(2))
         return self.uri
@@ -58,7 +58,7 @@ class Source(AbstractModelProfile):
     @property
     def detail_renderer(self):
         return clean_my_obj({"uri": self.s_uri,
-                             "mode": self.mode,
+                             "protocol": self.protocol,
                              "name": self.name,
                              "alias": self.alias.handle,
                              "location": "/sources/{}".format(self.alias.handle)})
