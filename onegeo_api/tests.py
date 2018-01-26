@@ -390,8 +390,6 @@ class IndexProfileTestAuthent(ApiItemsMixin, TestCase):
             self.assertEqual(response.status_code, 200)
             response = self.client.delete("/indexes/{}".format(alias))
             self.assertEqual(response.status_code, 204)
-            response = self.client.get("/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle))
-            self.assertEqual(response.status_code, 200)
 
 
 @tag('authentified')

@@ -4,10 +4,8 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
 from django.http import JsonResponse
 from django.http import Http404
-from django.shortcuts import get_object_or_404
 from importlib import import_module
 
 from onegeo_api.exceptions import MultiTaskError
@@ -24,13 +22,7 @@ class SearchModel(AbstractModelProfile):
     index_profiles = models.ManyToManyField("onegeo_api.IndexProfile")
 
     def save(self, *args, **kwargs):
-
         kwargs['model_name'] = 'SearchModel'
-
-        # IndexProfile = apps.get_model(app_label='onegeo_api', model_name='IndexProfile')
-        # if IndexProfile.objects.filter(name=self.name).exists():
-        #     raise ValidationError("Un modèle de recherche ne peut avoir "
-        #                           "le même nom qu'un profil d'indexation.")
         return super().save(*args, **kwargs)
 
     @classmethod
@@ -59,7 +51,7 @@ class SearchModel(AbstractModelProfile):
             "name": self.name,
             "alias": self.alias.handle,
             "config": self.config,
-            "indexes": [ctx.alias.handle for ctx in self.index_profiles.all()]}
+            "indexes": ["/indexes/{}".format(ctx.alias.handle) for ctx in self.index_profiles.all()]}
 
         try:
             ext = import_module('onegeo_api.extensions.{0}'.format(self.name), __name__)
