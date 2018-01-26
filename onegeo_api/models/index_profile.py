@@ -1,6 +1,5 @@
 from django.apps import apps
 from django.contrib.postgres.fields import JSONField
-from django.core.exceptions import ValidationError
 from django.core.exceptions import PermissionDenied
 from django.db import models
 

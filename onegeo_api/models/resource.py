@@ -46,7 +46,7 @@ class Resource(AbstractModelProfile):
         d = {"location": "/sources/{}/resources/{}".format(self.source.alias.handle, self.alias.handle),
              "name": self.name,
              "alias": self.alias.handle,
-             "indexes": [index_profile.detail_renderer.get("location", "") for index_profile in self.indexes],
+             "indexes": ["/indexes/{}".format(index_profile.alias.handle) for index_profile in self.indexes],
              "columns": self.columns}
 
         return clean_my_obj(d)
