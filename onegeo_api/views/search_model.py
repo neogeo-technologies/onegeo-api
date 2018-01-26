@@ -1,6 +1,8 @@
 from base64 import b64decode
 from importlib import import_module
+from re import search
 import json
+
 from requests.exceptions import HTTPError  # TODO
 
 from django.core.exceptions import ValidationError
@@ -99,7 +101,9 @@ def get_index_profile_obj(index_profiles_clt, user):
     index_profiles_obj = []
     for index_profile_name in index_profiles_clt:
         try:
-            index_profile = IndexProfile.objects.get(name=index_profile_name)
+            data = search('^/indexes/(\S+)$', index_profile_name)
+            alias_handle = data.group(1)
+            index_profile = IndexProfile.objects.get(alias__handle=alias_handle)
         except IndexProfile.DoesNotExist:
             raise
         try:
@@ -123,6 +127,7 @@ class SearchModelsList(View):
     @ExceptionsHandler(
         actions=errors_on_call())
     def post(self, request):
+        import pdb; pdb.set_trace()
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
         name = read_name(data)
@@ -136,10 +141,12 @@ class SearchModelsList(View):
         index_profiles = data.get("indexes", [])
         config = data.get("config", {})
 
-        search_model, created = SearchModel.objects.get_or_create(
-            name=name, defaults={"user": user, "config": config})
-        if not created:
-            return JsonResponse(data={"error": "Conflict"}, status=409)
+        defaults = {
+            "name": name,
+            "user": user,
+            "config": config}
+
+        search_model = SearchModel.objects.create(**defaults)
 
         try:
             index_profiles_obj = get_index_profile_obj(index_profiles, user)
@@ -154,7 +161,7 @@ class SearchModelsList(View):
                     "Une autre tâche est en cours d'exécution. "
                     "Veuillez réessayer plus tard. "}, status=423)
 
-        search_model.index_profile.set(index_profiles_obj)
+        search_model.index_profiles.set(index_profiles_obj)
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())
         response['Location'] = '{0}/{1}'.format(uri, search_model.alias.handle)
