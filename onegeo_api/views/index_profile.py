@@ -36,7 +36,6 @@ class IndexProfilesList(View):
     @ExceptionsHandler(
         actions=errors_on_call())
     def post(self, request):
-        import pdb; pdb.set_trace()
         user = request.user
         body_data = json.loads(request.body.decode('utf-8'))
         if not body_data.get('name'):
@@ -177,7 +176,6 @@ class IndexProfilesTasksList(View):
     @BasicAuth()
     @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, alias):
-        import pdb; pdb.set_trace()
         index_profile = IndexProfile.get_with_permission(slash_remove(alias), request.user)
         defaults = {
             "alias": index_profile.alias,

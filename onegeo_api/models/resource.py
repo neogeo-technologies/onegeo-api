@@ -43,7 +43,6 @@ class Resource(AbstractModelProfile):
 
     @property
     def detail_renderer(self):
-        # import pdb; pdb.set_trace()
         d = {"location": "/sources/{}/resources/{}".format(self.source.alias.handle, self.alias.handle),
              "name": self.name,
              "alias": self.alias.handle,
