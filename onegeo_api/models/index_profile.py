@@ -24,6 +24,7 @@ class IndexProfile(AbstractModelProfile):
     clmn_properties = JSONField("Columns")
     reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L,
                                          default="monthly", max_length=250)
+    resource = models.ForeignKey("onegeo_api.Resource", on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = "Profil d'indexation"
@@ -43,7 +44,7 @@ class IndexProfile(AbstractModelProfile):
         return super().delete(*args, **kwargs)
 
     @property
-    def resources(self):
+    def resource(self):
         return self.resource_set.all()
 
     def update_clmn_properties(self, list_ppt_clt):
@@ -64,11 +65,10 @@ class IndexProfile(AbstractModelProfile):
 
     @property
     def detail_renderer(self):
-        rsrc = ["/sources/{}/resources/{}".format(
-            resource.source.alias.handle, resource.alias.handle) for resource in self.resources]
+
         d = {
             "location": "/indexes/{}".format(self.alias.handle),
-            "resources": rsrc,
+            "resource": "/sources/{}/resources/{}".format(self.resource.source.alias.handle, self.resource.alias.handle),
             "columns": self.clmn_properties,
             "name": self.name,
             "alias": self.alias.handle,

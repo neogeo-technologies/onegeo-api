@@ -19,7 +19,6 @@ class ResourcesList(View):
     @BasicAuth()
     @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, src_alias):
-
         user = request.user
         src_alias = slash_remove(src_alias)
         source = Source.get_with_permission(src_alias, user)

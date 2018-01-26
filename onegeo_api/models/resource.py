@@ -14,7 +14,6 @@ class Resource(AbstractModelProfile):
 
     # FK & alt
     source = models.ForeignKey("onegeo_api.Source", on_delete=models.CASCADE)
-    index_profiles = models.ManyToManyField("onegeo_api.IndexProfile")
 
     class Meta:
         verbose_name = "Resource"
@@ -28,10 +27,14 @@ class Resource(AbstractModelProfile):
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        # if self.index_profile:
-        #     self.index_profile.delete()
         if self.alias:
             self.alias.delete()
+
+    @property
+    def indexes(self):
+        IndexProfile = apps.get_model(app_label='onegeo_api', model_name='IndexProfile')
+        index_profiles = IndexProfile.objects.filter(resource=self)
+        return index_profiles
 
     @property
     def rsrc(self):
@@ -42,12 +45,11 @@ class Resource(AbstractModelProfile):
 
     @property
     def detail_renderer(self):
-        indexes = [index_profile.detail_renderer.get("location", "") for index_profile in self.index_profiles.all()]
+        import pdb; pdb.set_trace()
         d = {"location": "/sources/{}/resources/{}".format(self.source.alias.handle, self.alias.handle),
              "name": self.name,
              "alias": self.alias.handle,
-             "index": indexes,
-             # "index": self.index_profile.detail_renderer.get("location", "") if self.index_profile else "",
+             "indexes": [index_profile.detail_renderer.get("location", "") for index_profile in self.indexes],
              "columns": self.columns}
 
         return clean_my_obj(d)
