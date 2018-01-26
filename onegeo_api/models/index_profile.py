@@ -29,9 +29,7 @@ class IndexProfile(AbstractModelProfile):
         verbose_name = "Profil d'indexation"
 
     def save(self, *args, **kwargs):
-
         kwargs['model_name'] = 'IndexProfile'
-
         SearchModel = apps.get_model(app_label='onegeo_api', model_name='SearchModel')
         if SearchModel.objects.filter(name=self.name).exists():
             raise ValidationError("Un profile d'indexation ne peut avoir "
@@ -46,7 +44,10 @@ class IndexProfile(AbstractModelProfile):
 
     @property
     def resource(self):
-        return self.resource_set.get(index_profile=self)
+
+        if self.resource_set.filter(index_profile=self).exists():
+            return self.resource_set.get(index_profile=self)
+        return None
 
     def update_clmn_properties(self, list_ppt_clt):
         for ppt in self.clmn_properties:
@@ -66,10 +67,11 @@ class IndexProfile(AbstractModelProfile):
 
     @property
     def detail_renderer(self):
+        rsrc = "" if not self.resource else "/sources/{}/resources/{}".format(
+            self.resource.source.alias.handle, self.resource.alias.handle)
         d = {
             "location": "/indexes/{}".format(self.alias.handle),
-            "resource": "/sources/{}/resources/{}".format(
-                self.resource.source.alias.handle, self.resource.alias.handle),
+            "resource": rsrc,
             "columns": self.clmn_properties,
             "name": self.name,
             "alias": self.alias.handle,

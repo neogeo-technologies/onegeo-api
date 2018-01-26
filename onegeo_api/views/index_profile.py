@@ -175,7 +175,7 @@ class IndexProfilesTasksList(View):
     @BasicAuth()
     @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, alias):
-
+        import pdb; pdb.set_trace()
         index_profile = IndexProfile.get_with_permission(slash_remove(alias), request.user)
         defaults = {
             "alias": index_profile.alias,

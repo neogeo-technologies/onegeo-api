@@ -32,7 +32,7 @@ class Task(models.Model):
 
     @classmethod
     def list_renderer(cls, defaults):
-        tasks = cls.objects.filter(Q(defaults=defaults) | Q(user=None)).order_by("-start_date")
+        tasks = cls.objects.filter(Q(**defaults) | Q(user=None)).order_by("-start_date")
         return [t.detail_renderer for t in tasks]
 
     @classmethod
