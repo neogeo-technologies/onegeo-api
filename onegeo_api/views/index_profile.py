@@ -36,7 +36,6 @@ class IndexProfilesList(View):
     @ExceptionsHandler(
         actions=errors_on_call())
     def post(self, request):
-        import pdb; pdb.set_trace()
         user = request.user
         body_data = json.loads(request.body.decode('utf-8'))
         if not body_data.get('name'):

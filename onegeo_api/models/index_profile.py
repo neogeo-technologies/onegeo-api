@@ -45,9 +45,6 @@ class IndexProfile(AbstractModelProfile):
     @property
     def resources(self):
         return self.resource_set.all()
-        # if self.resource_set.filter(index_profile=self).exists():
-        #     return self.resource_set.get(index_profile=self)
-        # return None
 
     def update_clmn_properties(self, list_ppt_clt):
         for ppt in self.clmn_properties:
@@ -89,13 +86,6 @@ class IndexProfile(AbstractModelProfile):
         instance = IndexProfile.objects.create(**defaults)
 
         resource.index_profiles.add(instance)
-
-        # resource.index_profile = instance
-        # try:
-        #     resource.save()
-        # except Exception as e:
-        #     instance.delete()
-        #     return JsonResponse(data={"error": e.message}, status=409)
 
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())
