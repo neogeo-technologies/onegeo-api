@@ -24,7 +24,7 @@ class IndexProfile(AbstractModelProfile):
     clmn_properties = JSONField("Columns")
     reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L,
                                          default="monthly", max_length=250)
-    resource = models.ForeignKey("onegeo_api.Resource", on_delete=models.CASCADE)
+    resource = models.ForeignKey("Resource", on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = "Profil d'indexation"
@@ -42,10 +42,6 @@ class IndexProfile(AbstractModelProfile):
         Task.objects.filter(alias__handle=self.alias.handle).delete()
         # elastic_conn.delete_index_by_alias(instance.name) #Erreur sur l'attribut indices à None
         return super().delete(*args, **kwargs)
-
-    @property
-    def resource(self):
-        return self.resource_set.all()
 
     def update_clmn_properties(self, list_ppt_clt):
         for ppt in self.clmn_properties:
@@ -81,11 +77,9 @@ class IndexProfile(AbstractModelProfile):
         return [index_profile.detail_renderer for index_profile in instances]
 
     @classmethod
-    def create_with_response(cls, request, defaults, resource):
+    def create_with_response(cls, request, defaults):
 
         instance = IndexProfile.objects.create(**defaults)
-
-        resource.index_profiles.add(instance)
 
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())

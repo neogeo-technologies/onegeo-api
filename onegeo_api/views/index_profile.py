@@ -36,6 +36,7 @@ class IndexProfilesList(View):
     @ExceptionsHandler(
         actions=errors_on_call())
     def post(self, request):
+        import pdb; pdb.set_trace()
         user = request.user
         body_data = json.loads(request.body.decode('utf-8'))
         if not body_data.get('name'):
@@ -95,9 +96,10 @@ class IndexProfilesList(View):
             'alias': Alias.custom_create(model_name="IndexProfile", handle=alias),
             'clmn_properties': clmn_properties,
             'reindex_frequency': reindex_frequency,
+            'resource': resource,
             }
         return IndexProfile.create_with_response(
-            request, defaults, resource)
+            request, defaults)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

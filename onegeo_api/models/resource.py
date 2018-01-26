@@ -32,9 +32,7 @@ class Resource(AbstractModelProfile):
 
     @property
     def indexes(self):
-        IndexProfile = apps.get_model(app_label='onegeo_api', model_name='IndexProfile')
-        index_profiles = IndexProfile.objects.filter(resource=self)
-        return index_profiles
+        return self.indexprofile_set.all()
 
     @property
     def rsrc(self):
@@ -45,7 +43,7 @@ class Resource(AbstractModelProfile):
 
     @property
     def detail_renderer(self):
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         d = {"location": "/sources/{}/resources/{}".format(self.source.alias.handle, self.alias.handle),
              "name": self.name,
              "alias": self.alias.handle,
