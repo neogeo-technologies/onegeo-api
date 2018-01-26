@@ -129,11 +129,11 @@ class SourceTestAuthent(ApiItemsMixin, TestCase):
             self.resource2 = Resource.objects.filter(source=self.source2).last()
             self.basic_auth(self.client, 'user1:passpass')
 
-        def test_sources(self):
+        def test_sources_list_url(self):
             response = self.client.get("/sources/")
             self.assertEqual(response.status_code, 200)
 
-        def test_login_source_detail(self):
+        def test_login_source_detail_url(self):
             response = self.client.get("/sources/{}/".format(self.source2.alias.handle))
             self.assertEqual(response.status_code, 200)
 
@@ -374,6 +374,24 @@ class IndexProfileTestAuthent(ApiItemsMixin, TestCase):
 
             response = self.client.delete("/indexes/{}".format(alias))
             self.assertEqual(response.status_code, 204)
+
+        def test_index_profile_wo_alias_create_and_delete(self):
+            name = "fucking_name"
+            data = {
+                "name": name,
+                "resource": "/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle)
+                }
+            response = self.client.post("/indexes", data=json.dumps(data), content_type="application/json")
+            self.assertEqual(response.status_code, 201)
+
+            location = search('^http://testserver/indexes/(\S+)$', response._headers.get("location")[1])
+            alias = location.group(1)
+            response = self.client.get("/indexes/{}".format(alias))
+            self.assertEqual(response.status_code, 200)
+            response = self.client.delete("/indexes/{}".format(alias))
+            self.assertEqual(response.status_code, 204)
+            response = self.client.get("/sources/{}/resources/{}".format(self.source2.alias.handle, self.resource2.alias.handle))
+            self.assertEqual(response.status_code, 200)
 
 
 @tag('authentified')

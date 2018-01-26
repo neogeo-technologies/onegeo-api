@@ -30,11 +30,11 @@ class IndexProfile(AbstractModelProfile):
         verbose_name = "Profil d'indexation"
 
     def save(self, *args, **kwargs):
-        kwargs['model_name'] = 'IndexProfile'
-        SearchModel = apps.get_model(app_label='onegeo_api', model_name='SearchModel')
-        if SearchModel.objects.filter(name=self.name).exists():
-            raise ValidationError("Un profile d'indexation ne peut avoir "
-                                  "le même nom qu'un modèle de recherche.")
+        # kwargs['model_name'] = 'IndexProfile'
+        # SearchModel = apps.get_model(app_label='onegeo_api', model_name='SearchModel')
+        # if SearchModel.objects.filter(name=self.name).exists():
+        #     raise ValidationError("Un profile d'indexation ne peut avoir "
+        #                           "le même nom qu'un modèle de recherche.")
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

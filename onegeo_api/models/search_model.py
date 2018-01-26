@@ -27,10 +27,10 @@ class SearchModel(AbstractModelProfile):
 
         kwargs['model_name'] = 'SearchModel'
 
-        IndexProfile = apps.get_model(app_label='onegeo_api', model_name='IndexProfile')
-        if IndexProfile.objects.filter(name=self.name).exists():
-            raise ValidationError("Un modèle de recherche ne peut avoir "
-                                  "le même nom qu'un profil d'indexation.")
+        # IndexProfile = apps.get_model(app_label='onegeo_api', model_name='IndexProfile')
+        # if IndexProfile.objects.filter(name=self.name).exists():
+        #     raise ValidationError("Un modèle de recherche ne peut avoir "
+        #                           "le même nom qu'un profil d'indexation.")
         return super().save(*args, **kwargs)
 
     @classmethod

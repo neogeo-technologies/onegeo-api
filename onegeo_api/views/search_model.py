@@ -129,9 +129,9 @@ class SearchModelsList(View):
         if name is None:
             return JsonResponse({"error": "Echec de création du modèle de recherche. "
                                           "Le nom est incorrect. "}, status=400)
-        if SearchModel.objects.filter(name=name).exists():
-            return JsonResponse({"error": "Echec de création du modèle de recherche. "
-                                          "Un modele de recherche portant le même nom existe déjà. "}, status=409)
+        # if SearchModel.objects.filter(name=name).exists():
+        #     return JsonResponse({"error": "Echec de création du modèle de recherche. "
+        #                                   "Un modele de recherche portant le même nom existe déjà. "}, status=409)
 
         index_profiles = data.get("indexes", [])
         config = data.get("config", {})

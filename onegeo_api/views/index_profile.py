@@ -49,9 +49,9 @@ class IndexProfilesList(View):
         if name is None:
             return JsonResponse({"error": "Echec de création du profil d'indexation. "
                                           "Le nom du IndexProfile est incorrect. "}, status=400)
-        if IndexProfile.objects.filter(name=name).exists():
-            return JsonResponse({"error": "Echec de création du profil d'indexation. "
-                                          "Un IndexProfilee portant le même nom existe déjà. "}, status=409)
+        # if IndexProfile.objects.filter(name=name).exists():
+        #     return JsonResponse({"error": "Echec de création du profil d'indexation. "
+        #                                   "Un IndexProfilee portant le même nom existe déjà. "}, status=409)
 
         reindex_frequency = body_data.get("reindex_frequency", "monthly")
 
