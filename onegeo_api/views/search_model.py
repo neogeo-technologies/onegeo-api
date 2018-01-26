@@ -181,7 +181,7 @@ class SearchModelsDetail(View):
     @BasicAuth()
     @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, alias):
-        search_model = SearchModel.get_with_permision(slash_remove(alias), request.user)
+        search_model = SearchModel.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(search_model.detail_renderer, status=200)
 
     @BasicAuth()

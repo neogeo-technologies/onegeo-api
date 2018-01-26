@@ -59,15 +59,15 @@ class SearchModel(AbstractModelProfile):
             "name": self.name,
             "alias": self.alias.handle,
             "config": self.config,
-            "indexes": [ctx.alias.handle for ctx in self.index_profiles]}
+            "indexes": [ctx.alias.handle for ctx in self.index_profiles.all()]}
 
         try:
-            ext = import_module('..extensions.{0}'.format(self.name), __name__)
+            ext = import_module('onegeo_api.extensions.{0}'.format(self.name), __name__)
             response['extended'] = True
         except ImportError:
-            ext = import_module('..extensions.__init__', __name__)
+            ext = import_module('onegeo_api.extensions.__init__', __name__)
         finally:
-            plugin = ext.plugin(self.config, [ctx for ctx in self.index_profiles])
+            plugin = ext.plugin(self.config, [ctx for ctx in self.index_profiles.all()])
             if plugin.qs:
                 response['qs_params'] = [{'key': e[0],
                                           'description': e[1],
