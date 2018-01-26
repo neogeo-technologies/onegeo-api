@@ -36,28 +36,29 @@ class IndexProfilesList(View):
     @ExceptionsHandler(
         actions=errors_on_call())
     def post(self, request):
+        import pdb; pdb.set_trace()
         user = request.user
         body_data = json.loads(request.body.decode('utf-8'))
         if not body_data.get('name'):
-            return JsonResponse({"error": "Echec la création du IndexProfilee d'indexation. "
+            return JsonResponse({"error": "Echec la création du profil d'indexation. "
                                           "Le nom du IndexProfilee est manquant. "}, status=400)
         if not body_data.get('resource'):
-            return JsonResponse({"error": "Echec de création du IndexProfilee d'indexation. "
+            return JsonResponse({"error": "Echec de création du profil d'indexation. "
                                           "Le chemin d'accès est manquant. "}, status=400)
 
         name = read_name(body_data)
         if name is None:
-            return JsonResponse({"error": "Echec de création du IndexProfilee d'indexation. "
+            return JsonResponse({"error": "Echec de création du profil d'indexation. "
                                           "Le nom du IndexProfile est incorrect. "}, status=400)
         if IndexProfile.objects.filter(name=name).exists():
-            return JsonResponse({"error": "Echec de création du IndexProfilee d'indexation. "
+            return JsonResponse({"error": "Echec de création du profil d'indexation. "
                                           "Un IndexProfilee portant le même nom existe déjà. "}, status=409)
 
         reindex_frequency = body_data.get("reindex_frequency", "monthly")
 
         data = search('^/sources/(\S+)/resources/(\S+)$', body_data.get('resource'))
         if not data:
-            return JsonResponse({"error": "Echec de création du IndexProfilee d'indexation. "
+            return JsonResponse({"error": "Echec de création du profil d'indexation. "
                                           "Les identifiants des source et ressource sont erronées. "}, status=400)
         src_alias = data.group(1)
         rsrc_alias = data.group(2)
@@ -66,7 +67,7 @@ class IndexProfilesList(View):
         source = Source.get_with_permission(src_alias, request.user)
 
         if source != resource.source:
-            return JsonResponse({"error": "Echec de création du IndexProfilee d'indexation. "
+            return JsonResponse({"error": "Echec de création du profil d'indexation. "
                                           "Les identifiants des source et ressource sont erronées. "}, status=400)
 
         onegeo_source = OnegeoSource(source.uri, name, source.protocol)

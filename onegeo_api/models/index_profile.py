@@ -43,11 +43,11 @@ class IndexProfile(AbstractModelProfile):
         return super().delete(*args, **kwargs)
 
     @property
-    def resource(self):
-
-        if self.resource_set.filter(index_profile=self).exists():
-            return self.resource_set.get(index_profile=self)
-        return None
+    def resources(self):
+        return self.resource_set.all()
+        # if self.resource_set.filter(index_profile=self).exists():
+        #     return self.resource_set.get(index_profile=self)
+        # return None
 
     def update_clmn_properties(self, list_ppt_clt):
         for ppt in self.clmn_properties:
@@ -67,11 +67,11 @@ class IndexProfile(AbstractModelProfile):
 
     @property
     def detail_renderer(self):
-        rsrc = "" if not self.resource else "/sources/{}/resources/{}".format(
-            self.resource.source.alias.handle, self.resource.alias.handle)
+        rsrc = ["/sources/{}/resources/{}".format(
+            resource.source.alias.handle, resource.alias.handle) for resource in self.resources]
         d = {
             "location": "/indexes/{}".format(self.alias.handle),
-            "resource": rsrc,
+            "resources": rsrc,
             "columns": self.clmn_properties,
             "name": self.name,
             "alias": self.alias.handle,
@@ -88,12 +88,14 @@ class IndexProfile(AbstractModelProfile):
 
         instance = IndexProfile.objects.create(**defaults)
 
-        resource.index_profile = instance
-        try:
-            resource.save()
-        except Exception as e:
-            instance.delete()
-            return JsonResponse(data={"error": e.message}, status=409)
+        resource.index_profiles.add(instance)
+
+        # resource.index_profile = instance
+        # try:
+        #     resource.save()
+        # except Exception as e:
+        #     instance.delete()
+        #     return JsonResponse(data={"error": e.message}, status=409)
 
         response = JsonResponse(data={}, status=201)
         uri = slash_remove(request.build_absolute_uri())
