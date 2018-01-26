@@ -127,7 +127,6 @@ class SearchModelsList(View):
     @ExceptionsHandler(
         actions=errors_on_call())
     def post(self, request):
-        import pdb; pdb.set_trace()
         user = request.user
         data = json.loads(request.body.decode("utf-8"))
         name = read_name(data)
