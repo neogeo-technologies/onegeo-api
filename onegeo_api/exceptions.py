@@ -3,6 +3,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
 
 
+
 class JsonError(Exception):
 
     def __init__(self, message, status):
@@ -15,6 +16,10 @@ class MultiTaskError(Exception):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+
+class UnexpectedError(Exception):
+    """Oops, this is unexpected."""
 
 
 class ContentTypeLookUp:

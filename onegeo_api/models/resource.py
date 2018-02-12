@@ -1,78 +1,44 @@
 from django.apps import apps
 from django.contrib.postgres.fields import JSONField
-from django.http import Http404
 from django.db import models
-from django.core.exceptions import PermissionDenied
-
-from onegeo_api.utils import clean_my_obj
 from onegeo_api.models.abstracts import AbstractModelProfile
 
 
 class Resource(AbstractModelProfile):
 
-    columns = JSONField("Columns")
+    class Meta(object):
+        verbose_name = 'Resource'
+        verbose_name_plural = 'Resources'
 
-    # FK & alt
-    source = models.ForeignKey("onegeo_api.Source", on_delete=models.CASCADE)
+    columns = JSONField(verbose_name='Columns')
 
-    class Meta:
-        verbose_name = "Resource"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__rsrc = None
-
-    def save(self, *args, **kwargs):
-        kwargs['model_name'] = 'Resource'
-        return super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        if self.alias:
-            self.alias.delete()
+    source = models.ForeignKey(
+        to='Source', verbose_name='Source', on_delete=models.CASCADE)
 
     @property
     def indexes(self):
         return self.indexprofile_set.all()
 
     @property
-    def rsrc(self):
-        return self.__rsrc
-
-    def set_rsrc(self, rsrc):
-        self.__rsrc = rsrc
+    def location(self):
+        return '/sources/{}/resources/{}'.format(
+            self.source.alias.handle, self.alias.handle)
 
     @property
-    def detail_renderer(self):
-        d = {"location": "/sources/{}/resources/{}".format(self.source.alias.handle, self.alias.handle),
-             "name": self.name,
-             "alias": self.alias.handle,
-             "indexes": ["/indexes/{}".format(index_profile.alias.handle) for index_profile in self.indexes],
-             "columns": self.columns}
+    def onegeo(self):
+        return self.source.onegeo.get_resources(names=[self.name])[0]
 
-        return clean_my_obj(d)
-
-    @classmethod
-    def list_renderer(cls, src_alias, user):
-        Source = apps.get_model(app_label='onegeo_api', model_name='Source')
-        source = Source.get_with_permission(src_alias, user)
-        instances = cls.objects.filter(source=source).order_by("name")
-        return [resource.detail_renderer for resource in instances]
+    def detail_renderer(self, **kwargs):
+        return {
+            'columns': self.columns,
+            'indexes': [m.location for m in self.indexes],
+            'location': self.location,
+            'name': self.name}
 
     @classmethod
-    def custom_create(cls, source, name, columns, user):
-        Alias = apps.get_model(app_label='onegeo_api', model_name='Alias')
-        alias = Alias.custom_create(model_name="Resource", handle=None)
-        resource = cls.objects.create(
-            source=source, name=name,
-            columns=columns, user=user, alias=alias)
-        return resource
-
-    @classmethod
-    def get_with_permission(cls, alias, user):
-        try:
-            instance = cls.objects.get(alias__handle=alias)
-        except cls.DoesNotExist:
-            raise Http404("Aucune ressource ne correspond à votre requête")
-        if instance.user != user:
-            raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette ressource")
-        return instance
+    def list_renderer(cls, nickname, user, **kwargs):
+        model = apps.get_model(app_label='onegeo_api', model_name='Source')
+        source = model.get_or_raise(nickname, user)
+        return [
+            item.detail_renderer(**kwargs)
+            for item in cls.objects.filter(source=source).order_by('name')]

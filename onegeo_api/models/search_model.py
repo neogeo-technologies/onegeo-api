@@ -1,76 +1,84 @@
 from django.apps import apps
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
-from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.http import JsonResponse
-from django.http import Http404
-from importlib import import_module
-
+# from importlib import import_module
 from onegeo_api.exceptions import MultiTaskError
-from onegeo_api.utils import clean_my_obj
 from onegeo_api.models.abstracts import AbstractModelProfile
+import re
 
 
 class SearchModel(AbstractModelProfile):
 
-    config = JSONField("Config", blank=True, null=True)
+    class Meta(object):
+        verbose_name = 'Search Model'
+        verbose_name_plural = 'Search Models'
 
-    # FK & alt
-    user = models.ForeignKey(User, blank=True, null=True)
-    index_profiles = models.ManyToManyField("onegeo_api.IndexProfile")
+    config = JSONField(
+        verbose_name='Query DSL', blank=True, null=True)
 
-    def save(self, *args, **kwargs):
-        kwargs['model_name'] = 'SearchModel'
-        return super().save(*args, **kwargs)
+    user = models.ForeignKey(
+        to=User, verbose_name='User', blank=True, null=True)
+
+    index_profiles = models.ManyToManyField(
+        to='IndexProfile', verbose_name='Indexation profiles')
+
+    @property
+    def location(self):
+        return '/services/{}'.format(self.alias.handle)
+
+    def detail_renderer(self, include=False, cascading=False, **others):
+        opts = {'include': cascading and include, 'cascading': cascading}
+
+        # try:
+        #     ext = import_module(
+        #         'onegeo_api.extensions.{0}'.format(self.name), __name__)
+        #     response['extended'] = True
+        # except ImportError:
+        #     ext = import_module('onegeo_api.extensions.__init__', __name__)
+        # finally:
+        #     plugin = ext.plugin(
+        #         self.config, [ctx for ctx in self.index_profiles.all()])
+        #     if plugin.qs:
+        #         response['qs_params'] = [
+        #             {'key': e[0], 'description': e[1], 'type': e[2]}
+        #             for e in plugin.qs]
+
+        return {
+            'config': self.config,
+            'indexes': [
+                m.detail_renderer(**opts) if include else m.location
+                for m in self.index_profiles.all()],
+            'location': self.location,
+            'name': self.name}
 
     @classmethod
-    def get_with_permission(cls, alias, user):
-        try:
-            instance = cls.objects.get(alias__handle=alias)
-        except cls.DoesNotExist:
-            raise Http404("Aucun modèle de recherche ne correspond à votre requête")
-        if instance.user != user:
-            raise PermissionDenied("Vous n'avez pas la permission d'accéder à ce modèle de recherche")
-        return instance
+    def list_renderer(cls, user, **opts):
+        return [
+            search_model.detail_renderer(**opts)
+            for search_model in cls.objects.filter(user=user)]
+
+    def save(self, *args, **kwargs):
+
+        if not self.name:
+            raise ValidationError(
+                'Some of the input paramaters needed are missing.')
+
+        if not re.match('^[\w\s]+$', self.name):
+            raise ValidationError("Malformed 'name' parameter.")
+
+        return super().save(*args, **kwargs)
 
     @classmethod
     def get_from_params(cls, params):
         try:
             search_model = cls.objects.get(**params)
-        except:
+        except Exception:
             return None
         else:
             return search_model
-
-    @property
-    def detail_renderer(self):
-        response = {
-            "location": "profiles/{}".format(self.name),
-            "name": self.name,
-            "alias": self.alias.handle,
-            "config": self.config,
-            "indexes": ["/indexes/{}".format(ctx.alias.handle) for ctx in self.index_profiles.all()]}
-
-        try:
-            ext = import_module('onegeo_api.extensions.{0}'.format(self.name), __name__)
-            response['extended'] = True
-        except ImportError:
-            ext = import_module('onegeo_api.extensions.__init__', __name__)
-        finally:
-            plugin = ext.plugin(self.config, [ctx for ctx in self.index_profiles.all()])
-            if plugin.qs:
-                response['qs_params'] = [{'key': e[0],
-                                          'description': e[1],
-                                          'type': e[2]} for e in plugin.qs]
-
-        return clean_my_obj(response)
-
-    @classmethod
-    def list_renderer(cls, user):
-        instances = cls.objects.filter(user=user)
-        return [search_model.detail_renderer for search_model in instances]
 
     @property
     def get_available_index_profiles_from_alias(self, index_profiles_aliases, user):

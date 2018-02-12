@@ -1,18 +1,14 @@
 from base64 import b64decode
-from importlib import import_module
-from re import search
-import json
-
-from requests.exceptions import HTTPError  # TODO
-
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
+from django.http import HttpResponse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-
-
+from importlib import import_module
+import json
 from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
@@ -20,25 +16,28 @@ from onegeo_api.exceptions import MultiTaskError
 from onegeo_api.models import Alias
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import SearchModel
-from onegeo_api.models import Task
+# from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import clean_my_obj
-from onegeo_api.utils import read_name
-from onegeo_api.utils import slash_remove
-from onegeo_api.utils import retrieve_parameter
 from onegeo_api.utils import errors_on_call
+# from onegeo_api.utils import read_name
+from onegeo_api.utils import retrieve_parameter
+from onegeo_api.utils import slash_remove
+import re
+from requests.exceptions import HTTPError  # TODO
 
 
-def search_model_index_profile_task(index_profile_alias, user):
-    if Task.objects.filter(alias__handle=index_profile_alias,
-                           user=user,
-                           stop_date=None).exists():
-        raise MultiTaskError()
-    else:
-        return True
+# def search_model_index_profile_task(index_profile_alias, user):
+#     if Task.objects.filter(alias__handle=index_profile_alias,
+#                            user=user,
+#                            stop_date=None).exists():
+#         raise MultiTaskError()
+#     else:
+#         return True
 
 
 def refresh_search_model(mdl_name, index_profiles_name_l):
+    pass
     """
         Mise à jour des aliases dans ElasticSearch.
     """
@@ -96,22 +95,14 @@ def get_search_model(name, user_rq, config, method):
     return sm, error
 
 
-def get_index_profile_obj(index_profiles_clt, user):
-
-    index_profiles_obj = []
-    for index_profile_name in index_profiles_clt:
-        try:
-            data = search('^/indexes/(\S+)$', index_profile_name)
-            alias_handle = data.group(1)
-            index_profile = IndexProfile.objects.get(alias__handle=alias_handle)
-        except IndexProfile.DoesNotExist:
-            raise
-        try:
-            search_model_index_profile_task(index_profile.alias.handle, user)
-        except MultiTaskError:
-            raise
-        index_profiles_obj.append(index_profile)
-    return index_profiles_obj
+# def get_index_profile_obj(index_profiles_clt, user):
+#     index_profiles_obj = []
+#     for index_profile_name in index_profiles_clt:
+#         data = search('^/indexes/(\S+)/?$', index_profile_name)
+#         index_profile = IndexProfile.objects.get(alias__handle=data.group(1))
+#         search_model_index_profile_task(index_profile.alias.handle, user)
+#         index_profiles_obj.append(index_profile)
+#     return index_profiles_obj
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -119,59 +110,47 @@ class SearchModelsList(View):
 
     @BasicAuth()
     def get(self, request):
-        user = request.user
-        return JsonResponse(SearchModel.list_renderer(user), safe=False)
+        opts = {
+            'include': request.GET.get('include') == 'true' and True,
+            'cascading': request.GET.get('cascading') == 'true' and True}
+        return JsonResponse(
+            SearchModel.list_renderer(request.user, **opts), safe=False)
 
     @BasicAuth()
     @ContentTypeLookUp()
-    @ExceptionsHandler(
-        actions=errors_on_call())
+    # @ExceptionsHandler(actions=errors_on_call())
     def post(self, request):
-        user = request.user
-        data = json.loads(request.body.decode("utf-8"))
-        name = read_name(data)
-        if name is None:
-            return JsonResponse({"error": "Echec de création du modèle de recherche. "
-                                          "Le nom est incorrect. "}, status=400)
-        # if SearchModel.objects.filter(name=name).exists():
-        #     return JsonResponse({"error": "Echec de création du modèle de recherche. "
-        #                                   "Un modele de recherche portant le même nom existe déjà. "}, status=409)
-
-        index_profiles = data.get("indexes", [])
-        config = data.get("config", {})
-
-        defaults = {
-            "name": name,
-            "user": user,
-            "config": config}
-
-        search_model = SearchModel.objects.create(**defaults)
 
         try:
-            index_profiles_obj = get_index_profile_obj(index_profiles, user)
-        except IndexProfile.DoesNotExist:
-            return JsonResponse({
-                "error":
-                    "Echec de l'enregistrement du modèl de recherche. "
-                    "La liste de IndexProfilee est erronée"}, status=400)
-        except MultiTaskError:
-            return JsonResponse({
-                "error":
-                    "Une autre tâche est en cours d'exécution. "
-                    "Veuillez réessayer plus tard. "}, status=423)
+            data = json.loads(request.body.decode('utf-8'))
+        except json.decoder.JSONDecodeError as e:
+            return JsonResponse({'error': str(e)}, status=400)
 
-        search_model.index_profiles.set(index_profiles_obj)
-        response = JsonResponse(data={}, status=201)
-        uri = slash_remove(request.build_absolute_uri())
-        response['Location'] = '{0}/{1}'.format(uri, search_model.alias.handle)
+        data['user'] = request.user
 
-        if len(index_profiles) > 0:
+        if 'name' not in data:
+            msg = 'Some of the input paramaters needed are missing.'
+            return JsonResponse({'error': msg}, status=400)
+
+        indexes = []
+        for item in 'indexes' in data and data.pop('indexes') or []:
             try:
-                refresh_search_model(search_model.name, index_profiles)
-            except ValueError:
-                response = JsonResponse({
-                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
-                             "(par exemple, car une connexion a été réutilisée)."}, status=421)
+                index_nickname = re.search('^/indexes/(\w+)/?$', item).group(1)
+            except AttributeError as e:
+                return JsonResponse({'error': str(e)}, status=400)
+            indexes.append(
+                IndexProfile.get_or_raise(index_nickname, data['user']))
+        data['index_profiles'] = indexes
+
+        try:
+            instance = SearchModel.objects.create(**data)
+        except ValidationError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+        except IntegrityError as e:
+            return JsonResponse({'error': str(e)}, status=409)
+
+        response = HttpResponse(status=201)
+        response['Content-Location'] = instance.location
         return response
 
 
@@ -179,56 +158,59 @@ class SearchModelsList(View):
 class SearchModelsDetail(View):
 
     @BasicAuth()
-    @ExceptionsHandler(actions=errors_on_call())
-    def get(self, request, alias):
-        search_model = SearchModel.get_with_permission(slash_remove(alias), request.user)
-        return JsonResponse(search_model.detail_renderer, status=200)
+    # @ExceptionsHandler(actions=errors_on_call())
+    def get(self, request, nickname):
+        opts = {
+            'include': request.GET.get('include') == 'true' and True,
+            'cascading': request.GET.get('cascading') == 'true' and True}
+        search_model = SearchModel.get_or_raise(nickname, request.user)
+
+        return JsonResponse(
+            search_model.detail_renderer(**opts),
+            status=200)
 
     @BasicAuth()
     @ContentTypeLookUp()
-    @ExceptionsHandler(actions=errors_on_call())
-    def put(self, request, alias):
-        user = request.user
-        data = json.loads(request.body.decode("utf-8"))
-        index_profiles = data.get("indexes", [])
-        config = data.get("config", {})
-
-        search_model = SearchModel.get_with_permission(slash_remove(alias), user)
+    # @ExceptionsHandler(actions=errors_on_call())
+    def put(self, request, nickname):
 
         try:
-            index_profiles_obj = get_index_profile_obj(index_profiles, user)
-        except IndexProfile.DoesNotExist:
-            return JsonResponse({
-                "error":
-                    "Echec de l'enregistrement du modèle de recherche. "
-                    "La liste de IndexProfilee est erronée"}, status=400)
-        except MultiTaskError:
-            return JsonResponse({
-                "error":
-                    "Une autre tâche est en cours d'exécution. "
-                    "Veuillez réessayer plus tard. "}, status=423)
+            data = json.loads(request.body.decode('utf-8'))
+        except json.decoder.JSONDecodeError as e:
+            return JsonResponse({'error': str(e)}, status=400)
 
-        new_alias = data.get("alias", None)
-        if new_alias:
-            if not Alias.updating_is_allowed(new_alias, search_model.alias.handle):
-                return JsonResponse({
-                    "error": "Echec de la modification du modèle de recherche. "
-                    "L'alias existe déjà. "}, status=409)
-            search_model.alias.update_handle(new_alias)
+        user = request.user
+        search_model = SearchModel.get_or_raise(nickname, user)
 
-        # RETURN RESPONSE
-        search_model.index_profile.set(index_profiles_obj, clear=True)
-        search_model.update(config=config)
+        # TODO: JSON must be complete. Check this.
+        if 'name' not in data \
+                or 'indexes' not in data \
+                or 'config' not in data:
+            msg = 'Some of the input paramaters needed are missing.'
+            return JsonResponse({'error': msg}, status=400)
 
-        if len(index_profiles) > 0:
+        # else:
+        index_profiles = []
+        for item in 'indexes' in data and data.pop('indexes') or []:
             try:
-                refresh_search_model(search_model.name, index_profiles)
-            except ValueError:
-                return JsonResponse({
-                    "error": "La requête a été envoyée à un serveur qui n'est pas capable de produire une réponse."
-                             "(par exemple, une connexion a été réutilisée)."}, status=421)
+                index_nickname = re.search('^/indexes/(\w+)/?$', item).group(1)
+            except AttributeError as e:
+                return JsonResponse({'error': str(e)}, status=400)
+            index_profiles.append(
+                IndexProfile.get_or_raise(index_nickname, user))
+        search_model.index_profiles.set(index_profiles, clear=True)
 
-        return JsonResponse({}, status=204)
+        for k, v in data.items():
+            setattr(search_model, k, v)
+
+        try:
+            search_model.save()
+        except ValidationError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+        except IntegrityError as e:
+            return JsonResponse({'error': str(e)}, status=409)
+
+        return HttpResponse(status=204)
 
     @BasicAuth()
     @ExceptionsHandler(actions=errors_on_call())

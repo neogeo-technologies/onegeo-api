@@ -1,83 +1,68 @@
-from django.apps import apps
 from django.contrib.postgres.fields import JSONField
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
 from django.db import models
-
-from django.http import JsonResponse
-from django.http import Http404
-
 from onegeo_api.models.abstracts import AbstractModelProfile
-from onegeo_api.utils import clean_my_obj
-from onegeo_api.utils import slash_remove
-
-# from onegeo_api.elasticsearch_wrapper import elastic_conn
+import onegeo_manager
+import re
 
 
 class IndexProfile(AbstractModelProfile):
 
-    RF_L = (
-        ("daily", "daily"),
-        ("weekly", "weekly"),
-        ("monthly", "monthly"),)
+    class Meta(object):
+        verbose_name = 'Indexation Profile'
+        verbose_name_plural = 'Indexation Profiles'
 
-    clmn_properties = JSONField("Columns")
-    reindex_frequency = models.CharField("Reindex_frequency", choices=RF_L,
-                                         default="monthly", max_length=250)
-    resource = models.ForeignKey("Resource", on_delete=models.CASCADE)
+    REINDEX_FREQUENCY_CHOICES = (
+        ('monthly', 'monthly'),
+        ('weekly', 'weekly'),
+        ('daily', 'daily'))
 
-    class Meta:
-        verbose_name = "Profil d'indexation"
+    clmn_properties = JSONField(
+        verbose_name='Columns', blank=True, null=True)
 
-    def save(self, *args, **kwargs):
-        kwargs['model_name'] = 'IndexProfile'
-        return super().save(*args, **kwargs)
+    reindex_frequency = models.CharField(
+        verbose_name='Re-indexation frequency',
+        choices=REINDEX_FREQUENCY_CHOICES,
+        default=REINDEX_FREQUENCY_CHOICES[0][0],
+        max_length=250)
 
-    def delete(self, *args, **kwargs):
-        Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-        Task.objects.filter(alias__handle=self.alias.handle).delete()
-        # elastic_conn.delete_index_by_alias(instance.name) #Erreur sur l'attribut indices à None
-        return super().delete(*args, **kwargs)
-
-    def update_clmn_properties(self, list_ppt_clt):
-        for ppt in self.clmn_properties:
-            for ppt_clt in list_ppt_clt:
-                if ppt["name"] == ppt_clt["name"]:
-                    ppt.update(ppt_clt)
-
-    @classmethod
-    def get_with_permission(cls, alias, user):
-        try:
-            instance = cls.objects.get(alias__handle=alias)
-        except cls.DoesNotExist:
-            raise Http404("Aucun profile d'indexation ne correspond à votre requête")
-        if instance.user != user:
-            raise PermissionDenied("Vous n'avez pas la permission d'accéder à ce profile d'indexation")
-        return instance
+    resource = models.ForeignKey(
+        to='Resource', verbose_name='Resource')
 
     @property
-    def detail_renderer(self):
+    def location(self):
+        return '/indexes/{}'.format(self.alias.handle)
 
-        d = {
-            "location": "/indexes/{}".format(self.alias.handle),
-            "resource": "/sources/{}/resources/{}".format(self.resource.source.alias.handle, self.resource.alias.handle),
-            "columns": self.clmn_properties,
-            "name": self.name,
-            "alias": self.alias.handle,
-            "reindex_frequency": self.reindex_frequency}
-        return clean_my_obj(d)
+    @property
+    def onegeo(self):
+        return onegeo_manager.IndexProfile('foo', self.resource.onegeo)  # TODO: foo name
+
+    def detail_renderer(self, include=False, cascading=False, **others):
+        return {
+            'columns': self.clmn_properties,
+            'location': self.location,
+            'name': self.name,
+            'reindex_frequency': self.reindex_frequency,
+            'resource': include and self.resource.detail_renderer(
+                include=cascading and include, cascading=cascading)
+            or self.resource.location}
 
     @classmethod
-    def list_renderer(cls, user):
-        instances = cls.objects.filter(user=user)
-        return [index_profile.detail_renderer for index_profile in instances]
+    def list_renderer(cls, user, **opts):
+        return [item.detail_renderer(**opts)
+                for item in cls.objects.filter(user=user)]
 
-    @classmethod
-    def create_with_response(cls, request, defaults):
+    def save(self, *args, **kwargs):
 
-        instance = IndexProfile.objects.create(**defaults)
+        if not self.name or not self.resource:
+            raise ValidationError(
+                'Some of the input paramaters needed are missing.')
 
-        response = JsonResponse(data={}, status=201)
-        uri = slash_remove(request.build_absolute_uri())
-        response['Location'] = '{}/{}'.format(uri, instance.alias.handle)
+        if not re.match('^[\w\s]+$', self.name):
+            raise ValidationError("Malformed 'name' parameter.")
 
-        return response
+        # TODO Mettre à jour les propriétés de colonnes
+        self.clmn_properties = [
+            prop.all() for prop in self.onegeo.iter_properties()]
+
+        return super().save(*args, **kwargs)

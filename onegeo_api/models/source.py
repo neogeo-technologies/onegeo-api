@@ -1,89 +1,63 @@
-from django.db import models
-from django.http import JsonResponse
-from django.http import Http404
-from django.core.exceptions import PermissionDenied
 from django.apps import apps
-from re import search
-
-from onegeo_manager.source import Source as OnegeoSource
-
-from onegeo_api.utils import clean_my_obj
-from onegeo_api.utils import does_file_uri_exist
+from django.core.exceptions import ValidationError
+from django.db import models
 from onegeo_api.models.abstracts import AbstractModelProfile
+import onegeo_manager
+import re
 
 
 class Source(AbstractModelProfile):
 
-    MODE_L = (("geonet", "API de recherche GeoNetWork"),
-              ("pdf", "Répertoire contenant des fichiers PDF"),
-              ("wfs", "Service OGC:WFS"))
+    class Meta(object):
+        verbose_name = 'Source'
+        verbose_name_plural = 'Sources'
 
-    protocol = models.CharField("Protocole", choices=MODE_L, default="pdf", max_length=250)
-    uri = models.CharField("URI", max_length=2048)
+    PROTOCOL_CHOICES = onegeo_manager.protocol.all()
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__src = None
+    protocol = models.CharField(
+        verbose_name='Protocol', max_length=250, choices=PROTOCOL_CHOICES)
+
+    uri = models.CharField(verbose_name='URI', max_length=2048)
+
+    @property
+    def location(self):
+        return '/sources/{}'.format(self.alias.handle)
+
+    @property
+    def onegeo(self):
+        return onegeo_manager.Source(self.uri, self.protocol)
+
+    def iter_resources(self):
+        instance = apps.get_model(
+            app_label='onegeo_api', model_name='Resource')
+        return iter(item for item in instance.objects.filter(source=self))
+
+    def detail_renderer(self, **kwargs):
+        return {
+            'location': self.location,
+            'name': self.name,
+            'protocol': self.protocol,
+            'uri': self.uri}
+
+    @classmethod
+    def list_renderer(cls, user, **opts):
+        return [item.detail_renderer(**opts) for item
+                in cls.objects.filter(user=user).order_by('name')]
 
     def save(self, *args, **kwargs):
-        kwargs['model_name'] = 'Source'
 
-        if self.protocol == 'pdf' and not does_file_uri_exist(str(self.uri)):
-            raise Exception()  # TODO
-        self.__src = OnegeoSource(self.uri, self.name, self.protocol)
+        if not self.name or not self.protocol or not self.uri:
+            raise ValidationError(
+                'Some of the input paramaters needed are missing.')
+
+        if not re.match('^[\w\s]+$', self.name):
+            raise ValidationError("Malformed 'name' parameter.")
+
+        if self.protocol not in dict(self.PROTOCOL_CHOICES).keys():
+            raise ValidationError("'protocol' input parameters is unauthorized.")
+
+        # TODO
+        # if self.uri not... :
+        #     pass
+
         return super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-        Task.objects.filter(alias=self.alias).delete()
-        Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
-        Resource.objects.filter(source=self).delete()
-        return super().delete(*args, **kwargs)
-
-    @property
-    def src(self):
-        return self.__src
-
-    class Meta:
-        verbose_name = "Source"
-
-    @property
-    def s_uri(self):
-        if self.protocol == "pdf":
-            dir_name = search("(\S+)/(\S+)", str(self.uri))
-            return "file:///{}".format(dir_name.group(2))
-        return self.uri
-
-    @property
-    def detail_renderer(self):
-        return clean_my_obj({"uri": self.s_uri,
-                             "protocol": self.protocol,
-                             "name": self.name,
-                             "alias": self.alias.handle,
-                             "location": "/sources/{}".format(self.alias.handle)})
-
-    @classmethod
-    def list_renderer(cls, user):
-        instances = cls.objects.filter(user=user).order_by("name")
-        return [s.detail_renderer for s in instances]
-
-    @classmethod
-    def create_with_response(cls, request, defaults):
-        instance = cls.objects.create(**defaults)
-
-        response = JsonResponse(data={}, status=201)
-        uri = request.build_absolute_uri()
-        uri = uri.endswith('/') and uri[:-1] or uri
-        response["Location"] = "{}/{}".format(uri, instance.alias.handle)
-
-        return response
-
-    @classmethod
-    def get_with_permission(cls, alias, user):
-        try:
-            instance = cls.objects.get(alias__handle=alias)
-        except cls.DoesNotExist:
-            raise Http404("Aucune source ne correspond à votre requete. ")
-        if instance.user != user:
-            raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette source")
-        return instance

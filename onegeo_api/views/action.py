@@ -11,21 +11,15 @@ from django.views.generic import View
 from django.shortcuts import redirect
 from django.urls import reverse
 
-# from onegeo_manager.IndexProfile import IndexProfile as OnegeoIndexProfile
-# from onegeo_manager.IndexProfile import PropertyColumn as OnegeoPropertyColumn
-# from onegeo_manager.index import Index as OnegeoIndex
-# from onegeo_manager.resource import Resource as OnegeoResource
-# from onegeo_manager.source import Source as OnegeoSource
-
-# from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
-from onegeo_api.utils import slash_remove
 from onegeo_api.utils import errors_on_call
+from onegeo_api.utils import slash_remove
+import onegeo_manager
 
 
 # def iter_flt_from_anl(anl_name):
@@ -86,8 +80,7 @@ class Action(View):
     #     return [analyzer for analyzer in analyzers if analyzer not in (None, '')]
 
     @BasicAuth()
-    @ExceptionsHandler(
-        actions=errors_on_call())
+    @ExceptionsHandler(actions=errors_on_call())
     @ContentTypeLookUp()
     def post(self, request):
         user = request.user
@@ -117,7 +110,7 @@ class Action(View):
         # src = rscr.source
         #
         # try:
-        #     onegeo_source = OnegeoSource(src.uri, src.name, src.mode)
+        #     onegeo_source = OnegeoSource(src.uri, src.protocol)
         # except ConnectionError:
         #     return JsonResponse({'error': 'La source de données est inaccessible.'}, status=404)
         # onegeo_resource = OnegeoResource(onegeo_source, rscr.name)

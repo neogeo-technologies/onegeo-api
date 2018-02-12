@@ -3,6 +3,7 @@ from functools import wraps
 from json.decoder import JSONDecodeError
 from pathlib import Path
 from re import search
+import timeout_decorator
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -113,23 +114,6 @@ def clean_my_obj(obj):
                          for k, v in obj.items() if k is not None and v is not None)
     else:
         return obj
-
-
-def check_uri(b):
-    """
-    Verifie si l'uri en param d'entrée recu sous la forme de "file:///dossier"
-    Correspond a un des dossiers enfant du dossier parent PDF_BASE_DIR
-    Retourne l'uri complete si correspondance, None sinon.
-    NB: l'uri complete sera verifier avant tout action save() sur modele Source()
-    """
-    p = Path(PDF_BASE_DIR)
-    if not p.exists():
-        raise ConnectionError("Given path does not exist.")
-    for x in p.iterdir():
-        if x.is_dir() and x.name == b[8:]:
-            return x.as_uri()
-    return None
-
 
 def does_file_uri_exist(uri):
 

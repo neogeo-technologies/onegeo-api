@@ -1,10 +1,8 @@
-from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.db.models import Q
 from django.http import Http404
-
-from onegeo_api.utils import clean_my_obj
 
 
 class Task(models.Model):
@@ -20,20 +18,21 @@ class Task(models.Model):
     # FK & alt
     user = models.ForeignKey(User)
 
-    @property
     def detail_renderer(self):
-        return clean_my_obj({
+        return {
             "id": self.pk,
             "status": self.success is None and 'running' or 'done',
             "description": self.description,
             "location": "tasks/{}".format(self.pk),
             "success": self.success,
-            "dates": {"start": self.start_date, "stop": self.stop_date}})
+            "dates": {
+                "start": self.start_date,
+                "stop": self.stop_date}}
 
     @classmethod
-    def list_renderer(cls, defaults):
+    def list_renderer(cls, defaults, **opts):
         tasks = cls.objects.filter(Q(**defaults) | Q(user=None)).order_by("-start_date")
-        return [t.detail_renderer for t in tasks]
+        return [t.detail_renderer(**opts) for t in tasks]
 
     @classmethod
     def get_with_permission(cls, defaults, user):

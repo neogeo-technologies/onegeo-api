@@ -37,7 +37,6 @@ class Directories(View):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class SupportedModes(View):
-
+class SupportedProtocols(View):
     def get(self, request):
-        return JsonResponse(dict((m[0], m[1]) for m in Source.MODE_L), safe=False)
+        return JsonResponse(dict(Source.PROTOCOL_CHOICES), safe=False)
