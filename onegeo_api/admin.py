@@ -6,7 +6,7 @@ from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Source
-
+from onegeo_api.models import CeleryTask
 
 admin.site.unregister(Group)
 
@@ -25,7 +25,7 @@ class ResourceAdmin(admin.ModelAdmin):
 
 @admin.register(Source)
 class SourceAdmin(admin.ModelAdmin):
-    list_display = ['name']
+    list_display = ['name','location']
     ordering = ['name']
 
 
@@ -34,6 +34,10 @@ class SourceAdmin(admin.ModelAdmin):
 #     list_display = ['start_date', 'success']
 #     ordering = ['start_date']
 
+@admin.register(CeleryTask)
+class CeleryTaskAdmin(admin.ModelAdmin):
+    list_display = ['task_id','status','user']
+    ordering = ['user']
 
 @admin.register(SearchModel)
 class SearchModelAdmin(admin.ModelAdmin):

@@ -7,8 +7,8 @@ from onegeo_api.models.resource import Resource
 from onegeo_api.models.search_model import SearchModel
 from onegeo_api.models.source import Source
 from onegeo_api.models.task import Task
-
+from onegeo_api.models.task import CeleryTask
 
 __all__ = [
     Alias, Analyzer, Filter, Tokenizer,
-    IndexProfile, Resource, SearchModel, Source, Task]
+    IndexProfile, Resource, SearchModel, Source, Task, CeleryTask]

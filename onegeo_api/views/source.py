@@ -10,7 +10,14 @@ from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import slash_remove
-
+from onegeo_api.models import CeleryTask
+from django.contrib.auth.models import User
+from onegeo_api.tasks import create_resources_with_log
+import sys, os, django
+sys.path.append('..')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+django.setup()
+from django.conf import settings
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SourcesList(View):
@@ -40,9 +47,13 @@ class SourcesList(View):
         except IntegrityError as e:
             return JsonResponse({'error': str(e)}, status=409)
 
-        response = HttpResponse(status=201)
-        response['Content-Location'] = instance.location
-        return response
+        # The request has been accepted for processing
+        # but the processing has not been completed
+        task_url = settings.CELERY_TASK_URL+ "api/tasks/"+instance.alias.handle + str(instance.pk)
+        # response = HttpResponse(status=202)
+        # response['Content-Location'] = instance.location
+        # return response
+        return JsonResponse(status=202, data={'task_url':task_url})
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -62,3 +73,28 @@ class SourcesDetail(View):
         source = Source.get_or_raise(slash_remove(alias), request.user)
         source.delete()
         return HttpResponse(status=204)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class Status(View):
+
+    def get(self, request,id=None):
+
+        if id:
+            task = list(CeleryTask.objects.filter(task_id=id).values('task_id',
+            'status','user__username','header_location'))
+
+
+        # if request.user:
+        #     try:
+        #         current_user = User.objects.get(username=request.user.username)
+        #
+        #         for elt in CeleryTask.objects.filter(user=current_user):
+        #             elt.save()
+        #             res.append({'taskid':elt.celery_task_id,'status':elt.status,'header_location':elt.header_location})
+        #     except:
+        #         pass
+        if task:
+            return JsonResponse(task, safe=False)
+        else:
+            return JsonResponse("task not found, please retry in few minutes", safe=False)

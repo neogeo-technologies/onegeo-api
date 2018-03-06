@@ -10,7 +10,9 @@ from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Source
 from onegeo_api.models import Tokenizer
-
+from onegeo_api.tasks import create_resources_with_log
+from celery.result import AsyncResult
+from onegeo_api.models import CeleryTask
 
 # Ces connecteurs de signaux ont été enregistré dans les modules apps.py et __init__.py de l'application
 
@@ -18,34 +20,37 @@ from onegeo_api.models import Tokenizer
 @receiver(post_save, sender=Source)
 def on_post_save_source(sender, instance, *args, **kwargs):
 
-    Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-    Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
 
-    def create_resources_with_log(instance, tsk):
-        try:
-            for item in instance.onegeo.get_resources():
-                Resource.objects.create(**{
-                    'source': instance, 'name': item.name,
-                    'columns': item.columns, 'user': instance.user})
+    # def create_resources_with_log(instance, tsk):
+    #     try:
+    #         for item in instance.onegeo.get_resources():
+    #             Resource.objects.create(**{
+    #                 'source': instance, 'name': item.name,
+    #                 'columns': item.columns, 'user': instance.user})
+    #
+    #         tsk.success = True
+    #         tsk.description = "Les ressources ont été créées avec succès. "
+    #     except Exception as err:
+    #         print(err)
+    #         tsk.success = False
+    #         tsk.description = str(err)[255:]  # TODO
+    #     finally:
+    #         tsk.stop_date = timezone.now()
+    #         tsk.save()
 
-            tsk.success = True
-            tsk.description = "Les ressources ont été créées avec succès. "
-        except Exception as err:
-            print(err)
-            tsk.success = False
-            tsk.description = str(err)[255:]  # TODO
-        finally:
-            tsk.stop_date = timezone.now()
-            tsk.save()
 
-    description = "Création des ressources en cours. "
 
-    tsk = Task.objects.create(
-        user=instance.user, alias=instance.alias, description=description)
+    # tsk = Task.objects.create(
+    #     user=instance.user, alias=instance.alias, description=description)
+    task_id = instance.alias.handle + str(instance.pk)
+    data = {'protocol': instance.protocol,
+    'name': instance.name,
+    'user': instance.user.pk,
+    'uri': instance.uri}
+    # traitement de la requete par Celery
+    # task = create_resources_with_log.delay(data)
+    task = create_resources_with_log.apply_async(kwargs=data, task_id=task_id)
 
-    create_resources_with_log(instance, tsk)
-
-    # TODO: Mis en echec des test lors de l'utilisation de thread
     # thread = Thread(target=create_resources, args=(instance, tsk))
     # thread.start()
 

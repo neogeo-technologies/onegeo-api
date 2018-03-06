@@ -19,11 +19,11 @@ from onegeo_api.views.search_model import SearchModelsDetail
 from onegeo_api.views.search_model import SearchModelsList
 from onegeo_api.views.source import SourcesDetail
 from onegeo_api.views.source import SourcesList
+from onegeo_api.views.source import Status
 from onegeo_api.views.task import TasksDetail
 from onegeo_api.views.task import TasksList
 from onegeo_api.views.tokenizer import TokenizersDetail
 from onegeo_api.views.tokenizer import TokenizersList
-
 
 app_name = 'onegeo_api'
 
@@ -52,5 +52,6 @@ urlpatterns = [
     url('^tokenizers/(?P<alias>\w+)/?$', TokenizersDetail.as_view(), name="tokenizers_detail"),
     url('^tokenizers/?$', TokenizersList.as_view(), name="tokenizers_list"),
     url('^alias/(?P<alias>\w+)/?$', AliasDetail.as_view(), name="alias_search"),
-    url('^bulk/?$', Bulk.as_view(), name="bulk")
+    url('^bulk/?$', Bulk.as_view(), name="bulk"),
+    url('^tasks/(?P<id>\w{1,50})/$', Status.as_view(), name="tasks")
     ]
