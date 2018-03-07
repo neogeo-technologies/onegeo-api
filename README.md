@@ -252,20 +252,20 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 ```
 
-#### Commande utile en local
+#### Commande a lancé en local
 
 Lancement de Redis:
 
 ```shell
 /onegeo_venv> redis-server
 ```
-Test que Redis est bien lancé:
+[Optionnel] Test que Redis est bien lancé:
 
 ```shell
 /onegeo_venv> redis-cli ping
 ```
 
-Suivre le déroulement des tâches dans le worker Celery:
+Lancement du worker Celery:
 ```shell
 /onegeo_venv> celery -A config worker --loglevel=info
 ```
