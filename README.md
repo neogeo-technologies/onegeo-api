@@ -252,7 +252,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 ```
 
-#### Commande a lancé en local
+#### Commande à lancer en local
 
 Lancement de Redis:
 
