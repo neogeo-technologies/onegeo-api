@@ -50,9 +50,7 @@ class SourcesList(View):
         # The request has been accepted for processing
         # but the processing has not been completed
         task_url = settings.CELERY_TASK_URL+ "api/tasks/"+instance.alias.handle + str(instance.pk)
-        # response = HttpResponse(status=202)
-        # response['Content-Location'] = instance.location
-        # return response
+
         return JsonResponse(status=202, data={'task_url':task_url})
 
 
