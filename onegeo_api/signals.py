@@ -20,28 +20,6 @@ from onegeo_api.models import CeleryTask
 @receiver(post_save, sender=Source)
 def on_post_save_source(sender, instance, *args, **kwargs):
 
-
-    # def create_resources_with_log(instance, tsk):
-    #     try:
-    #         for item in instance.onegeo.get_resources():
-    #             Resource.objects.create(**{
-    #                 'source': instance, 'name': item.name,
-    #                 'columns': item.columns, 'user': instance.user})
-    #
-    #         tsk.success = True
-    #         tsk.description = "Les ressources ont été créées avec succès. "
-    #     except Exception as err:
-    #         print(err)
-    #         tsk.success = False
-    #         tsk.description = str(err)[255:]  # TODO
-    #     finally:
-    #         tsk.stop_date = timezone.now()
-    #         tsk.save()
-
-
-
-    # tsk = Task.objects.create(
-    #     user=instance.user, alias=instance.alias, description=description)
     task_id = instance.alias.handle + str(instance.pk)
     data = {'protocol': instance.protocol,
     'name': instance.name,
@@ -51,8 +29,6 @@ def on_post_save_source(sender, instance, *args, **kwargs):
     # task = create_resources_with_log.delay(data)
     task = create_resources_with_log.apply_async(kwargs=data, task_id=task_id)
 
-    # thread = Thread(target=create_resources, args=(instance, tsk))
-    # thread.start()
 
 
 @receiver(post_delete, sender=Analyzer)
