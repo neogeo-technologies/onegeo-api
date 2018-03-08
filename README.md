@@ -197,3 +197,79 @@ urlpatterns = [
 
 Ajouter dans la configuration du site `WSGIPassAuthorization on`
 
+
+
+
+#### Mise en place de Celery pour les tâches asynchrones
+
+Installation de Redis
+```shell
+ /onegeo_venv> brew install redis
+ ```
+ 
+Installation de Celery
+ ```shell
+ /onegeo_venv> pip install celery
+ ```
+ 
+Configuration de Celery
+ 
+ Créer et Éditer le fichier config/celery.py avec le code python ci-dessous:
+ 
+```shell
+/onegeo_venv> vim /onegeo_venv/config/celery.py
+```
+
+```python
+import os
+from celery import Celery
+from django.conf import settings
+
+# set the default Django settings module for the 'celery' program.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+app = Celery('config')
+app.config_from_object('django.conf:settings', namespace='CELERY')
+# Load task modules from all registered Django app configs.
+app.autodiscover_tasks()
+```
+
+Créer ou Éditer le fichier __init__.py (config/__init__.py):
+
+```python
+from __future__ import absolute_import
+from .celery import app as celery_app  
+```
+
+Editer de nouveau le fichier settings.py (config/settings):
+
+```python
+CELERY_TASK_URL = 'XXXXXXXX' -> URL d'acces à One geo TODO!
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+```
+
+#### Commande à lancer en local
+
+Lancement de Redis:
+
+```shell
+/onegeo_venv> redis-server
+```
+[Optionnel] Test que Redis est bien lancé:
+
+```shell
+/onegeo_venv> redis-cli ping
+```
+
+Lancement du worker Celery:
+```shell
+/onegeo_venv> celery -A config worker --loglevel=info
+```
+
+ 
+
+
