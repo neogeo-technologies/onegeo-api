@@ -4,14 +4,6 @@ from django.db import models
 from django.db.models import Q
 from django.http import Http404
 
-class CeleryTask(models.Model):
-    task_id = models.CharField(max_length = 150, unique=True)
-    user = models.ForeignKey(User,blank=True, null=True)
-    header_location = models.CharField(max_length = 150)
-    status = models.CharField(max_length = 20, blank=True)
-
-    def __str__(self):
-        return '%s' % (self.user.username)
 
 class Task(models.Model):
     T_L = (("Source", "Source"),

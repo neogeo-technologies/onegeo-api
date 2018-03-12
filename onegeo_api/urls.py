@@ -24,6 +24,7 @@ from onegeo_api.views.task import TasksDetail
 from onegeo_api.views.task import TasksList
 from onegeo_api.views.tokenizer import TokenizersDetail
 from onegeo_api.views.tokenizer import TokenizersList
+from onegeo_api.views.dashboard import DashboardList
 
 app_name = 'onegeo_api'
 
@@ -53,5 +54,6 @@ urlpatterns = [
     url('^tokenizers/?$', TokenizersList.as_view(), name="tokenizers_list"),
     url('^alias/(?P<alias>\w+)/?$', AliasDetail.as_view(), name="alias_search"),
     url('^bulk/?$', Bulk.as_view(), name="bulk"),
-    url('^tasks/(?P<id>\w{1,50})/$', Status.as_view(), name="tasks")
+    url('^tasks/(?P<id>\w{1,50})/$', Status.as_view(), name="tasks"),
+    url('^dashboard/?$', DashboardList.as_view(), name="tasks")
     ]

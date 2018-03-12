@@ -4,7 +4,7 @@ from celery.decorators import task
 from django.contrib.auth.models import User
 from onegeo_api.models import Source
 from django.apps import apps
-from onegeo_api.models import Alias,CeleryTask
+from onegeo_api.models import Alias,Dashboard
 from django.utils import timezone
 from celery import uuid
 
@@ -21,7 +21,7 @@ def create_resources_with_log(**kwargs):
 
    tsk = Task.objects.create(user=user, alias=alias, description=description)
    # save info about Celery Task
-   celery_task,_created = CeleryTask.objects.get_or_create(task_id=create_resources_with_log.request.id,
+   celery_task,_created = Dashboard.objects.get_or_create(task_id=create_resources_with_log.request.id,
    user=user)
    celery_task.status = "IN PROGRESS"
    celery_task.save()

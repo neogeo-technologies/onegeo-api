@@ -12,7 +12,7 @@ from onegeo_api.models import Source
 from onegeo_api.models import Tokenizer
 from onegeo_api.tasks import create_resources_with_log
 from celery.result import AsyncResult
-from onegeo_api.models import CeleryTask
+from onegeo_api.models import Dashboard
 
 # Ces connecteurs de signaux ont été enregistré dans les modules apps.py et __init__.py de l'application
 

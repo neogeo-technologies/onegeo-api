@@ -6,7 +6,7 @@ from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Source
-from onegeo_api.models import CeleryTask
+from onegeo_api.models import Dashboard
 
 admin.site.unregister(Group)
 
@@ -34,8 +34,8 @@ class SourceAdmin(admin.ModelAdmin):
 #     list_display = ['start_date', 'success']
 #     ordering = ['start_date']
 
-@admin.register(CeleryTask)
-class CeleryTaskAdmin(admin.ModelAdmin):
+@admin.register(Dashboard)
+class DashboardAdmin(admin.ModelAdmin):
     list_display = ['task_id','status','user']
     ordering = ['user']
 

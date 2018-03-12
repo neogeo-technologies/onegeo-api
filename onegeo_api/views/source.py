@@ -10,7 +10,7 @@ from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import slash_remove
-from onegeo_api.models import CeleryTask
+from onegeo_api.models import Dashboard
 from django.contrib.auth.models import User
 from onegeo_api.tasks import create_resources_with_log
 import sys, os, django
@@ -79,19 +79,9 @@ class Status(View):
     def get(self, request,id=None):
 
         if id:
-            task = list(CeleryTask.objects.filter(task_id=id).values('task_id',
+            task = list(Dashboard.objects.filter(task_id=id).values('task_id',
             'status','user__username','header_location'))
 
-
-        # if request.user:
-        #     try:
-        #         current_user = User.objects.get(username=request.user.username)
-        #
-        #         for elt in CeleryTask.objects.filter(user=current_user):
-        #             elt.save()
-        #             res.append({'taskid':elt.celery_task_id,'status':elt.status,'header_location':elt.header_location})
-        #     except:
-        #         pass
         if task:
             return JsonResponse(task, safe=False)
         else:
