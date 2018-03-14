@@ -19,12 +19,12 @@ from onegeo_api.views.search_model import SearchModelsDetail
 from onegeo_api.views.search_model import SearchModelsList
 from onegeo_api.views.source import SourcesDetail
 from onegeo_api.views.source import SourcesList
-from onegeo_api.views.source import Status
 from onegeo_api.views.task import TasksDetail
 from onegeo_api.views.task import TasksList
 from onegeo_api.views.tokenizer import TokenizersDetail
 from onegeo_api.views.tokenizer import TokenizersList
 from onegeo_api.views.dashboard import DashboardList
+from onegeo_api.views.dashboard import Status
 
 app_name = 'onegeo_api'
 
@@ -42,7 +42,7 @@ urlpatterns = [
     url('^services/?$', SearchModelsList.as_view(), name="seamod_list"),
     url('^sources/(\w+)/resources/(?P<nickname>\w+)/?$', ResourcesDetail.as_view(), name="resources_detail"),
     url('^sources/(?P<nickname>\w+)/resources/?$', ResourcesList.as_view(), name="resources_list"),
-    url('^sources/(?P<nickname>\w+)/?$', SourcesDetail.as_view(), name="sources_detail"),
+    url('^sources/(?P<nickname>\w+)?$', SourcesDetail.as_view(), name="sources_detail"),
     url('^sources/?$', SourcesList.as_view(), name="sources_list"),
     url('^sources_directories/?$', Directories.as_view(), name="directories"),
     url('^supported_modes/?$', SupportedProtocols.as_view(), name="modes"),
@@ -54,6 +54,6 @@ urlpatterns = [
     url('^tokenizers/?$', TokenizersList.as_view(), name="tokenizers_list"),
     url('^alias/(?P<alias>\w+)/?$', AliasDetail.as_view(), name="alias_search"),
     url('^bulk/?$', Bulk.as_view(), name="bulk"),
-    url('^tasks/(?P<id>\w{1,50})/$', Status.as_view(), name="tasks"),
-    url('^dashboard/?$', DashboardList.as_view(), name="tasks")
+    url('^tasks/(?P<id>\w{1,50})$', Status.as_view(), name="tasks"),
+    url('^dashboard/?$', DashboardList.as_view(), name="dashboard_list")
     ]

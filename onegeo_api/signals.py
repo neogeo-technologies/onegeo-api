@@ -26,7 +26,6 @@ def on_post_save_source(sender, instance, *args, **kwargs):
     'user': instance.user.pk,
     'uri': instance.uri}
     # traitement de la requete par Celery
-    # task = create_resources_with_log.delay(data)
     task = create_resources_with_log.apply_async(kwargs=data, task_id=task_id)
 
 

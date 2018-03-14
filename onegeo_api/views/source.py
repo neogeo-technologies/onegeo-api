@@ -11,13 +11,7 @@ from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import slash_remove
 from onegeo_api.models import Dashboard
-from django.contrib.auth.models import User
-from onegeo_api.tasks import create_resources_with_log
-import sys, os, django
-sys.path.append('..')
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-django.setup()
-from django.conf import settings
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 class SourcesList(View):
@@ -39,7 +33,6 @@ class SourcesList(View):
             return JsonResponse({'error': str(e)}, status=400)
 
         data['user'] = request.user
-
         try:
             instance = Source.objects.create(**data)
         except ValidationError as e:
@@ -49,9 +42,15 @@ class SourcesList(View):
 
         # The request has been accepted for processing
         # but the processing has not been completed
-        task_url = settings.CELERY_TASK_URL+ "api/tasks/"+instance.alias.handle + str(instance.pk)
+        task_id = instance.alias.handle + str(instance.pk)
+        task_url = "/tasks/" + instance.alias.handle + str(instance.pk)
+        # save info about Celery Task
+        celery_task, _created = Dashboard.objects.get_or_create(
+            task_id=task_id,
+            user=request.user,
+            status="IN PROGRESS")
 
-        return JsonResponse(status=202, data={'task_url':task_url})
+        return JsonResponse(data={'task_url': task_url}, status=202)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -60,6 +59,7 @@ class SourcesDetail(View):
     @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, nickname):
+
         opts = {'include': request.GET.get('include') == 'true' and True}
         # Pas logique (TODO)
         instance = Source.get_or_raise(slash_remove(nickname), request.user)
@@ -67,22 +67,8 @@ class SourcesDetail(View):
 
     @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
-    def delete(self, request, alias):
-        source = Source.get_or_raise(slash_remove(alias), request.user)
+    def delete(self, request, nickname):
+
+        source = Source.get_or_raise(slash_remove(nickname), request.user)
         source.delete()
         return HttpResponse(status=204)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class Status(View):
-
-    def get(self, request,id=None):
-
-        if id:
-            task = list(Dashboard.objects.filter(task_id=id).values('task_id',
-            'status','user__username','header_location'))
-
-        if task:
-            return JsonResponse(task, safe=False)
-        else:
-            return JsonResponse("task not found, please retry in few minutes", safe=False)

@@ -3,7 +3,6 @@ from functools import wraps
 from json.decoder import JSONDecodeError
 from pathlib import Path
 from re import search
-import timeout_decorator
 
 from django.conf import settings
 from django.contrib.auth import authenticate
