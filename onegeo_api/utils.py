@@ -114,6 +114,7 @@ def clean_my_obj(obj):
     else:
         return obj
 
+
 def does_file_uri_exist(uri):
 
     def retrieve(b):
