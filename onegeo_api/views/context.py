@@ -191,8 +191,7 @@ class ContextIDTaskView(View):
         get_object_or_404(Context, pk=ctx_id)
 
         set = Task.objects.filter(model_type="context",
-                                  model_type_id=ctx_id,
-                                  user=user()).order_by("-start_date")
+                                  model_type_id=ctx_id).order_by("-start_date")
 
         data = [utils.format_task(tsk) for tsk in set]
 

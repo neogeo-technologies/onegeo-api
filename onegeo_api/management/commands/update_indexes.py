@@ -10,6 +10,7 @@ from onegeo_manager.index import Index as OnegeoIndex
 from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
 from uuid import uuid4
+from onegeo_api.exceptions import ErrorLocked
 
 
 NOW = timezone.now()
@@ -47,7 +48,7 @@ class Command(BaseCommand):
             model_type='context',
             model_type_id=instance.pk).order_by('start_date').last()
         if last and last.success is None:
-            raise Exception('Locked')
+            raise ErrorLocked
 
         resource = instance.resource
         source = resource.source
