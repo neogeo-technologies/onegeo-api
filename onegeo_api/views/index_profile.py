@@ -37,7 +37,7 @@ class IndexProfilesList(View):
         try:
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
 
         data['user'] = request.user
 
@@ -50,7 +50,7 @@ class IndexProfilesList(View):
                 '^/sources/(\w+)/resources/(\w+)/?$',
                 data.pop('resource')).group(2)
         except AttributeError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
 
         data['resource'] = \
             Resource.get_or_raise(resource_nickname, data['user'])
@@ -58,9 +58,9 @@ class IndexProfilesList(View):
         try:
             instance = IndexProfile.objects.create(**data)
         except ValidationError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
         except IntegrityError as e:
-            return JsonResponse({'error': str(e)}, status=409)
+            return JsonResponse({'error': e.__str__()}, status=409)
 
         response = HttpResponse(status=201)
         response['Content-Location'] = instance.location
@@ -90,19 +90,17 @@ class IndexProfilesDetail(View):
         try:
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
 
         user = request.user
         index_profile = IndexProfile.get_or_raise(nickname, user)
 
-        # TODO: JSON must be complete. Check this.
-        if 'name' not in data \
-                or 'resource' not in data \
-                or 'reindex_frequency' not in data \
-                or 'columns' not in data:
+        fields = set(IndexProfile.Extras.fields)
+        if set(data.keys()).intersection(fields) != fields:
             msg = 'Some of the input paramaters needed are missing.'
             return JsonResponse({'error': msg}, status=400)
         # else:
+        data = dict((k, v) for k, v in data.items() if k in fields)
 
         # Check linked resource
         try:
@@ -110,7 +108,7 @@ class IndexProfilesDetail(View):
                 '^/sources/(\w+)/resources/(\w+)/?$',
                 data.pop('resource')).group(2)
         except AttributeError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
 
         if index_profile.resource.alias.handle != resource_nickname:
             return JsonResponse({'error': 'TODO'}, status=400)  # TODO Gestion des erreurs
@@ -121,11 +119,10 @@ class IndexProfilesDetail(View):
         try:
             index_profile.save()
         except IntegrityError as e:
-            return JsonResponse({'error': str(e)}, status=409)
+            return JsonResponse({'error': e.__str__()}, status=409)
         except ValidationError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
         # other exceptions -> 500
-
         return HttpResponse(status=204)
 
     @BasicAuth()
@@ -135,7 +132,7 @@ class IndexProfilesDetail(View):
         # Erreur sur IndexProfile.delete() suite a erreur sur elasticsearch_wrapper
         # "elastic_conn.delete_index_by_alias" doit etre réintégrer
         index_profile.delete()
-        return JsonResponse(data={}, status=204)
+        return HttpResponse(status=204)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

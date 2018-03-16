@@ -25,19 +25,19 @@ class Resource(AbstractModelProfile):
             self.source.alias.handle, self.alias.handle)
 
     @location.setter
-    def location(self):
+    def location(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not change it.')
 
     @location.deleter
-    def location(self):
+    def location(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     @property
-    def onegeo(self):
+    def onegeo(self, *args, **kwargs):
         return self.source.onegeo.get_resources(names=[self.name])[0]
 
     @onegeo.setter
-    def onegeo(self):
+    def onegeo(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not change it.')
 
     @onegeo.deleter

@@ -123,7 +123,7 @@ class Action(View):
         # onegeo_index = OnegeoIndex(rscr.name)
         # onegeo_IndexProfile = OnegeoIndexProfile(ctx.name, onegeo_index, onegeo_resource)
         #
-        # for col_property in iter(ctx.clmn_properties):
+        # for col_property in iter(ctx.columns):
         #     IndexProfile_name = col_property.pop('name')
         #     onegeo_IndexProfile.update_property(
         #         IndexProfile_name, 'alias', col_property['alias'])

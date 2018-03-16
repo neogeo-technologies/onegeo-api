@@ -35,11 +35,11 @@ class Task(models.Model):
         return '/tasks/{}'.format(self.pk)
 
     @location.setter
-    def location(self):
+    def location(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not change it.')
 
     @location.deleter
-    def location(self):
+    def location(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     def detail_renderer(self):

@@ -26,11 +26,11 @@ class Source(AbstractModelProfile):
         return '/sources/{}'.format(self.alias.handle)
 
     @location.setter
-    def location(self):
+    def location(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not change it.')
 
     @location.deleter
-    def location(self):
+    def location(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     @property
@@ -38,11 +38,11 @@ class Source(AbstractModelProfile):
         return onegeo_manager.Source(self.uri, self.protocol)
 
     @onegeo.setter
-    def onegeo(self):
+    def onegeo(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not change it.')
 
     @onegeo.deleter
-    def onegeo(self):
+    def onegeo(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     def iter_resources(self):

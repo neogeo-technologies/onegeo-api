@@ -8,6 +8,9 @@ import re
 
 class IndexProfile(AbstractModelProfile):
 
+    class Extras(object):
+        fields = ('columns', 'name', 'resource', 'reindex_frequency')
+
     class Meta(object):
         verbose_name = 'Indexation Profile'
         verbose_name_plural = 'Indexation Profiles'
@@ -17,7 +20,7 @@ class IndexProfile(AbstractModelProfile):
         ('weekly', 'weekly'),
         ('daily', 'daily'))
 
-    clmn_properties = JSONField(
+    columns = JSONField(
         verbose_name='Columns', blank=True, null=True)
 
     reindex_frequency = models.CharField(
@@ -33,13 +36,29 @@ class IndexProfile(AbstractModelProfile):
     def location(self):
         return '/indexes/{}'.format(self.alias.handle)
 
+    @location.setter
+    def location(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @location.deleter
+    def location(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not delete it.')
+
     @property
     def onegeo(self):
         return onegeo_manager.IndexProfile('foo', self.resource.onegeo)  # TODO: foo name
 
+    @onegeo.setter
+    def onegeo(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @onegeo.deleter
+    def onegeo(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not delete it.')
+
     def detail_renderer(self, include=False, cascading=False, **others):
         return {
-            'columns': self.clmn_properties,
+            'columns': self.columns,
             'location': self.location,
             'name': self.name,
             'reindex_frequency': self.reindex_frequency,
@@ -61,8 +80,8 @@ class IndexProfile(AbstractModelProfile):
         if not re.match('^[\w\s]+$', self.name):
             raise ValidationError("Malformed 'name' parameter.")
 
-        # TODO Mettre à jour les propriétés de colonnes
-        self.clmn_properties = [
+        # TODO Vérifier si le contenu est conforme
+        not self.columns and [
             prop.all() for prop in self.onegeo.iter_properties()]
 
         return super().save(*args, **kwargs)
