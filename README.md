@@ -203,10 +203,23 @@ Ajouter dans la configuration du site `WSGIPassAuthorization on`
 #### Mise en place de Celery pour les tâches asynchrones
 
 Installation de Redis
+
+ ```shell
+/onegeo_venv> wget http://download.redis.io/releases/redis-4.0.8.tar.gz
+/onegeo_venv> tar xzf redis-4.0.8.tar.gz
+/onegeo_venv> cd redis-4.0.8
+/onegeo_venv> make
+  ```
+ 
+Mac:
 ```shell
  /onegeo_venv> brew install redis
  ```
- 
+
+Installation du client Python pourRedis
+```shell
+ /onegeo_venv> pip install redis
+ ```
 Installation de Celery
  ```shell
  /onegeo_venv> pip install celery
