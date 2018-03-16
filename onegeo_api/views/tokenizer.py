@@ -1,19 +1,17 @@
-import json
-
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-
+import json
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
 from onegeo_api.models import Tokenizer
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import clean_my_obj
+from onegeo_api.utils import errors_on_call
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
-from onegeo_api.utils import errors_on_call
 
 
 @method_decorator(csrf_exempt, name="dispatch")

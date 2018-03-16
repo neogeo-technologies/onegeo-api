@@ -1,7 +1,6 @@
-from functools import wraps
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
-
+from functools import wraps
 
 
 class JsonError(Exception):
@@ -22,7 +21,7 @@ class UnexpectedError(Exception):
     """Oops, this is unexpected."""
 
 
-class ContentTypeLookUp:
+class ContentTypeLookUp(object):
 
     def func_with_content_type(self, func, request, *args, **kwargs):
         if request.content_type != "application/json":
@@ -32,7 +31,6 @@ class ContentTypeLookUp:
             return func(*args, **kwargs)
 
     def __call__(self, func):
-
         @wraps(func)
         def wrapper(*args, **kwargs):
             request = None

@@ -1,7 +1,9 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
+from onegeo_api.celery_tasks import create_resources_with_log
 from onegeo_api.models.abstracts import AbstractModelProfile
+from onegeo_api.models.task import Task
 import onegeo_manager
 import re
 
@@ -23,9 +25,25 @@ class Source(AbstractModelProfile):
     def location(self):
         return '/sources/{}'.format(self.alias.handle)
 
+    @location.setter
+    def location(self):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @location.deleter
+    def location(self):
+        raise AttributeError('Attibute is locked, you can not delete it.')
+
     @property
     def onegeo(self):
         return onegeo_manager.Source(self.uri, self.protocol)
+
+    @onegeo.setter
+    def onegeo(self):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @onegeo.deleter
+    def onegeo(self):
+        raise AttributeError('Attibute is locked, you can not delete it.')
 
     def iter_resources(self):
         instance = apps.get_model(
@@ -60,4 +78,8 @@ class Source(AbstractModelProfile):
         # if self.uri not... :
         #     pass
 
-        return super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
+
+        task = Task.objects.create(user=self.user, alias=self.alias)
+        create_resources_with_log.apply_async(
+            kwargs={'pk': self.pk}, task_id=str(task.celery_id))

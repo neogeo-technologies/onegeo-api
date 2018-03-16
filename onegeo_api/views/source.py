@@ -10,7 +10,6 @@ from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import slash_remove
-from onegeo_api.models import Dashboard
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -34,23 +33,13 @@ class SourcesList(View):
 
         data['user'] = request.user
         try:
-            instance = Source.objects.create(**data)
+            Source.objects.create(**data)
         except ValidationError as e:
             return JsonResponse({'error': str(e)}, status=400)
         except IntegrityError as e:
             return JsonResponse({'error': str(e)}, status=409)
 
-        # The request has been accepted for processing
-        # but the processing has not been completed
-        task_id = instance.alias.handle + str(instance.pk)
-        task_url = "/tasks/" + instance.alias.handle + str(instance.pk)
-        # save info about Celery Task
-        celery_task, _created = Dashboard.objects.get_or_create(
-            task_id=task_id,
-            user=request.user,
-            status="IN PROGRESS")
-
-        return JsonResponse(data={'task_url': task_url}, status=202)
+        return JsonResponse(data={}, status=202)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

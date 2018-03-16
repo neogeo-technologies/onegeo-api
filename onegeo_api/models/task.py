@@ -1,45 +1,72 @@
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db import models
-from django.db.models import Q
 from django.http import Http404
+import uuid
 
 
 class Task(models.Model):
-    T_L = (("Source", "Source"),
-           ("IndexProfile", "IndexProfile"))
 
-    start_date = models.DateTimeField("Start", auto_now_add=True)
-    stop_date = models.DateTimeField("Stop", null=True, blank=True)
-    success = models.NullBooleanField("Success")
-    alias = models.OneToOneField("onegeo_api.Alias", on_delete=models.CASCADE)
-    description = models.CharField("Description", max_length=250)
+    class Meta(object):
+        verbose_name = 'Task'
+        verbose_name_plural = 'Tasks'
 
-    # FK & alt
-    user = models.ForeignKey(User)
+    alias = models.OneToOneField(
+        to='Alias', verbose_name='Alias', on_delete=models.CASCADE)
+
+    celery_id = models.UUIDField(
+        verbose_name='UUID', default=uuid.uuid4, editable=False)
+
+    description = models.CharField(
+        verbose_name='Description', max_length=250)
+
+    start_date = models.DateTimeField(
+        verbose_name='Start', auto_now_add=True)
+
+    stop_date = models.DateTimeField(
+        verbose_name='Stop', null=True, blank=True)
+
+    success = models.NullBooleanField(verbose_name='Success')
+
+    user = models.ForeignKey(to=User, verbose_name='User')
+
+    @property
+    def location(self):
+        return '/tasks/{}'.format(self.pk)
+
+    @location.setter
+    def location(self):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @location.deleter
+    def location(self):
+        raise AttributeError('Attibute is locked, you can not delete it.')
 
     def detail_renderer(self):
         return {
-            "id": self.pk,
-            "status": self.success is None and 'running' or 'done',
-            "description": self.description,
-            "location": "tasks/{}".format(self.pk),
-            "success": self.success,
-            "dates": {
-                "start": self.start_date,
-                "stop": self.stop_date}}
+            'id': self.pk,
+            'status': {
+                None: 'running',
+                False: 'failed',
+                True: 'done'}.get(self.success),
+            'description': self.description,
+            'location': self.location,
+            'success': self.success,
+            'dates': {
+                'start': self.start_date,
+                'stop': self.stop_date}}
 
     @classmethod
-    def list_renderer(cls, defaults, **opts):
-        tasks = cls.objects.filter(Q(**defaults) | Q(user=None)).order_by("-start_date")
-        return [t.detail_renderer(**opts) for t in tasks]
+    def list_renderer(cls, user):
+        return [t.detail_renderer() for t in
+                cls.objects.filter(user=user).order_by('-start_date')]
 
     @classmethod
     def get_with_permission(cls, defaults, user):
         try:
             instance = cls.objects.get(**defaults)
         except cls.DoesNotExist:
-            raise Http404("Aucune tâche ne correspond à votre requête")
+            raise Http404('Aucune tâche ne correspond à votre requête')
         if instance.user and instance.user != user:
             raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette tâche")
         return instance

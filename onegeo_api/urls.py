@@ -23,37 +23,33 @@ from onegeo_api.views.task import TasksDetail
 from onegeo_api.views.task import TasksList
 from onegeo_api.views.tokenizer import TokenizersDetail
 from onegeo_api.views.tokenizer import TokenizersList
-from onegeo_api.views.dashboard import DashboardList
-from onegeo_api.views.dashboard import Status
+
 
 app_name = 'onegeo_api'
 
 
 urlpatterns = [
-    url('^action/?$', Action.as_view(), name="action"),
-    url('^analyzers/(?P<alias>\w+)/?$', AnalyzersDetail.as_view(), name="analyzers_detail"),
-    url('^analyzers/?$', AnalyzersList.as_view(), name="analyzers_list"),
-    url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name="indexes_task_view_list"),
-    url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name="indexes_task_view_detail"),
-    url('^indexes/(?P<nickname>\w+)/?$', IndexProfilesDetail.as_view(), name="indexes_detail"),
-    url('^indexes/?$', IndexProfilesList.as_view(), name="indexes_list"),
-    url('^services/(?P<nickname>\w+)/search/?$', Search.as_view(), name="seamod_detail_search"),
-    url('^services/(?P<nickname>\w+)/?$', SearchModelsDetail.as_view(), name="seamod_detail"),
-    url('^services/?$', SearchModelsList.as_view(), name="seamod_list"),
-    url('^sources/(\w+)/resources/(?P<nickname>\w+)/?$', ResourcesDetail.as_view(), name="resources_detail"),
-    url('^sources/(?P<nickname>\w+)/resources/?$', ResourcesList.as_view(), name="resources_list"),
-    url('^sources/(?P<nickname>\w+)?$', SourcesDetail.as_view(), name="sources_detail"),
-    url('^sources/?$', SourcesList.as_view(), name="sources_list"),
-    url('^sources_directories/?$', Directories.as_view(), name="directories"),
-    url('^supported_modes/?$', SupportedProtocols.as_view(), name="modes"),
-    url('^tasks/(\d+)/?$', TasksDetail.as_view(), name="tasks_detail"),
-    url('^tasks/?$', TasksList.as_view(), name="tasks_list"),
-    url('^tokenfilters/(?P<alias>\w+)/?$', TokenFiltersDetail.as_view(), name="tokenfilters_detail"),
-    url('^tokenfilters/?$', TokenFiltersList.as_view(), name="tokenfilters_list"),
-    url('^tokenizers/(?P<alias>\w+)/?$', TokenizersDetail.as_view(), name="tokenizers_detail"),
-    url('^tokenizers/?$', TokenizersList.as_view(), name="tokenizers_list"),
-    url('^alias/(?P<alias>\w+)/?$', AliasDetail.as_view(), name="alias_search"),
-    url('^bulk/?$', Bulk.as_view(), name="bulk"),
-    url('^tasks/(?P<id>\w{1,50})$', Status.as_view(), name="tasks"),
-    url('^dashboard/?$', DashboardList.as_view(), name="dashboard_list")
-    ]
+    url('^action/?$', Action.as_view(), name='action'),
+    url('^analyzers/(?P<alias>\w+)/?$', AnalyzersDetail.as_view(), name='analyzers_detail'),
+    url('^analyzers/?$', AnalyzersList.as_view(), name='analyzers_list'),
+    url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name='indexes_task_view_list'),
+    url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name='indexes_task_view_detail'),
+    url('^indexes/(?P<nickname>\w+)/?$', IndexProfilesDetail.as_view(), name='indexes_detail'),
+    url('^indexes/?$', IndexProfilesList.as_view(), name='indexes_list'),
+    url('^services/(?P<nickname>\w+)/search/?$', Search.as_view(), name='seamod_detail_search'),
+    url('^services/(?P<nickname>\w+)/?$', SearchModelsDetail.as_view(), name='seamod_detail'),
+    url('^services/?$', SearchModelsList.as_view(), name='seamod_list'),
+    url('^sources/(\w+)/resources/(?P<nickname>\w+)/?$', ResourcesDetail.as_view(), name='resources_detail'),
+    url('^sources/(?P<nickname>\w+)/resources/?$', ResourcesList.as_view(), name='resources_list'),
+    url('^sources/(?P<nickname>\w+)?$', SourcesDetail.as_view(), name='sources_detail'),
+    url('^sources/?$', SourcesList.as_view(), name='sources_list'),
+    url('^sources_directories/?$', Directories.as_view(), name='directories'),
+    url('^supported_modes/?$', SupportedProtocols.as_view(), name='modes'),
+    url('^tasks/(\d+)/?$', TasksDetail.as_view(), name='tasks_detail'),
+    url('^tasks/?$', TasksList.as_view(), name='tasks_list'),
+    url('^tokenfilters/(?P<alias>\w+)/?$', TokenFiltersDetail.as_view(), name='tokenfilters_detail'),
+    url('^tokenfilters/?$', TokenFiltersList.as_view(), name='tokenfilters_list'),
+    url('^tokenizers/(?P<alias>\w+)/?$', TokenizersDetail.as_view(), name='tokenizers_detail'),
+    url('^tokenizers/?$', TokenizersList.as_view(), name='tokenizers_list'),
+    url('^alias/(?P<alias>\w+)/?$', AliasDetail.as_view(), name='alias_search'),
+    url('^bulk/?$', Bulk.as_view(), name='bulk')]

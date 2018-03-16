@@ -135,7 +135,8 @@ class AbstractModelProfile(models.Model):
     alias = models.OneToOneField(
         to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
 
-    name = models.CharField(verbose_name='Name', max_length=250)
+    name = models.CharField(
+        verbose_name='Name', max_length=250, blank=True, null=True)
 
     user = models.ForeignKey(to=User, blank=True, null=True)
 
@@ -146,7 +147,7 @@ class AbstractModelProfile(models.Model):
         return self.alias.handle
 
     def __unicode__(self):
-        return self.name
+        return self.name or self._nickname
 
     @property
     def nickname(self):
@@ -172,6 +173,7 @@ class AbstractModelProfile(models.Model):
                 raise error
         else:
             self.alias.save()
+
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

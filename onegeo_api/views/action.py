@@ -1,16 +1,13 @@
-import json
-# from uuid import uuid4
-
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
+# from django.core.exceptions import PermissionDenied
+# from django.http import Http404
 from django.http import JsonResponse
-# from django.utils import timezone
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import View
 from django.shortcuts import redirect
 from django.urls import reverse
-
+from django.utils.decorators import method_decorator
+# from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import View
+import json
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
@@ -19,7 +16,8 @@ from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import errors_on_call
 from onegeo_api.utils import slash_remove
-import onegeo_manager
+# import onegeo_manager
+# from uuid import uuid4
 
 
 # def iter_flt_from_anl(anl_name):

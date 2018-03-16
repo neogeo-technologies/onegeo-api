@@ -1,9 +1,8 @@
-from elasticsearch import Elasticsearch
+# from django.conf import settings
 from elasticsearch import exceptions as ElasticExceptions
+# from elasticsearch import Elasticsearch
 from threading import Thread
 from uuid import uuid4
-
-from django.conf import settings
 
 
 class Singleton(type):
@@ -118,15 +117,13 @@ class ElasticWrapper(metaclass=Singleton):
 
                 return succeed(msg)
 
-
         thread = Thread(target=target,
                         args=(index, name, doc_type, collections, pipeline),
                         kwargs={'succeed': succeed, 'failed': failed, 'error': error})
         thread.start()
 
     def switch_aliases(self, index, name):
-        """Permute l'alias vers le nouvel index. """
-
+        """Permute l'alias vers le nouvel index."""
         body = {'actions': []}
 
         indices = self.get_indices_by_alias(name)
@@ -136,18 +133,15 @@ class ElasticWrapper(metaclass=Singleton):
             for prev_alias in prev_aliases:
 
                 if prev_alias != name:
-                    body['actions'].append({'add': {
-                                                'index': index,
-                                                'alias': prev_alias}})
+                    body['actions'].append(
+                        {'add': {'index': index, 'alias': prev_alias}})
 
-            body['actions'].append({'remove': {
-                                        'index': old_index,
-                                        'alias': name}})
+            body['actions'].append(
+                {'remove': {'index': old_index, 'alias': name}})
 
         self.conn.indices.put_alias(index=index, name=name)
-        body['actions'].append({'add': {
-                                    'index': index,
-                                    'alias': name}})
+        body['actions'].append(
+            {'add': {'index': index, 'alias': name}})
 
         self.update_aliases(body)
         for i in range(len(indices)):

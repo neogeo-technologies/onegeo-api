@@ -29,6 +29,14 @@ class SearchModel(AbstractModelProfile):
     def location(self):
         return '/services/{}'.format(self.alias.handle)
 
+    @location.setter
+    def location(self):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @location.deleter
+    def location(self):
+        raise AttributeError('Attibute is locked, you can not delete it.')
+
     def detail_renderer(self, include=False, cascading=False, **others):
         opts = {'include': cascading and include, 'cascading': cascading}
 
