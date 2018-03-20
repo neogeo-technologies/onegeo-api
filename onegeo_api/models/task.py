@@ -45,9 +45,9 @@ class Task(models.Model):
     def detail_renderer(self):
 
         if self.stop_date:
-            elasped_time = (self.stop_date - self.start_date).total_seconds()
+            elapsed_time = (self.stop_date - self.start_date).total_seconds()
         else:
-            elasped_time = (timezone.now()-self.start_date).total_seconds()
+            elapsed_time = (timezone.now()-self.start_date).total_seconds()
 
         return {
             'id': self.pk,
@@ -58,10 +58,10 @@ class Task(models.Model):
             'description': self.description,
             'location': self.location,
             'success': self.success,
+            'elapsed_time': elapsed_time,
             'dates': {
                 'start': self.start_date,
-                'stop': self.stop_date,
-                'elasped_time': elasped_time}}
+                'stop': self.stop_date}}
 
     @classmethod
     def list_renderer(cls, user):
