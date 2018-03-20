@@ -38,14 +38,13 @@ class IndexProfile(AbstractModelProfile):
         return onegeo_manager.IndexProfile('foo', self.resource.onegeo)  # TODO: foo name
 
     def detail_renderer(self, include=False, cascading=False, **others):
-
         return {
             'columns': self.clmn_properties,
             'location': self.location,
             'name': self.name,
             'reindex_frequency': self.reindex_frequency,
             'resource': include and self.resource.detail_renderer(
-                include=cascading and include, cascading=cascading)['name']
+                include=cascading and include, cascading=cascading)
             or self.resource.location}
 
     @classmethod

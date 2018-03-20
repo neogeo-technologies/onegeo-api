@@ -3,7 +3,6 @@ from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import Http404
 import uuid
-from django.utils import timezone
 
 
 class Task(models.Model):
@@ -44,12 +43,6 @@ class Task(models.Model):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     def detail_renderer(self):
-
-        if self.stop_date:
-            elasped_time = (self.stop_date - self.start_date).total_seconds()
-        else:
-            elasped_time = (timezone.now()-self.start_date).total_seconds()
-
         return {
             'id': self.pk,
             'status': {
@@ -61,8 +54,7 @@ class Task(models.Model):
             'success': self.success,
             'dates': {
                 'start': self.start_date,
-                'stop': self.stop_date},
-            'elasped_time':elasped_time}
+                'stop': self.stop_date}}
 
     @classmethod
     def list_renderer(cls, user):
