@@ -63,7 +63,7 @@ class IndexProfile(AbstractModelProfile):
             'name': self.name,
             'reindex_frequency': self.reindex_frequency,
             'resource': include and self.resource.detail_renderer(
-                include=cascading and include, cascading=cascading)
+                include=cascading and include, cascading=cascading)['name']
             or self.resource.location}
 
     @classmethod
