@@ -16,6 +16,8 @@ from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import errors_on_call
 from onegeo_api.utils import slash_remove
+from onegeo_api.elasticsearch_wrapper import ElasticWrapper
+
 # import onegeo_manager
 # from uuid import uuid4
 
@@ -81,37 +83,79 @@ class Action(View):
     @ExceptionsHandler(actions=errors_on_call())
     @ContentTypeLookUp()
     def post(self, request):
-        user = request.user
 
+        user = request.user
         data = json.loads(request.body.decode("utf-8"))
-        index_profile_alias = data.get("index")
+        index_profile_alias = data.get('location').split('/')[-1:][0]
         if not index_profile_alias:
             data = {"error": "L'identifiant du IndexProfile est manquant "}
             return JsonResponse(data, status=400)
 
-        index_profile = IndexProfile.get_with_permission(
-            index_profile_alias, request.user)
+        # index_profile = IndexProfile.get_with_permission(
+        #     index_profile_alias, request.user)
 
-        filters = {
-            "alias": index_profile.alias,
-            "user": user}
-        last = Task.objects.filter(**filters).order_by("start_date").last()
-        if last and last.success is None:
-            data = {"error": "Une autre tâche est en cours d'exécution. "
-                             "Veuillez réessayer plus tard. "}
-            return JsonResponse(data, status=423)
+        index_profile = IndexProfile.objects.get(
+            user=request.user,
+            name=data['name'],
+            alias__handle=index_profile_alias)
+        # filters = {
+        #     "alias": index_profile.alias,
+        #     "user": user}
+        # last = Task.objects.filter(**filters).order_by("start_date").last()
+        # if last and last.success is None:
+        #     data = {"error": "Une autre tâche est en cours d'exécution. "
+        #                      "Veuillez réessayer plus tard. "}
+        #     return JsonResponse(data, status=423)
 
         # # TODO(mmeliani): relation entre IndexProfile et Resource
         # action = data["type"]
-
         # rscr = ctx.resource
         # src = rscr.source
-        #
+        rscr = index_profile.resource
+        src = rscr.source
+        elastic_wrapper = ElasticWrapper()
+
+        # test = IndexProfile(rscr.name, rscr)
+
+
+
+        csw_idx_profile, csw_analysis = \
+            elastic_wrapper.update_es_settings(index_profile)
+
+        get_mapping = lambda index_profile: index_profile.onegeo.generate_elastic_mapping()
+
+        # md_mapping = with_settings and \
+        #     format_md_mapping(get_mapping(csw_idx_profile).popitem()[1])
+        import pdb; pdb.set_trace()
+        md_mapping = elastic_wrapper.format_md_mapping(get_mapping(csw_idx_profile).popitem()[1])
+
+        # md_set =  "df5cd9e8-ee65-42d8-8a76-347508c3c8d2"
+        test = csw_idx_profile.onegeo.get_collection()
+        # for md_data in csw_idx_profile.onegeo.get_collection():
+        #     print(md_data)
+
+        # id de la source  nickname
+        md_idx_name = index_profile_alias
+
+        md_type_name = md_idx_name
+        md_settings = {
+                    'mappings': {
+                        md_type_name: {
+                            'properties': {}}},
+                    'settings': {}}
+
+        # creation de l'index
+        elastic_wrapper.create_index(rscr.name, md_settings)
+
+
+        # envoie des donnes (push collection)
+        elastic_wrapper.push_collection(md_idx_name, md_type_name, [])
+
         # try:
-        #     onegeo_source = OnegeoSource(src.uri, src.protocol)
+        #     onegeo_source = ElasticWrapper(src.uri, src.protocol)
         # except ConnectionError:
         #     return JsonResponse({'error': 'La source de données est inaccessible.'}, status=404)
-        # onegeo_resource = OnegeoResource(onegeo_source, rscr.name)
+        # # onegeo_resource = OnegeoResource(onegeo_source, rscr.name)
         # for column in iter(rscr.columns):
         #     if onegeo_resource.is_existing_column(column["name"]):
         #         continue
@@ -123,7 +167,7 @@ class Action(View):
         # onegeo_index = OnegeoIndex(rscr.name)
         # onegeo_IndexProfile = OnegeoIndexProfile(ctx.name, onegeo_index, onegeo_resource)
         #
-        # for col_property in iter(ctx.columns):
+        # for col_property in iter(ctx.clmn_properties):
         #     IndexProfile_name = col_property.pop('name')
         #     onegeo_IndexProfile.update_property(
         #         IndexProfile_name, 'alias', col_property['alias'])

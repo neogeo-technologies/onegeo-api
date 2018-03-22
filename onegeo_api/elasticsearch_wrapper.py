@@ -1,8 +1,9 @@
 # from django.conf import settings
 from elasticsearch import exceptions as ElasticExceptions
-# from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch
 from threading import Thread
 from uuid import uuid4
+import json
 
 
 class Singleton(type):
@@ -21,13 +22,92 @@ class ElasticWrapper(metaclass=Singleton):
 
         # self.conn = Elasticsearch([{'host': settings.ES_VAR['HOST']}])
         # self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
-        self.conn = None
-    # def is_a_task_running(self):
-    #
-    #     response = self.conn.tasks.list(actions='indices:*')
-    #     if not response['nodes']:
-    #         return False
-    #     return True
+        # self.conn = None
+        self.conn = Elasticsearch()
+
+    def format_md_mapping(self, mapping):
+
+        m = mapping['properties']['properties'].copy()
+        # m['properties']['uri'] = mapping['properties']['uri']
+        m['properties']['href'] = {
+            'include_in_all': False,
+            'index': 'not_analyzed',
+            'store': False,
+            'type': 'keyword'}
+
+        return {'metadata-fr': m}
+
+    def get_analyzer(self, name):
+        return "standard"
+        # return self._es_analysis['analyzer'].get(name)
+
+    def get_token_filters(self, analyzer):
+        return "model_french_stop"
+        # return self._es_analysis['analyzer'][analyzer]['filter']
+
+    def get_filter(self, name):
+        return "model_asciifolding"
+        # return self._es_analysis['filter'].get(name)
+
+    def update_es_settings(self, idx_profile):
+        analysis = {'analysis': {'analyzer': {}, 'filter': {}}}
+
+        for elt in idx_profile.onegeo.iter_properties():
+            print(elt)
+            if not elt.column_type == 'text':
+                continue
+            # p.analyzer = p.analyzer or config.default_analyzer
+            elt.analyzer = elt.analyzer or "standard"
+
+            if elt.analyzer not in analysis['analysis']['analyzer'].keys():
+                analysis['analysis']['analyzer'][elt.analyzer] = \
+                    self.get_analyzer(elt.analyzer)
+
+            for token in self.get_token_filters(analyzer=elt.analyzer):
+                if self.get_filter(token) and \
+                        token not in analysis['analysis']['filter'].keys():
+                    analysis['analysis']['filter'][token] = \
+                        self.get_filter(token)
+
+        return idx_profile, analysis
+
+    def create_index(self, index, body):
+
+        if self.conn.indices.exists(index):
+            # logging.info('Re-creating Elastic index {0}'.format(index))
+            self.conn.indices.delete(index=index)
+        else:
+            # logging.info('Creating Elastic index {0}'.format(index))
+            self.conn.indices.create(index=index, body=body)
+
+    def push_collection(self,index, doc_type, collections, step=100):
+
+        def send_bulk(_index, _type, _body, _count):
+            self.conn.bulk(index=_index, doc_type=_type, body=_body)
+            # logging.info('{0} documents sent'.format(_count))
+
+        # logging.info(
+        #     'Pushing Feature collection data to Elastic index {0}'.format(index))
+
+        body, count = '', 1
+        x=1
+        for x, document in enumerate(collections, 1):
+            header = {
+                'index': {
+                    '_index': index, '_type': doc_type, '_id': str(uuid4())[:7]}}
+            body += \
+                '{0}\n{1}\n'.format(json.dumps(header), json.dumps(document))
+
+            if count < step:
+                count += 1
+                continue
+            send_bulk(index, doc_type, body, x)
+            body, count = '', 1
+
+        send_bulk(index, doc_type, body, x)
+
+
+
 
     def create_pipeline_if_not_exists(self, id):
 

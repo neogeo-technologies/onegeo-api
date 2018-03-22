@@ -57,6 +57,7 @@ class IndexProfile(AbstractModelProfile):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     def detail_renderer(self, include=False, cascading=False, **others):
+
         return {
             'columns': self.columns,
             'location': self.location,
@@ -79,9 +80,8 @@ class IndexProfile(AbstractModelProfile):
 
         if not re.match('^[\w\s]+$', self.name):
             raise ValidationError("Malformed 'name' parameter.")
-
         # TODO Vérifier si le contenu est conforme
-        not self.columns and [
+        self.columns = not self.columns and [
             prop.all() for prop in self.onegeo.iter_properties()]
 
         return super().save(*args, **kwargs)
