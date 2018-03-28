@@ -23,7 +23,7 @@ class ResourcesList(View):
         source = Source.get_or_raise(nickname, user)
 
         try:
-            tsk = Task.objects.get(alias=source.alias)
+            tsk = Task.objects.get(name=source.name, alias=source.alias)
         except Task.DoesNotExist:
             data = Resource.list_renderer(nickname, user)
             opts = {"safe": False}

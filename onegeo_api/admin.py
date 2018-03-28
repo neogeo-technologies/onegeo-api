@@ -4,7 +4,7 @@ from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Source
-
+from onegeo_api.models import Task
 
 admin.site.unregister(Group)
 
@@ -27,10 +27,10 @@ class SourceAdmin(admin.ModelAdmin):
     ordering = ['name']
 
 
-# @admin.register(Task)
-# class TaskAdmin(admin.ModelAdmin):
-#     list_display = ['start_date', 'success']
-#     ordering = ['start_date']
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ['start_date', 'success']
+    ordering = ['start_date']
 
 
 @admin.register(SearchModel)

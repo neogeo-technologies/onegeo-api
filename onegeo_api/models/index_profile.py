@@ -32,6 +32,10 @@ class IndexProfile(AbstractModelProfile):
     resource = models.ForeignKey(
         to='Resource', verbose_name='Resource')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._onegeo = None
+
     @property
     def location(self):
         return '/indexes/{}'.format(self.alias.handle)
@@ -46,7 +50,10 @@ class IndexProfile(AbstractModelProfile):
 
     @property
     def onegeo(self):
-        return onegeo_manager.IndexProfile('foo', self.resource.onegeo)  # TODO: foo name
+        if not self._onegeo:
+            print('index_onegeo')
+            self._onegeo = onegeo_manager.IndexProfile('foo', self.resource.onegeo)
+        return self._onegeo
 
     @onegeo.setter
     def onegeo(self, *args, **kwargs):
@@ -57,7 +64,6 @@ class IndexProfile(AbstractModelProfile):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     def detail_renderer(self, include=False, cascading=False, **others):
-
         return {
             'columns': self.columns,
             'location': self.location,

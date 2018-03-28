@@ -21,6 +21,10 @@ class Source(AbstractModelProfile):
 
     uri = models.CharField(verbose_name='URI', max_length=2048)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._onegeo = None
+
     @property
     def location(self):
         return '/sources/{}'.format(self.alias.handle)
@@ -35,7 +39,10 @@ class Source(AbstractModelProfile):
 
     @property
     def onegeo(self):
-        return onegeo_manager.Source(self.uri, self.protocol)
+        if not self._onegeo:
+            print('source_onegeo')
+            self._onegeo = onegeo_manager.Source(self.uri, self.protocol)
+        return self._onegeo
 
     @onegeo.setter
     def onegeo(self, *args, **kwargs):
@@ -80,6 +87,7 @@ class Source(AbstractModelProfile):
 
         super().save(*args, **kwargs)
 
-        task = Task.objects.create(user=self.user, alias=self.alias)
+        task = Task.objects.create(user=self.user, name=self.name,
+                                   alias=self.alias, description="1")
         create_resources_with_log.apply_async(
             kwargs={'pk': self.pk}, task_id=str(task.celery_id))

@@ -8,6 +8,7 @@ from onegeo_api.views.filter import TokenFiltersDetail
 from onegeo_api.views.filter import TokenFiltersList
 from onegeo_api.views.index_profile import IndexProfilesDetail
 from onegeo_api.views.index_profile import IndexProfilesList
+from onegeo_api.views.index_profile import IndexProfilesPublish
 from onegeo_api.views.index_profile import IndexProfilesTasksDetail
 from onegeo_api.views.index_profile import IndexProfilesTasksList
 from onegeo_api.views.main import Directories
@@ -36,6 +37,7 @@ urlpatterns = [
     url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name='indexes_task_view_detail'),
     url('^indexes/(?P<nickname>\w+)/?$', IndexProfilesDetail.as_view(), name='indexes_detail'),
     url('^indexes/?$', IndexProfilesList.as_view(), name='indexes_list'),
+    url('^indexes/(?P<nickname>\w+)/publish/?$', IndexProfilesPublish.as_view(), name='indexes_publish'),
     url('^services/(?P<nickname>\w+)/search/?$', Search.as_view(), name='seamod_detail_search'),
     url('^services/(?P<nickname>\w+)/?$', SearchModelsDetail.as_view(), name='seamod_detail'),
     url('^services/?$', SearchModelsList.as_view(), name='seamod_list'),

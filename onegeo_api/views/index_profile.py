@@ -7,6 +7,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 import json
+from onegeo_api.celery_tasks import create_es_index
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import IndexProfile
@@ -16,6 +17,7 @@ from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import errors_on_call
 from onegeo_api.utils import slash_remove
 import re
+import uuid
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -73,6 +75,7 @@ class IndexProfilesDetail(View):
     @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, nickname):
+
         opts = {
             'include': request.GET.get('include') == 'true' and True,
             'cascading': request.GET.get('cascading') == 'true' and True}
@@ -141,6 +144,7 @@ class IndexProfilesTasksList(View):
     @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, alias):
+
         index_profile = IndexProfile.get_with_permission(slash_remove(alias), request.user)
         defaults = {"alias": index_profile.alias, "user": request.user}
         return JsonResponse(Task.list_renderer(defaults), safe=False)
@@ -152,8 +156,30 @@ class IndexProfilesTasksDetail(View):
     @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, alias, tsk_id):
+        # TO DO GET WITH PERMISSION TO BE REPLACED
         index_profile = IndexProfile.get_with_permission(slash_remove(alias), request.user)
         task = Task.get_with_permission(
             {"id": literal_eval(tsk_id), "alias": index_profile.alias},
             request.user)
         return JsonResponse(task.detail_renderer(), safe=False)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class IndexProfilesPublish(View):
+
+    @BasicAuth()
+    def get(self, request, nickname):
+
+        index_profile = IndexProfile.get_or_raise(nickname, request.user)
+        # possibilté d'avoir plusisuer profile pour une seule source
+        task = Task.objects.create(user=request.user,
+                                   alias=index_profile.alias,
+                                   name=index_profile.name,
+                                   description="2")
+        print(index_profile.name)
+
+        create_es_index.apply_async(
+            kwargs={'nickname': nickname, 'user': request.user.pk},
+            task_id=str(task.celery_id))
+
+        return HttpResponse(status=202)

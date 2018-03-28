@@ -15,6 +15,10 @@ class Resource(AbstractModelProfile):
     source = models.ForeignKey(
         to='Source', verbose_name='Source', on_delete=models.CASCADE)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._onegeo = None
+
     @property
     def indexes(self):
         return self.indexprofile_set.all()
@@ -34,7 +38,10 @@ class Resource(AbstractModelProfile):
 
     @property
     def onegeo(self, *args, **kwargs):
-        return self.source.onegeo.get_resources(names=[self.name])[0]
+        if not self._onegeo:
+            print('resource_onegeo')
+            self._onegeo = self.source.onegeo.get_resources(names=[self.name])[0]
+        return self._onegeo
 
     @onegeo.setter
     def onegeo(self, *args, **kwargs):

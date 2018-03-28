@@ -2,8 +2,9 @@ from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import Http404
-import uuid
 from django.utils import timezone
+import uuid
+
 
 class Task(models.Model):
 
@@ -11,14 +12,23 @@ class Task(models.Model):
         verbose_name = 'Task'
         verbose_name_plural = 'Tasks'
 
-    alias = models.OneToOneField(
-        to='Alias', verbose_name='Alias', on_delete=models.CASCADE)
+    DESCRIPTION = (
+        ('0', 'ND'),
+        ('1', 'Creation Source'),
+        ('2', 'Creation Index ES')
+    )
+
+    alias = models.ForeignKey(
+        to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
+    name = models.CharField(
+        verbose_name='Nom', max_length=250)
 
     celery_id = models.UUIDField(
         verbose_name='UUID', default=uuid.uuid4, editable=False)
 
     description = models.CharField(
-        verbose_name='Description', max_length=250)
+                    verbose_name='Description', choices=DESCRIPTION,
+                    max_length=1, default='0')
 
     start_date = models.DateTimeField(
         verbose_name='Start', auto_now_add=True)
@@ -51,11 +61,12 @@ class Task(models.Model):
 
         return {
             'id': self.pk,
+            'name': self.name,
             'status': {
                 None: 'running',
                 False: 'failed',
                 True: 'done'}.get(self.success),
-            'description': self.description,
+            'description': self.get_description_display(),
             'location': self.location,
             'success': self.success,
             'elapsed_time': elapsed_time,
