@@ -61,6 +61,7 @@ class Task(models.Model):
 
         return {
             'id': self.pk,
+            'alias': self.alias.handle,
             'name': self.name,
             'status': {
                 None: 'running',
@@ -75,9 +76,9 @@ class Task(models.Model):
                 'stop': self.stop_date}}
 
     @classmethod
-    def list_renderer(cls, user):
+    def list_renderer(cls, defaults):
         return [t.detail_renderer() for t in
-                cls.objects.filter(user=user).order_by('-start_date')]
+                cls.objects.filter(**defaults).order_by('-start_date')]
 
     @classmethod
     def get_with_permission(cls, defaults, user):

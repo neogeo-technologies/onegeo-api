@@ -15,9 +15,7 @@ from onegeo_api.models import Resource
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import errors_on_call
-from onegeo_api.utils import slash_remove
 import re
-import uuid
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -28,6 +26,7 @@ class IndexProfilesList(View):
         opts = {
             'include': request.GET.get('include') == 'true' and True,
             'cascading': request.GET.get('cascading') == 'true' and True}
+
         return JsonResponse(
             IndexProfile.list_renderer(request.user, **opts), safe=False)
 
@@ -95,7 +94,19 @@ class IndexProfilesDetail(View):
         except json.decoder.JSONDecodeError as e:
             return JsonResponse({'error': e.__str__()}, status=400)
 
+        # Check linked resource
+        try:
+            resource_nickname = re.search(
+                    '^/sources/(\w+)/resources/(\w+)/?$',
+                    data.pop('resource_location')).group(2)
+            # resource_nickname = re.search(
+            #     '^/sources/(\w+)/resources/(\w+)/?$',
+            #     data.pop('resource')).group(2)
+        except AttributeError as e:
+            return JsonResponse({'error': e.__str__()}, status=400)
+
         user = request.user
+        data['resource'] = Resource.get_or_raise(resource_nickname, user)
         index_profile = IndexProfile.get_or_raise(nickname, user)
 
         fields = set(IndexProfile.Extras.fields)
@@ -105,17 +116,9 @@ class IndexProfilesDetail(View):
         # else:
         data = dict((k, v) for k, v in data.items() if k in fields)
 
-        # Check linked resource
-        try:
-            resource_nickname = re.search(
-                '^/sources/(\w+)/resources/(\w+)/?$',
-                data.pop('resource')).group(2)
-        except AttributeError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
-
         if index_profile.resource.alias.handle != resource_nickname:
-            return JsonResponse({'error': 'TODO'}, status=400)  # TODO Gestion des erreurs
-
+            # TODO Gestion des erreurs
+            return JsonResponse({'error': 'TODO'}, status=400)
         for k, v in data.items():
             setattr(index_profile, k, v)
 
@@ -129,10 +132,12 @@ class IndexProfilesDetail(View):
         return HttpResponse(status=204)
 
     @BasicAuth()
-    @ExceptionsHandler(actions=errors_on_call())
-    def delete(self, request, alias):
-        index_profile = IndexProfile.get_with_permission(slash_remove(alias), request.user)
-        # Erreur sur IndexProfile.delete() suite a erreur sur elasticsearch_wrapper
+    # @ExceptionsHandler(actions=errors_on_call())
+    def delete(self, request, nickname):
+        index_profile = \
+            IndexProfile.get_or_raise(nickname, request.user)
+        # IndexProfile.get_with_permission(slash_remove(alias), request.user)
+        # Erreur sur IndexProfile.delete() suite a erreur sur ES_wrapper
         # "elastic_conn.delete_index_by_alias" doit etre réintégrer
         index_profile.delete()
         return HttpResponse(status=204)
@@ -141,11 +146,10 @@ class IndexProfilesDetail(View):
 @method_decorator(csrf_exempt, name="dispatch")
 class IndexProfilesTasksList(View):
 
-    @BasicAuth()
+    # @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
-    def get(self, request, alias):
-
-        index_profile = IndexProfile.get_with_permission(slash_remove(alias), request.user)
+    def get(self, request, nickname):
+        index_profile = IndexProfile.get_or_raise(nickname, request.user)
         defaults = {"alias": index_profile.alias, "user": request.user}
         return JsonResponse(Task.list_renderer(defaults), safe=False)
 
@@ -153,11 +157,10 @@ class IndexProfilesTasksList(View):
 @method_decorator(csrf_exempt, name="dispatch")
 class IndexProfilesTasksDetail(View):
 
-    @BasicAuth()
+    # @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
-    def get(self, request, alias, tsk_id):
-        # TO DO GET WITH PERMISSION TO BE REPLACED
-        index_profile = IndexProfile.get_with_permission(slash_remove(alias), request.user)
+    def get(self, request, nickname, tsk_id):
+        index_profile = IndexProfile.get_or_raise(nickname, request.user)
         task = Task.get_with_permission(
             {"id": literal_eval(tsk_id), "alias": index_profile.alias},
             request.user)
@@ -176,7 +179,6 @@ class IndexProfilesPublish(View):
                                    alias=index_profile.alias,
                                    name=index_profile.name,
                                    description="2")
-        print(index_profile.name)
 
         create_es_index.apply_async(
             kwargs={'nickname': nickname, 'user': request.user.pk},

@@ -51,8 +51,8 @@ class IndexProfile(AbstractModelProfile):
     @property
     def onegeo(self):
         if not self._onegeo:
-            print('index_onegeo')
-            self._onegeo = onegeo_manager.IndexProfile('foo', self.resource.onegeo)
+            self._onegeo = \
+                onegeo_manager.IndexProfile('foo', self.resource.onegeo)
         return self._onegeo
 
     @onegeo.setter
@@ -64,14 +64,23 @@ class IndexProfile(AbstractModelProfile):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     def detail_renderer(self, include=False, cascading=False, **others):
+
         return {
             'columns': self.columns,
             'location': self.location,
             'name': self.name,
             'reindex_frequency': self.reindex_frequency,
-            'resource': include and self.resource.detail_renderer(
-                include=cascading and include, cascading=cascading)['name']
-            or self.resource.location}
+            'resource': self.resource.name,
+            'resource_location': self.resource.location}
+
+        # return {
+        #     'columns': self.columns,
+        #     'location': self.location,
+        #     'name': self.name,
+        #     'reindex_frequency': self.reindex_frequency,
+        #     'resource': include and self.resource.detail_renderer(
+        #         include=cascading and include, cascading=cascading)['name']
+        #     or self.resource.location}
 
     @classmethod
     def list_renderer(cls, user, **opts):
@@ -86,8 +95,9 @@ class IndexProfile(AbstractModelProfile):
 
         if not re.match('^[\w\s]+$', self.name):
             raise ValidationError("Malformed 'name' parameter.")
-        # TODO Vérifier si le contenu est conforme
-        self.columns = not self.columns and [
-            prop.all() for prop in self.onegeo.iter_properties()]
+        # TODO A Vérifier !!!!!
+        if not self.columns:
+            self.columns = \
+                [prop.all() for prop in self.onegeo.iter_properties()]
 
         return super().save(*args, **kwargs)

@@ -39,8 +39,8 @@ class Resource(AbstractModelProfile):
     @property
     def onegeo(self, *args, **kwargs):
         if not self._onegeo:
-            print('resource_onegeo')
-            self._onegeo = self.source.onegeo.get_resources(names=[self.name])[0]
+            self._onegeo = \
+                self.source.onegeo.get_resources(names=[self.name])[0]
         return self._onegeo
 
     @onegeo.setter

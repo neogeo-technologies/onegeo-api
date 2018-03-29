@@ -15,7 +15,8 @@ class TasksList(View):
 
     @BasicAuth()
     def get(self, request):
-        return JsonResponse(Task.list_renderer(request.user), safe=False)
+        defaults = {"user": request.user}
+        return JsonResponse(Task.list_renderer(defaults), safe=False)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
