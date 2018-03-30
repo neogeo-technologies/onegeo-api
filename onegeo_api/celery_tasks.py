@@ -14,6 +14,8 @@ logger = get_task_logger(__name__)
 @task(name="create_resources_with_log", ignore_result=False)
 def create_resources_with_log(**kwargs):
 
+    # tache celery pour la creation des ressources d'une source
+
     Task = apps.get_model(app_label='onegeo_api', model_name='Task')
     Source = apps.get_model(app_label='onegeo_api', model_name='Source')
     Resource = apps.get_model(app_label='onegeo_api', model_name='Resource')
@@ -38,6 +40,8 @@ def create_resources_with_log(**kwargs):
 
 @task(name="create_es_index", ignore_result=False)
 def create_es_index(**kwargs):
+
+    # tache celery pour l'indexation des données dans ES
 
     Task = apps.get_model(app_label='onegeo_api', model_name='Task')
     user = User.objects.get(pk=kwargs['user'])

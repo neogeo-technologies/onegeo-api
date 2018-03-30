@@ -33,7 +33,7 @@ class ElasticWrapper(metaclass=Singleton):
 
         body, count = '', 1
         for document in collection:
-    
+
             header = {
                 'index': {
                     '_index': index, '_type': doc_type, '_id': str(uuid4())}}
@@ -101,5 +101,6 @@ class ElasticWrapper(metaclass=Singleton):
             self.conn.indices.update_aliases(body=body)
         except ElasticExceptions.RequestError as err:
             raise ValueError(str(err))
+
 
 elastic_conn = ElasticWrapper()

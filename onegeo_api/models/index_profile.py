@@ -70,6 +70,7 @@ class IndexProfile(AbstractModelProfile):
             'location': self.location,
             'name': self.name,
             'reindex_frequency': self.reindex_frequency,
+            'index_alias': self.alias.handle,
             'resource': self.resource.name,
             'resource_location': self.resource.location}
 

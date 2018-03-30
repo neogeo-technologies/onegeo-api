@@ -99,9 +99,7 @@ class IndexProfilesDetail(View):
             resource_nickname = re.search(
                     '^/sources/(\w+)/resources/(\w+)/?$',
                     data.pop('resource_location')).group(2)
-            # resource_nickname = re.search(
-            #     '^/sources/(\w+)/resources/(\w+)/?$',
-            #     data.pop('resource')).group(2)
+
         except AttributeError as e:
             return JsonResponse({'error': e.__str__()}, status=400)
 
@@ -174,7 +172,7 @@ class IndexProfilesPublish(View):
     def get(self, request, nickname):
 
         index_profile = IndexProfile.get_or_raise(nickname, request.user)
-        # possibilté d'avoir plusisuer profile pour une seule source
+        # possibilté d'avoir plusiseurs profils pour une seule source
         task = Task.objects.create(user=request.user,
                                    alias=index_profile.alias,
                                    name=index_profile.name,

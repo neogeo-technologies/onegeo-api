@@ -120,27 +120,18 @@ class SearchModelsList(View):
     @ContentTypeLookUp()
     # @ExceptionsHandler(actions=errors_on_call())
     def post(self, request):
-
+        # creation du profil de recherche
         try:
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
             return JsonResponse({'error': str(e)}, status=400)
 
         data['user'] = request.user
+        indexes = data.pop('indexes')
 
         if 'name' not in data:
             msg = 'Some of the input paramaters needed are missing.'
             return JsonResponse({'error': msg}, status=400)
-
-        indexes = []
-        for item in 'indexes' in data and data.pop('indexes') or []:
-            try:
-                index_nickname = re.search('^/indexes/(\w+)/?$', item).group(1)
-            except AttributeError as e:
-                return JsonResponse({'error': str(e)}, status=400)
-            indexes.append(
-                IndexProfile.get_or_raise(index_nickname, data['user']))
-        data['index_profiles'] = indexes
 
         try:
             instance = SearchModel.objects.create(**data)
@@ -148,6 +139,14 @@ class SearchModelsList(View):
             return JsonResponse({'error': str(e)}, status=400)
         except IntegrityError as e:
             return JsonResponse({'error': str(e)}, status=409)
+
+        for item in indexes:
+            try:
+                index_nickname = re.search('^/indexes/(\w+)/?$', item).group(1)
+            except AttributeError as e:
+                return JsonResponse({'error': str(e)}, status=400)
+            instance.index_profiles.add(IndexProfile.get_or_raise(index_nickname,
+                                        data['user']))
 
         response = HttpResponse(status=201)
         response['Content-Location'] = instance.location
@@ -173,6 +172,7 @@ class SearchModelsDetail(View):
     @ContentTypeLookUp()
     # @ExceptionsHandler(actions=errors_on_call())
     def put(self, request, nickname):
+        # mise à jour du profile de recherche
 
         try:
             data = json.loads(request.body.decode('utf-8'))
@@ -214,8 +214,8 @@ class SearchModelsDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions=errors_on_call())
-    def delete(self, request, alias):
-        search_model = SearchModel.get_with_permission(slash_remove(alias), request.user)
+    def delete(self, request, nickname):
+        search_model = SearchModel.get_or_raise(nickname, request.user)
         search_model.delete()
         return JsonResponse(data={}, status=204)
 
@@ -274,7 +274,7 @@ class Search(View):
     def post(self, request, alias):
 
         user = request.user
-
+        # a modifier foncionne non implementer  TODOOOOOO
         search_model = SearchModel.get_with_permission(slash_remove(alias), user)
 
         body = request.body.decode('utf-8')

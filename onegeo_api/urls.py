@@ -1,7 +1,4 @@
 from django.conf.urls import url
-from onegeo_api.views.action import Action
-from onegeo_api.views.action import AliasDetail
-from onegeo_api.views.action import Bulk
 from onegeo_api.views.analyzer import AnalyzersDetail
 from onegeo_api.views.analyzer import AnalyzersList
 from onegeo_api.views.filter import TokenFiltersDetail
@@ -30,7 +27,6 @@ app_name = 'onegeo_api'
 
 
 urlpatterns = [
-    url('^action/?$', Action.as_view(), name='action'),
     url('^analyzers/(?P<alias>\w+)/?$', AnalyzersDetail.as_view(), name='analyzers_detail'),
     url('^analyzers/?$', AnalyzersList.as_view(), name='analyzers_list'),
     url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name='indexes_task_view_list'),
@@ -52,6 +48,4 @@ urlpatterns = [
     url('^tokenfilters/(?P<alias>\w+)/?$', TokenFiltersDetail.as_view(), name='tokenfilters_detail'),
     url('^tokenfilters/?$', TokenFiltersList.as_view(), name='tokenfilters_list'),
     url('^tokenizers/(?P<alias>\w+)/?$', TokenizersDetail.as_view(), name='tokenizers_detail'),
-    url('^tokenizers/?$', TokenizersList.as_view(), name='tokenizers_list'),
-    url('^alias/(?P<alias>\w+)/?$', AliasDetail.as_view(), name='alias_search'),
-    url('^bulk/?$', Bulk.as_view(), name='bulk')]
+    url('^tokenizers/?$', TokenizersList.as_view(), name='tokenizers_list')]
