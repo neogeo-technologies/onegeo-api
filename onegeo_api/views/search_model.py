@@ -125,7 +125,6 @@ class SearchModelsList(View):
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
             return JsonResponse({'error': str(e)}, status=400)
-
         data['user'] = request.user
         indexes = data.pop('indexes')
 
@@ -176,6 +175,7 @@ class SearchModelsDetail(View):
 
         try:
             data = json.loads(request.body.decode('utf-8'))
+            data.pop('indexes_list')
         except json.decoder.JSONDecodeError as e:
             return JsonResponse({'error': str(e)}, status=400)
 
@@ -190,8 +190,9 @@ class SearchModelsDetail(View):
             return JsonResponse({'error': msg}, status=400)
 
         # else:
+
         index_profiles = []
-        for item in 'indexes' in data and data.pop('indexes') or []:
+        for item in data.pop('indexes'):
             try:
                 index_nickname = re.search('^/indexes/(\w+)/?$', item).group(1)
             except AttributeError as e:
@@ -201,7 +202,8 @@ class SearchModelsDetail(View):
         search_model.index_profiles.set(index_profiles, clear=True)
 
         for k, v in data.items():
-            setattr(search_model, k, v)
+            if k == "location":
+                setattr(search_model, k+"__name", v)
 
         try:
             search_model.save()
