@@ -84,10 +84,33 @@ class Source(AbstractModelProfile):
         # TODO
         # if self.uri not... :
         #     pass
+        if 'data' in kwargs:
+            data = kwargs['data']
+            # à améliorer seul moyen pour ne coller au modele abstrait et
+            # mettre à jour les champs de la source
+            kwargs.pop('data')
+            # mise à jour de la tache
+            task = Task.objects.get(user=self.user, name=self.name,
+                                    alias=self.alias, description="1")
+            # # update des ressources
+            rsr = self.resource_set.all()
+            if 'location' in data:
+                self.alias.handle = data['location'].split('/')[-1]
+            if 'name' in data:
+                self.name = data['name']
+            rsr.update(source=self)
+            # update de la tache (1 ou x??)
+            task.name = self.name
+            task.alias = self.alias
+            task.save()
+            # import pdb; pdb.set_trace()
+            super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
+            # creation d'une source / tache celery
+            task = Task.objects.create(user=self.user, name=self.name,
+                                       alias=self.alias, description="1")
 
-        super().save(*args, **kwargs)
-
-        task = Task.objects.create(user=self.user, name=self.name,
-                                   alias=self.alias, description="1")
-        create_resources_with_log.apply_async(
-            kwargs={'pk': self.pk}, task_id=str(task.celery_id))
+            koko = self.onegeo.get_resources()
+            create_resources_with_log.apply_async(
+                kwargs={'pk': self.pk}, task_id=str(task.celery_id))

@@ -67,7 +67,8 @@ class Task(models.Model):
                 None: 'running',
                 False: 'failed',
                 True: 'done'}.get(self.success),
-            'description': self.get_description_display(),
+            'description': self.get_description_display() +
+            " (" + self.alias.handle+")",
             'location': self.location,
             'success': self.success,
             'elapsed_time': elapsed_time,

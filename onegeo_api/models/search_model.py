@@ -3,7 +3,8 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.http import JsonResponse
-from onegeo_api.exceptions import MultiTaskError
+import json
+# from onegeo_api.exceptions import MultiTaskError
 from onegeo_api.models.abstracts import AbstractModelProfile
 import re
 
@@ -38,8 +39,13 @@ class SearchModel(AbstractModelProfile):
     def detail_renderer(self, include=False, cascading=False, **others):
         opts = {'include': cascading and include, 'cascading': cascading}
         indexes_list = list(self.index_profiles.values_list('name'))
+        try:
+            config_json = json.loads(json.dumps(self.config))
+        except:
+            config_json = self.config
+
         return {
-            'config': self.config,
+            'config': config_json,
             'indexes_list': indexes_list,
             'indexes': [
                 m.detail_renderer(**opts) if include else m.location

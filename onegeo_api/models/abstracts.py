@@ -11,7 +11,7 @@ import uuid
 
 
 class Alias(models.Model):
-    """Table des alias (nickname) à utiliser sur l'ensemble des modèle."""
+    """Table des alias (nickname) à utiliser sur l'ensemble des modèles."""
 
     # Construire MODELS_CHOICES avec __all__ de __init__
     MODELS_CHOICES = (
@@ -161,22 +161,32 @@ class AbstractModelProfile(models.Model):
         self._nickname = value
 
     def save(self, *args, **kwargs):
-        try:
+
+        # try:
+        # SEM pas compris >l'ancienne version empeche la mise à jour de l'alias
+        # ajout du if pour  correction  mais peut etre améliorer
+        if hasattr(self, 'alias') and self.nickname:
             self.alias.handle = self.nickname
-        except Exception as error:
-            if error.__class__.__qualname__ == 'RelatedObjectDoesNotExist':
-                stack = inspect.stack()
-                caller = stack[1][0].f_locals['self'].__class__.__qualname__
-                self.alias = Alias.objects.create(
-                    handle=self.nickname, model_name=caller)
-            else:
-                raise error
-        else:
-            self.alias.save()
+        if not hasattr(self, 'alias'):
+            stack = inspect.stack()
+            caller = stack[1][0].f_locals['self'].__class__.__qualname__
+            self.alias = Alias.objects.create(
+                handle=self.nickname, model_name=caller)
+        # except Exception as error:
+        #     if error.__class__.__qualname__ == 'RelatedObjectDoesNotExist':
+        #         stack = inspect.stack()
+        #         caller = stack[1][0].f_locals['self'].__class__.__qualname__
+        #         self.alias = Alias.objects.create(
+        #             handle=self.nickname, model_name=caller)
+        #     else:
+        #         raise error
+
+        self.alias.save()
 
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
+        # suppression de la tache lié à la source
         Task = apps.get_model(app_label='onegeo_api', model_name='Task')
         Task.objects.filter(alias=self.alias).delete()
         return super().delete(*args, **kwargs)

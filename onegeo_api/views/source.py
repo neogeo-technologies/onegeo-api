@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 import json
 from onegeo_api.exceptions import ContentTypeLookUp
+from onegeo_api.models import Resource
 from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import slash_remove
@@ -51,8 +52,24 @@ class SourcesDetail(View):
 
         opts = {'include': request.GET.get('include') == 'true' and True}
         # Pas logique (TODO)
-        instance = Source.get_or_raise(slash_remove(nickname), request.user)
+        instance = Source.get_or_raise(nickname, request.user)
         return JsonResponse(instance.detail_renderer(**opts), safe=False)
+
+    @BasicAuth()
+    @ContentTypeLookUp()
+    # @ExceptionsHandler(actions=errors_on_call())
+    def put(self, request, nickname):
+        # mise à jour de la source
+
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+            instance = Source.get_or_raise(nickname, request.user)
+            instance.save(data=data)
+            # rsr.update(source=instance)
+        except json.decoder.JSONDecodeError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+        return HttpResponse(status=204)
 
     @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())

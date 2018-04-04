@@ -50,5 +50,5 @@ class ResourcesDetail(View):
     @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, nickname):
-        resource = Resource.get_or_raise(slash_remove(nickname), request.user)
+        resource = Resource.get_or_raise(nickname, request.user)
         return JsonResponse(resource.detail_renderer())
