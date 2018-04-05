@@ -117,7 +117,10 @@ class SearchModelsDetail(View):
         # mise à jour du paramètres config
         if 'config' in data:
             try:
-                search_model.config = json.dumps(data['config'])
+                if isinstance(data['config'], str):
+                    search_model.config = data['config']
+                else:
+                    search_model.config = json.dumps(data['config'])
                 data.pop('config')
             except:
                 # return JsonResponse("requete n'est pas au bon format")
@@ -168,7 +171,7 @@ class Search(View):
 
     # @BasicAuth()
     def get(self, request, nickname):
-    
+
         # QUERY PARAMETERS
         parameters = ""
         # TO DOOOO

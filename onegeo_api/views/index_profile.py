@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 import json
 from onegeo_api.celery_tasks import create_es_index
+from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.exceptions import ContentTypeLookUp
 # from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import IndexProfile
@@ -112,10 +113,26 @@ class IndexProfilesDetail(View):
             task.alias.handle = new_nickname
             task.save()
         # mise à jour de alias du profil d'indexation
+        # il faut réindexer les données ou renomer un alias avec ES
         if nickname != new_nickname:
             index_profile.alias.handle = new_nickname
-        data['resource'] = index_profile.resource
+            # A Ameliorer suppression de l'ancien alias et creation d'un nouveau
+            # suppression de ES Index : get_indices_by_alias retoune une liste
+            indexes_es = elastic_conn.get_indices_by_alias(nickname)
+            for index in indexes_es:
+                elastic_conn.delete_index(index)
+            # possibilté d'avoir plusiseurs profils pour une seule source
+            task = Task.objects.create(user=request.user,
+                                       alias=index_profile.alias,
+                                       name=data['name'],
+                                       description="2")
+            print(index_profile.alias)
+            create_es_index.apply_async(
+                    kwargs={'nickname': new_nickname, 'user': request.user.pk},
+                    task_id=str(task.celery_id))
 
+        data['resource'] = index_profile.resource
+        import pdb; pdb.set_trace()
         fields = set(IndexProfile.Extras.fields)
         if set(data.keys()).intersection(fields) != fields:
             msg = 'Some of the input paramaters needed are missing.'
@@ -128,6 +145,7 @@ class IndexProfilesDetail(View):
 
         try:
             index_profile.save()
+
         except IntegrityError as e:
             return JsonResponse({'error': e.__str__()}, status=409)
         except ValidationError as e:
@@ -146,7 +164,10 @@ class IndexProfilesDetail(View):
         for elt in search_models:
             if elt.index_profiles.count() == 1:
                 elt.delete()
-
+        # suppression de ES Index : get_indices_by_alias retoune une liste
+        indexes_es = elastic_conn.get_indices_by_alias(index_profile.alias.handle)
+        for index in indexes_es:
+            elastic_conn.delete_index(index)
         # Erreur sur IndexProfile.delete() suite a erreur sur ES_wrapper
         # "elastic_conn.delete_index_by_alias" doit etre réintégrer
         index_profile.delete()

@@ -39,7 +39,6 @@ class SearchModel(AbstractModelProfile):
     def detail_renderer(self, include=False, cascading=False, **others):
         opts = {'include': cascading and include, 'cascading': cascading}
         indexes_list = list(self.index_profiles.values_list('name'))
-
         try:
             config_json = json.loads(self.config)
         except:
