@@ -132,7 +132,7 @@ class IndexProfilesDetail(View):
                     task_id=str(task.celery_id))
 
         data['resource'] = index_profile.resource
-        import pdb; pdb.set_trace()
+
         fields = set(IndexProfile.Extras.fields)
         if set(data.keys()).intersection(fields) != fields:
             msg = 'Some of the input paramaters needed are missing.'
