@@ -9,12 +9,13 @@ from django.views.generic import View
 import json
 from onegeo_api.celery_tasks import create_es_index
 from onegeo_api.exceptions import ContentTypeLookUp
-from onegeo_api.exceptions import ExceptionsHandler
+# from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
+from onegeo_api.models import SearchModel
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
-from onegeo_api.utils import errors_on_call
+# from onegeo_api.utils import errors_on_call
 import re
 
 
@@ -94,29 +95,34 @@ class IndexProfilesDetail(View):
         except json.decoder.JSONDecodeError as e:
             return JsonResponse({'error': e.__str__()}, status=400)
 
-        # Check linked resource
+        user = request.user
+        # recuperation de  l'index
         try:
-            resource_nickname = re.search(
-                    '^/sources/(\w+)/resources/(\w+)/?$',
-                    data.pop('resource_location')).group(2)
-
+            new_nickname = re.search('^/indexes/(\w+)/?$', data['location']).group(1)
         except AttributeError as e:
             return JsonResponse({'error': e.__str__()}, status=400)
-
-        user = request.user
-        data['resource'] = Resource.get_or_raise(resource_nickname, user)
         index_profile = IndexProfile.get_or_raise(nickname, user)
+
+        # Mise à jour des taches associés à l'index profil
+        for task in Task.objects.filter(user=user,
+                                        name=index_profile.name,
+                                        alias=index_profile.alias,
+                                        description="2"):
+            task.name = data['name']
+            task.alias.handle = new_nickname
+            task.save()
+        # mise à jour de alias du profil d'indexation
+        if nickname != new_nickname:
+            index_profile.alias.handle = new_nickname
+        data['resource'] = index_profile.resource
 
         fields = set(IndexProfile.Extras.fields)
         if set(data.keys()).intersection(fields) != fields:
             msg = 'Some of the input paramaters needed are missing.'
             return JsonResponse({'error': msg}, status=400)
-        # else:
+
         data = dict((k, v) for k, v in data.items() if k in fields)
 
-        if index_profile.resource.alias.handle != resource_nickname:
-            # TODO Gestion des erreurs
-            return JsonResponse({'error': 'TODO'}, status=400)
         for k, v in data.items():
             setattr(index_profile, k, v)
 
@@ -132,9 +138,15 @@ class IndexProfilesDetail(View):
     @BasicAuth()
     # @ExceptionsHandler(actions=errors_on_call())
     def delete(self, request, nickname):
+
         index_profile = \
             IndexProfile.get_or_raise(nickname, request.user)
-        # IndexProfile.get_with_permission(slash_remove(alias), request.user)
+        # suppression des profil de recherche associé
+        search_models = SearchModel.objects.filter(index_profiles=index_profile)
+        for elt in search_models:
+            if elt.index_profiles.count() == 1:
+                elt.delete()
+
         # Erreur sur IndexProfile.delete() suite a erreur sur ES_wrapper
         # "elastic_conn.delete_index_by_alias" doit etre réintégrer
         index_profile.delete()

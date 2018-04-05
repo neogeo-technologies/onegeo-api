@@ -70,6 +70,7 @@ class Source(AbstractModelProfile):
                 in cls.objects.filter(user=user).order_by('name')]
 
     def save(self, *args, **kwargs):
+        # import pdb; pdb.set_trace()
 
         if not self.name or not self.protocol or not self.uri:
             raise ValidationError(
@@ -90,8 +91,8 @@ class Source(AbstractModelProfile):
             # mettre à jour les champs de la source
             kwargs.pop('data')
             # mise à jour de la tache
-            task = Task.objects.get(user=self.user, name=self.name,
-                                    alias=self.alias, description="1")
+            tasks = Task.objects.filter(user=self.user, name=self.name,
+                                        alias=self.alias, description="1")
             # # update des ressources
             rsr = self.resource_set.all()
             if 'location' in data:
@@ -100,17 +101,15 @@ class Source(AbstractModelProfile):
                 self.name = data['name']
             rsr.update(source=self)
             # update de la tache (1 ou x??)
-            task.name = self.name
-            task.alias = self.alias
-            task.save()
-            # import pdb; pdb.set_trace()
+            for task in tasks:
+                task.name = self.name
+                task.alias = self.alias
+                task.save()
             super().save(*args, **kwargs)
         else:
             super().save(*args, **kwargs)
             # creation d'une source / tache celery
             task = Task.objects.create(user=self.user, name=self.name,
                                        alias=self.alias, description="1")
-
-            koko = self.onegeo.get_resources()
             create_resources_with_log.apply_async(
                 kwargs={'pk': self.pk}, task_id=str(task.celery_id))

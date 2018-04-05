@@ -117,7 +117,8 @@ class SearchModelsDetail(View):
         # mise à jour du paramètres config
         if 'config' in data:
             try:
-                search_model.config = json.loads(data['config'])
+                search_model.config = json.dumps(data['config'])
+                data.pop('config')
             except:
                 # return JsonResponse("requete n'est pas au bon format")
                 # to do aavec message erreur
@@ -134,9 +135,16 @@ class SearchModelsDetail(View):
                 IndexProfile.get_or_raise(index_nickname, user))
         search_model.index_profiles.set(index_profiles, clear=True)
 
+        try:
+            new_nickname = re.search('^/services/(\w+)/?$', data.pop('location')).group(1)
+        except AttributeError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+        if search_model.alias.handle != new_nickname:
+            search_model.alias.handle = new_nickname
+
         for k, v in data.items():
-            if k == "location":
-                setattr(search_model, k+"__name", v)
+            setattr(search_model, k, v)
 
         try:
             search_model.save()
@@ -160,7 +168,7 @@ class Search(View):
 
     # @BasicAuth()
     def get(self, request, nickname):
-
+    
         # QUERY PARAMETERS
         parameters = ""
         # TO DOOOO
@@ -169,7 +177,7 @@ class Search(View):
         try:
             search_model = SearchModel.get_or_raise(nickname, user)
             try:
-                config = json.loads(json.dumps(search_model.config))
+                config = json.loads(search_model.config)
             except ValueError:
                 config = search_model.config
         except ValidationError as e:

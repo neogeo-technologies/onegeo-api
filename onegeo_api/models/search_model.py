@@ -39,9 +39,11 @@ class SearchModel(AbstractModelProfile):
     def detail_renderer(self, include=False, cascading=False, **others):
         opts = {'include': cascading and include, 'cascading': cascading}
         indexes_list = list(self.index_profiles.values_list('name'))
+
         try:
-            config_json = json.loads(json.dumps(self.config))
+            config_json = json.loads(self.config)
         except:
+            # to do aavec message erreur
             config_json = self.config
 
         return {
