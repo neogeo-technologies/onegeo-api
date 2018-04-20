@@ -42,7 +42,7 @@ class SearchModel(AbstractModelProfile):
         try:
             config_json = json.loads(self.config)
         except:
-            # to do aavec message erreur
+            # to do avec message erreur
             config_json = self.config
 
         return {
@@ -52,7 +52,9 @@ class SearchModel(AbstractModelProfile):
                 m.detail_renderer(**opts) if include else m.location
                 for m in self.index_profiles.all()],
             'location': self.location,
-            'name': self.name}
+            'name': self.name,
+            'es_result': "http://127.0.0.1:8000/api/services/" +
+                         self.alias.handle + "/search"}
 
     @classmethod
     def list_renderer(cls, user, **opts):

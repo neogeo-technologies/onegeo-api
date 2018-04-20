@@ -16,7 +16,7 @@ import json
 from onegeo_api.exceptions import ContentTypeLookUp
 from onegeo_api.exceptions import ExceptionsHandler
 # from onegeo_api.exceptions import MultiTaskError
-# from onegeo_api.models import Alias
+from onegeo_api.models import Alias
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import SearchModel
 # from onegeo_api.models import Task
@@ -104,6 +104,15 @@ class SearchModelsDetail(View):
         except json.decoder.JSONDecodeError as e:
             return JsonResponse({'error': str(e)}, status=400)
 
+        try:
+            new_nickname = re.search('^/services/(\w+)/?$', data.pop('location')).group(1)
+            # test si l'alias n'existe pas deja avant de la modifier
+            if Alias.objects.filter(handle=new_nickname).exists():
+                raise ValidationError(
+                    "Cette alias est déjà utilisé, Veuillez modifiez l'emplacement")
+        except AttributeError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
         user = request.user
         search_model = SearchModel.get_or_raise(nickname, user)
 
@@ -117,15 +126,13 @@ class SearchModelsDetail(View):
         # mise à jour du paramètres config
         if 'config' in data:
             try:
-                if isinstance(data['config'], str):
-                    search_model.config = data['config']
-                else:
-                    search_model.config = json.dumps(data['config'])
-                data.pop('config')
-            except:
-                # return JsonResponse("requete n'est pas au bon format")
-                # to do aavec message erreur
-                pass
+                if data['config'] is not None:
+                    # test pour voir si la config est bien au format JSON
+                    search_model.config = json.loads(json.dumps(data['config']))
+                    data.pop('config')
+            except ValueError as e:
+                return JsonResponse("Votre configuration n'est pas au format JSON: "
+                                        + str(e), safe=False)
 
         # mise à jour des indexes
         index_profiles = []
@@ -138,10 +145,6 @@ class SearchModelsDetail(View):
                 IndexProfile.get_or_raise(index_nickname, user))
         search_model.index_profiles.set(index_profiles, clear=True)
 
-        try:
-            new_nickname = re.search('^/services/(\w+)/?$', data.pop('location')).group(1)
-        except AttributeError as e:
-            return JsonResponse({'error': str(e)}, status=400)
 
         if search_model.alias.handle != new_nickname:
             search_model.alias.handle = new_nickname
@@ -169,26 +172,22 @@ class SearchModelsDetail(View):
 @method_decorator(csrf_exempt, name='dispatch')
 class Search(View):
 
-    # @BasicAuth()
+
     def get(self, request, nickname):
+        #recuperation de l'utilisateur connecté
+        # try:
+        #     user = request.user
+        # except:
+        #     JsonResponse({"error": 'Utilisateur inexistant'})
 
-        # QUERY PARAMETERS
-        parameters = ""
-        # TO DOOOO
-        user = User.objects.get(username="salima")
         # recuperation du profile recherche
-        try:
-            search_model = SearchModel.get_or_raise(nickname, user)
-            try:
-                config = json.loads(search_model.config)
-            except ValueError:
-                config = search_model.config
-        except ValidationError as e:
-            JsonResponse({"error": e.message})
-
+        # search_model = SearchModel.get_or_raise(nickname,user)
+        # PAS TOPPPPP A AMELIORER
+        search_model = SearchModel.objects.get(alias__handle=nickname)
         index_profiles = search_model.index_profiles.all()
         index_profiles_alias = list(index_profiles.values_list('alias__handle',
                                     flat=True))
+
         # garde seulement les index dispo dans elastic search
         query_url = settings.ELASTIC_URL+"_aliases"
         resource_alias = requests.get(query_url.encode('utf8')).json()
@@ -200,20 +199,25 @@ class Search(View):
         # Construction de la requete et envoie à Elastic Search
         # ajouter les parametres transmis dans la requete
         try:
-            if parameters:
-                req = requests.get(settings.ELASTIC_URL + index_profiles_alias
-                                   + "/_search?" + parameters)
-            elif config:
-                es = Elasticsearch(settings.ELASTIC_URL, use_ssl=False,
-                                   verify_certs=False)
-                req = es.search(index=index_profiles_alias,
-                                # doc_type = 'doc',
-                                body=config or {'query': {'match_all': {}}})
-                return JsonResponse(req, safe=False)
-
+            # il y a une  configuration valide
+            if search_model.config is not None:
+                try:
+                    config = json.loads(json.dumps(search_model.config))
+                    es = Elasticsearch(settings.ELASTIC_URL, use_ssl=False,
+                                       verify_certs=False)
+                    req = es.search(index=index_profiles_alias,
+                                    body=config or {'query': {'match_all': {}}})
+                    return JsonResponse(req, safe=False)
+                except ValueError as e:
+                    return JsonResponse("Votre configuration n'est pas au format JSON: "
+                                        + str(e), safe=False)
             else:
                 req = requests.get(settings.ELASTIC_URL + index_profiles_alias
                                    + "/_search?")
+            # query parameters
+            #if parameters:
+            #    req = requests.get(settings.ELASTIC_URL + index_profiles_alias
+            #                       + "/_search?" + parameters)
             return JsonResponse(req.json(), safe=False)
         except requests.exceptions.HTTPError as err:
             return JsonResponse("Elastic Search non accesible", safe=False)

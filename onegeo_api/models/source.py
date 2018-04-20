@@ -2,6 +2,7 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
 from onegeo_api.celery_tasks import create_resources_with_log
+from onegeo_api.models import Alias
 from onegeo_api.models.abstracts import AbstractModelProfile
 from onegeo_api.models.task import Task
 import onegeo_manager
@@ -90,13 +91,20 @@ class Source(AbstractModelProfile):
             # à améliorer seul moyen pour ne coller au modele abstrait et
             # mettre à jour les champs de la source
             kwargs.pop('data')
-            # mise à jour de la tache
+            # recuperation des taches
             tasks = Task.objects.filter(user=self.user, name=self.name,
                                         alias=self.alias, description="1")
             # # update des ressources
             rsr = self.resource_set.all()
             if 'location' in data:
-                self.alias.handle = data['location'].split('/')[-1]
+                # test si l'alias n'existe pas deja
+                alias = data['location'].split('/')[-1]
+                if not Alias.objects.filter(handle=alias).exists():
+                    self.alias.handle = alias
+                else:
+                    raise ValidationError(
+                        "Cette alias est déjà utilisé, Veuillez modifiez l emplacement")
+
             if 'name' in data:
                 self.name = data['name']
             rsr.update(source=self)
