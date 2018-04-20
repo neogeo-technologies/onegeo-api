@@ -71,7 +71,7 @@ class Source(AbstractModelProfile):
                 in cls.objects.filter(user=user).order_by('name')]
 
     def save(self, *args, **kwargs):
-        # import pdb; pdb.set_trace()
+
 
         if not self.name or not self.protocol or not self.uri:
             raise ValidationError(
@@ -99,11 +99,11 @@ class Source(AbstractModelProfile):
             if 'location' in data:
                 # test si l'alias n'existe pas deja
                 alias = data['location'].split('/')[-1]
-                if not Alias.objects.filter(handle=alias).exists():
-                    self.alias.handle = alias
-                else:
-                    raise ValidationError(
-                        "Cette alias est déjà utilisé, Veuillez modifiez l emplacement")
+                # if not Alias.objects.filter(handle=alias).exists(): todo
+                self.alias.handle = alias
+                # else:
+                #     raise ValidationError(
+                #         "Cette alias est déjà utilisé, Veuillez modifiez l emplacement")
 
             if 'name' in data:
                 self.name = data['name']

@@ -91,7 +91,7 @@ class IndexProfilesDetail(View):
     @ContentTypeLookUp()
     # @ExceptionsHandler(actions=errors_on_call())
     def put(self, request, nickname):
-        import pdb; pdb.set_trace()
+
         try:
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
@@ -105,10 +105,10 @@ class IndexProfilesDetail(View):
             return JsonResponse({'error': e.__str__()}, status=400)
         index_profile = IndexProfile.get_or_raise(nickname, user)
 
-        # test si l'alias n'existe pas deja avant de la modifier
-        if Alias.objects.filter(handle=new_nickname).exists():
-            raise ValidationError(
-                "Cette alias est déjà utilisé, Veuillez modifiez l'emplacement")
+        # test si l'alias n'existe pas deja avant de la modifier to dooo
+        # if Alias.objects.filter(handle=new_nickname).exists():
+        #     raise ValidationError(
+        #         "Cette alias est déjà utilisé, Veuillez modifiez l'emplacement")
 
         # Mise à jour des taches associés à l'index profil
         for task in Task.objects.filter(user=user,
