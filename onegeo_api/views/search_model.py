@@ -107,9 +107,9 @@ class SearchModelsDetail(View):
         try:
             new_nickname = re.search('^/services/(\w+)/?$', data.pop('location')).group(1)
             # test si l'alias n'existe pas deja avant de la modifier a modifier
-            # if Alias.objects.filter(handle=new_nickname).exists():
-            #     raise ValidationError(
-            #         "Cette alias est déjà utilisé, Veuillez modifiez l'emplacement")
+            if Alias.objects.filter(handle=new_nickname).count() > 1:
+                raise ValidationError(
+                    "Cette alias est déjà utilisé, Veuillez modifiez l'emplacement")
         except AttributeError as e:
             return JsonResponse({'error': str(e)}, status=400)
 

@@ -99,11 +99,11 @@ class Source(AbstractModelProfile):
             if 'location' in data:
                 # test si l'alias n'existe pas deja
                 alias = data['location'].split('/')[-1]
-                # if not Alias.objects.filter(handle=alias).exists(): todo
-                self.alias.handle = alias
-                # else:
-                #     raise ValidationError(
-                #         "Cette alias est déjà utilisé, Veuillez modifiez l emplacement")
+                if not Alias.objects.filter(handle=alias).count() > 1:
+                    self.alias.handle = alias
+                else:
+                    raise ValidationError(
+                        "Cette alias est déjà utilisé, Veuillez modifiez l emplacement")
 
             if 'name' in data:
                 self.name = data['name']
