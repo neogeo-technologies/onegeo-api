@@ -20,8 +20,6 @@ class Task(models.Model):
 
     alias = models.ForeignKey(
         to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
-    name = models.CharField(
-        verbose_name='Nom', max_length=250)
 
     celery_id = models.UUIDField(
         verbose_name='UUID', default=uuid.uuid4, editable=False)
@@ -62,16 +60,15 @@ class Task(models.Model):
         return {
             'id': self.pk,
             'alias': self.alias.handle,
-            'name': self.name,
             'status': {
                 None: 'running',
                 False: 'failed',
                 True: 'done'}.get(self.success),
             'description': self.get_description_display() +
-            " (" + self.alias.handle+")",
+            ": " + self.alias.handle,
             'location': self.location,
             'success': self.success,
-            'elapsed_time': elapsed_time,
+            'elapsed_time': float("{0:.2f}".format(elapsed_time)),
             'dates': {
                 'start': self.start_date,
                 'stop': self.stop_date}}

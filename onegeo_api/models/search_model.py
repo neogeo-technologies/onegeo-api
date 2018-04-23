@@ -7,7 +7,7 @@ import json
 # from onegeo_api.exceptions import MultiTaskError
 from onegeo_api.models.abstracts import AbstractModelProfile
 import re
-
+SERVICE_URL = "http://127.0.0.1:8000/api/services/"
 
 class SearchModel(AbstractModelProfile):
 
@@ -53,8 +53,7 @@ class SearchModel(AbstractModelProfile):
                 for m in self.index_profiles.all()],
             'location': self.location,
             'name': self.name,
-            'es_result': "http://127.0.0.1:8000/api/services/" +
-                         self.alias.handle + "/search"}
+            'es_result': SERVICE_URL + self.alias.handle + "/search"}
 
     @classmethod
     def list_renderer(cls, user, **opts):

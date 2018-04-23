@@ -105,23 +105,11 @@ class IndexProfilesDetail(View):
             return JsonResponse({'error': e.__str__()}, status=400)
         index_profile = IndexProfile.get_or_raise(nickname, user)
 
-        # test si l'alias n'existe pas deja avant de la modifier
-        if Alias.objects.filter(handle=new_nickname).count() > 1:
-            raise ValidationError(
-                "Cette alias est déjà utilisé, Veuillez modifiez l'emplacement")
-
-        # Mise à jour des taches associés à l'index profil
-        for task in Task.objects.filter(user=user,
-                                        name=index_profile.name,
-                                        alias=index_profile.alias,
-                                        description="2"):
-            task.name = data['name']
-            task.alias.handle = new_nickname
-            task.save()
         # mise à jour de alias du profil d'indexation
         # il faut réindexer les données ou renomer un alias avec ES
         if nickname != new_nickname:
-            index_profile.alias.handle = new_nickname
+            # test si l'alias n'existe pas deja
+            index_profile.nickname = new_nickname
             # A Ameliorer suppression de l'ancien alias et creation d'un nouveau
             # suppression de ES Index : get_indices_by_alias retoune une liste
             indexes_es = elastic_conn.get_indices_by_alias(nickname)
@@ -130,9 +118,7 @@ class IndexProfilesDetail(View):
             # possibilté d'avoir plusiseurs profils pour une seule source
             task = Task.objects.create(user=request.user,
                                        alias=index_profile.alias,
-                                       name=data['name'],
                                        description="2")
-            print(index_profile.alias)
             create_es_index.apply_async(
                     kwargs={'nickname': new_nickname, 'user': request.user.pk},
                     task_id=str(task.celery_id))
@@ -148,7 +134,6 @@ class IndexProfilesDetail(View):
 
         for k, v in data.items():
             setattr(index_profile, k, v)
-
         try:
             index_profile.save()
 

@@ -72,7 +72,6 @@ class Source(AbstractModelProfile):
 
     def save(self, *args, **kwargs):
 
-
         if not self.name or not self.protocol or not self.uri:
             raise ValidationError(
                 'Some of the input paramaters needed are missing.')
@@ -88,36 +87,22 @@ class Source(AbstractModelProfile):
         #     pass
         if 'data' in kwargs:
             data = kwargs['data']
-            # à améliorer seul moyen pour ne coller au modele abstrait et
-            # mettre à jour les champs de la source
             kwargs.pop('data')
-            # recuperation des taches
-            tasks = Task.objects.filter(user=self.user, name=self.name,
-                                        alias=self.alias, description="1")
             # # update des ressources
             rsr = self.resource_set.all()
             if 'location' in data:
                 # test si l'alias n'existe pas deja
-                alias = data['location'].split('/')[-1]
-                if not Alias.objects.filter(handle=alias).count() > 1:
-                    self.alias.handle = alias
-                else:
-                    raise ValidationError(
-                        "Cette alias est déjà utilisé, Veuillez modifiez l emplacement")
+                self.nickname = data['location'].split('/')[-1]
 
             if 'name' in data:
                 self.name = data['name']
             rsr.update(source=self)
-            # update de la tache (1 ou x??)
-            for task in tasks:
-                task.name = self.name
-                task.alias = self.alias
-                task.save()
             super().save(*args, **kwargs)
         else:
             super().save(*args, **kwargs)
             # creation d'une source / tache celery
-            task = Task.objects.create(user=self.user, name=self.name,
-                                       alias=self.alias, description="1")
+            # to do verifier qu une tache precedante du meme type est toujours en cours
+            task = Task.objects.create(user=self.user, alias=self.alias,
+                                       description="1")
             create_resources_with_log.apply_async(
                 kwargs={'pk': self.pk}, task_id=str(task.celery_id))

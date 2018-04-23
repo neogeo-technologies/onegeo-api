@@ -106,10 +106,6 @@ class SearchModelsDetail(View):
 
         try:
             new_nickname = re.search('^/services/(\w+)/?$', data.pop('location')).group(1)
-            # test si l'alias n'existe pas deja avant de la modifier a modifier
-            if Alias.objects.filter(handle=new_nickname).count() > 1:
-                raise ValidationError(
-                    "Cette alias est déjà utilisé, Veuillez modifiez l'emplacement")
         except AttributeError as e:
             return JsonResponse({'error': str(e)}, status=400)
 
@@ -145,9 +141,9 @@ class SearchModelsDetail(View):
                 IndexProfile.get_or_raise(index_nickname, user))
         search_model.index_profiles.set(index_profiles, clear=True)
 
-
         if search_model.alias.handle != new_nickname:
-            search_model.alias.handle = new_nickname
+            # test si l'alias n'existe pas deja
+            search_model.nickname = new_nickname
 
         for k, v in data.items():
             setattr(search_model, k, v)
@@ -174,11 +170,6 @@ class Search(View):
 
 
     def get(self, request, nickname):
-        #recuperation de l'utilisateur connecté
-        # try:
-        #     user = request.user
-        # except:
-        #     JsonResponse({"error": 'Utilisateur inexistant'})
 
         # recuperation du profile recherche
         # search_model = SearchModel.get_or_raise(nickname,user)
@@ -197,7 +188,6 @@ class Search(View):
         index_profiles_alias = ','.join(index_profiles_alias)
 
         # Construction de la requete et envoie à Elastic Search
-        # ajouter les parametres transmis dans la requete
         try:
             # il y a une  configuration valide
             if search_model.config is not None:

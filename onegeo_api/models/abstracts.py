@@ -162,26 +162,18 @@ class AbstractModelProfile(models.Model):
 
     def save(self, *args, **kwargs):
 
-        # try:
-        # SEM pas compris >l'ancienne version empeche la mise à jour de l'alias
-        # ajout du if pour  correction  mais peut etre améliorer
-        if hasattr(self, 'alias') and self.nickname:
+        try:
             self.alias.handle = self.nickname
-        if not hasattr(self, 'alias'):
-            stack = inspect.stack()
-            caller = stack[1][0].f_locals['self'].__class__.__qualname__
-            self.alias = Alias.objects.create(
-                handle=self.nickname, model_name=caller)
-        # except Exception as error:
-        #     if error.__class__.__qualname__ == 'RelatedObjectDoesNotExist':
-        #         stack = inspect.stack()
-        #         caller = stack[1][0].f_locals['self'].__class__.__qualname__
-        #         self.alias = Alias.objects.create(
-        #             handle=self.nickname, model_name=caller)
-        #     else:
-        #         raise error
-
-        self.alias.save()
+        except Exception as error:
+            if error.__class__.__qualname__ == 'RelatedObjectDoesNotExist':
+                stack = inspect.stack()
+                caller = stack[1][0].f_locals['self'].__class__.__qualname__
+                self.alias = Alias.objects.create(
+                    handle=self.nickname, model_name=caller)
+            else:
+                raise error
+        else:
+            self.alias.save()
 
         return super().save(*args, **kwargs)
 
