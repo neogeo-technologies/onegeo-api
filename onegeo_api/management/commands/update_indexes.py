@@ -161,19 +161,19 @@ class Command(BaseCommand):
                         if type(document['properties']) is dict:
                             # insertion des valeurs si elle existe
                             # numero de sceance: DELIB_NUM
-                            if 'NUM_DEFINITIF' in document['properties']:
-                                dic_row["DELIB_NUM"] = document['properties']['NUM_DEFINITIF']
+                            if 'numero_seance' in document['properties']:
+                                dic_row["DELIB_NUM"] = document['properties']['numero_seance']
                             # date sceance: DELIB_DATE
-                            if 'DATE_SEANCE' in document['properties']:
-                                date_now = dateutil.parser.parse(document['properties']['DATE_SEANCE'],dayfirst=True)
+                            if 'date_seance' in document['properties']:
+                                date_now = dateutil.parser.parse(document['properties']['date_seance'],dayfirst=True)
                                 dic_row["DELIB_DATE"] = str(date_now.year) + '-' + \
                                     str(date_now.month).zfill(2) + '-' + str(date_now.day).zfill(2)
                             # titre:  DELIB_OBJET
-                            if 'OBJET' in document['properties']:
-                                dic_row["DELIB_OBJET"] = document['properties']['OBJET']
+                            if 'titre' in document['properties']:
+                                dic_row["DELIB_OBJET"] = document['properties']['titre']
                             # commune:  COL_COMMUNE
-                            if 'COMMUNES' in document['properties']:
-                                dic_row["COL_COMMUNE"] = document['properties']['COMMUNES']
+                            if 'communes' in document['properties']:
+                                dic_row["COL_COMMUNE"] = document['properties']['communes']
 
                     # URL absolue du pdf file: DELIB_URL
                     if document['origin']:
