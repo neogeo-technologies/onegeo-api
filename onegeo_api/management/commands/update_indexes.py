@@ -1,5 +1,12 @@
+import csv
+import datetime
+from datetime import timezone
+import dateutil.parser
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from collections import OrderedDict
+# import logging
 from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.models import Analyzer
 from onegeo_api.models import Context
@@ -11,9 +18,12 @@ from onegeo_manager.resource import Resource as OnegeoResource
 from onegeo_manager.source import Source as OnegeoSource
 from uuid import uuid4
 from onegeo_api.exceptions import ErrorLocked
-
+import os.path
 
 NOW = timezone.now()
+TITRE_COLONNE = ["COLL_NOM", "COLL_SIRET", "BUDGET_ANNEE", "COL_COMMUNE",
+                 "DELIB_NUM", "DELIB_DATE", "DELIB_OBJET", "PREF_ID",
+                 "PREF_DATE", "DELIB_URL"]
 
 
 def iter_flt_from_anl(anl_name):
@@ -119,9 +129,70 @@ class Command(BaseCommand):
             task.description = desc
             task.save()
 
+        def dump_delib(document):
+            '''
+              Fonction permettant la generation d'un dump CSV tous les jours
+              après l'intégration de nouveaux documents
+            '''
+            # chemin d'ecriture du fichier csv
+            file_path = settings.DUMP_DELIB + 'delib_' + datetime.datetime.now().date().strftime('%Y%m%d')+'.csv'
+            add_header = False
+            if os.path.exists(file_path):
+                add_header = True
+            with open(file_path, 'a') as csvfile:
+                writer = csv.writer(csvfile)
+                # ecriture de l'entete du csv (titre des colonnes)
+                if add_header is False:
+                    writer.writerows([TITRE_COLONNE])
+                try:
+                    dic_row = OrderedDict.fromkeys(tuple(TITRE_COLONNE), None)
+                    # valeur par defaut
+                    dic_row["COLL_NOM"] = "Métropole de Lyon"
+                    dic_row["COLL_SIRET"] = "20004697700019"
+                    dic_row["PREF_ID"] = "Préfecture du Rhône"
+                    # Date de reception du pdf
+                    date_now = datetime.datetime.now(timezone.utc).isoformat()
+                    date_now = dateutil.parser.parse(date_now)
+                    dic_row["BUDGET_ANNEE"] = str(date_now.year)
+                    dic_row["PREF_DATE"] = str(date_now.year) + '-' + \
+                        str(date_now.month) + '-' + str(date_now.day)
+                    # champ properties du json
+                    if document['properties']:
+                        if type(document['properties']) is dict:
+                            # insertion des valeurs si elle existe
+                            # numero de sceance: DELIB_NUM
+                            if 'NUM_DEFINITIF' in document['properties']:
+                                dic_row["DELIB_NUM"] = document['properties']['NUM_DEFINITIF']
+                            # date sceance: DELIB_DATE
+                            if 'DATE_SEANCE' in document['properties']:
+                                date_now = dateutil.parser.parse(document['properties']['DATE_SEANCE'],dayfirst=True)
+                                dic_row["DELIB_DATE"] = str(date_now.year) + '-' + \
+                                    str(date_now.month).zfill(2) + '-' + str(date_now.day).zfill(2)
+                            # titre:  DELIB_OBJET
+                            if 'OBJET' in document['properties']:
+                                dic_row["DELIB_OBJET"] = document['properties']['OBJET']
+                            # commune:  COL_COMMUNE
+                            if 'COMMUNES' in document['properties']:
+                                dic_row["COL_COMMUNE"] = document['properties']['COMMUNES']
+
+                    # URL absolue du pdf file: DELIB_URL
+                    if document['origin']:
+                        if type(document['origin']) is dict:
+                            if 'source' in document['origin'] and 'filename' in document['origin']:
+
+                                dic_row["DELIB_URL"] = settings.SERVICE_URL + \
+                                    document['origin']['source']['uri'] + \
+                                    "/" + document['origin']['filename']
+                    # ecriture de la ligne
+                    writer.writerows([dic_row.values()])
+                except ValueError:
+                    # logging.error("Erreur lors de la recuperation des donnees")
+                    pass
+
         opts.update({"error": on_index_error,
                      "failed": on_index_failure,
-                     "succeed": on_index_success})
+                     "succeed": on_index_success,
+                     "dump": dump_delib})
 
         elastic_conn.create_or_replace_index(
             index_uuid, instance.name, instance.name, body, **opts)

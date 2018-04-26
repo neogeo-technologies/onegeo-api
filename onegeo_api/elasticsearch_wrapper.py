@@ -51,13 +51,14 @@ class ElasticWrapper(metaclass=Singleton):
 
     def create_or_replace_index(self, index, name, doc_type, body,
                                 collections=None, pipeline=None,
-                                succeed=None, failed=None, error=None):
+                                succeed=None, failed=None, error=None, dump=None):
 
         def rebuild(index, name, doc_type, collections, pipeline,
-                    succeed=None, failed=None, error=error):
+                    succeed=None, failed=None, error=error, dump=None):
+
 
             self.push_document(index, name, doc_type, collections, pipeline,
-                               succeed=succeed, failed=failed, error=error)
+                               succeed=succeed, failed=failed, error=error, dump=dump)
 
         try:
             self.conn.indices.create(index=index, body=body)
@@ -66,7 +67,8 @@ class ElasticWrapper(metaclass=Singleton):
 
         if collections:
             rebuild(index, name, doc_type, collections, pipeline,
-                    succeed=succeed, failed=failed, error=error)
+                    succeed=succeed, failed=failed, error=error, dump=dump)
+
         else:
             raise Exception('TODO')
 
@@ -81,16 +83,19 @@ class ElasticWrapper(metaclass=Singleton):
             self.delete_index(index)
 
     def push_document(self, index, name, doc_type, collections, pipeline,
-                      succeed=None, failed=None, error=None):
+                      succeed=None, failed=None, error=None, dump=None):
 
         def target(index, name, doc_type, collections, pipeline,
-                   succeed=None, failed=None, error=None):
+                   succeed=None, failed=None, error=None, dump=None):
 
             count = 0
             for document in collections:
+
                 params = {'body': document, 'doc_type': doc_type,
                           'id': str(uuid4())[0:7], 'index': index}
 
+                # dump csv
+                dump(document)
                 if pipeline is not None:
                     params.update({'pipeline': pipeline})
                 try:
@@ -119,7 +124,8 @@ class ElasticWrapper(metaclass=Singleton):
 
         thread = Thread(target=target,
                         args=(index, name, doc_type, collections, pipeline),
-                        kwargs={'succeed': succeed, 'failed': failed, 'error': error})
+                        kwargs={'succeed': succeed, 'failed': failed,
+                                'error': error, 'dump': dump})
 
         thread.start()
 
