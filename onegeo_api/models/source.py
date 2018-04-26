@@ -1,19 +1,21 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
-from onegeo_api.celery_tasks import create_resources_with_log
-from onegeo_api.models import Alias
 from onegeo_api.models.abstracts import AbstractModelProfile
-from onegeo_api.models.task import Task
 import onegeo_manager
 import re
 
 
 class Source(AbstractModelProfile):
 
+    class Extras(object):
+        fields = ('location', 'name', 'protocol', 'uri')
+
     class Meta(object):
         verbose_name = 'Source'
         verbose_name_plural = 'Sources'
+
+    PATHNAME = '/sources/{source}'
 
     PROTOCOL_CHOICES = onegeo_manager.protocol.all()
 
@@ -28,11 +30,15 @@ class Source(AbstractModelProfile):
 
     @property
     def location(self):
-        return '/sources/{}'.format(self.alias.handle)
+        return self.PATHNAME.format(source=self.alias.handle)
 
     @location.setter
-    def location(self, *args, **kwargs):
-        raise AttributeError('Attibute is locked, you can not change it.')
+    def location(self, value):
+        try:
+            self.nickname = re.search('^{}$'.format(
+                self.PATHNAME.format(source='(\w+)/?')), value).group(1)
+        except AttributeError:
+            raise AttributeError("'Location' attibute is malformed.")
 
     @location.deleter
     def location(self, *args, **kwargs):
@@ -41,7 +47,6 @@ class Source(AbstractModelProfile):
     @property
     def onegeo(self):
         if not self._onegeo:
-            print('source_onegeo')
             self._onegeo = onegeo_manager.Source(self.uri, self.protocol)
         return self._onegeo
 
@@ -76,33 +81,7 @@ class Source(AbstractModelProfile):
             raise ValidationError(
                 'Some of the input paramaters needed are missing.')
 
-        if not re.match('^[\w\s]+$', self.name):
-            raise ValidationError("Malformed 'name' parameter.")
-
         if self.protocol not in dict(self.PROTOCOL_CHOICES).keys():
             raise ValidationError("'protocol' input parameters is unauthorized.")
 
-        # TODO
-        # if self.uri not... :
-        #     pass
-        if 'data' in kwargs:
-            data = kwargs['data']
-            kwargs.pop('data')
-            # # update des ressources
-            rsr = self.resource_set.all()
-            if 'location' in data:
-                # test si l'alias n'existe pas deja
-                self.nickname = data['location'].split('/')[-1]
-
-            if 'name' in data:
-                self.name = data['name']
-            rsr.update(source=self)
-            super().save(*args, **kwargs)
-        else:
-            super().save(*args, **kwargs)
-            # creation d'une source / tache celery
-            # to do verifier qu une tache precedante du meme type est toujours en cours
-            task = Task.objects.create(user=self.user, alias=self.alias,
-                                       description="1")
-            create_resources_with_log.apply_async(
-                kwargs={'pk': self.pk}, task_id=str(task.celery_id))
+        super().save(*args, **kwargs)

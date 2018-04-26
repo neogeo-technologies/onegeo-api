@@ -10,7 +10,7 @@ from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import errors_on_call
 
 
-@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(csrf_exempt, name='dispatch')
 class TasksList(View):
 
     @BasicAuth()
@@ -19,13 +19,13 @@ class TasksList(View):
         return JsonResponse(Task.list_renderer(defaults), safe=False)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(csrf_exempt, name='dispatch')
 class TasksDetail(View):
 
     @BasicAuth()
     @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, id):
-        task = Task.get_with_permission({"id": literal_eval(id)}, request.user)
+        task = Task.get_with_permission({'id': literal_eval(id)}, request.user)
         if task.success:
             return HttpResponseRedirect(task['header_location'])  # TODO: 303
         return JsonResponse(task.detail_renderer, safe=False)

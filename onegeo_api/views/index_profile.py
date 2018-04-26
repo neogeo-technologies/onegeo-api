@@ -8,16 +8,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 import json
 from onegeo_api.celery_tasks import create_es_index
-from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.exceptions import ContentTypeLookUp
-# from onegeo_api.exceptions import ExceptionsHandler
-from onegeo_api.models import Alias
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
-from onegeo_api.models import SearchModel
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
-# from onegeo_api.utils import errors_on_call
 import re
 
 
@@ -35,7 +30,6 @@ class IndexProfilesList(View):
 
     @BasicAuth()
     @ContentTypeLookUp()
-    # @ExceptionsHandler(actions=errors_on_call())
     def post(self, request):
 
         try:
@@ -75,7 +69,6 @@ class IndexProfilesList(View):
 class IndexProfilesDetail(View):
 
     @BasicAuth()
-    # @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, nickname):
 
         opts = {
@@ -89,7 +82,6 @@ class IndexProfilesDetail(View):
 
     @BasicAuth()
     @ContentTypeLookUp()
-    # @ExceptionsHandler(actions=errors_on_call())
     def put(self, request, nickname):
 
         try:
@@ -98,45 +90,26 @@ class IndexProfilesDetail(View):
             return JsonResponse({'error': e.__str__()}, status=400)
 
         user = request.user
-        # recuperation de  l'index
-        try:
-            new_nickname = re.search('^/indexes/(\w+)/?$', data['location']).group(1)
-        except AttributeError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
         index_profile = IndexProfile.get_or_raise(nickname, user)
 
-        # mise à jour de alias du profil d'indexation
-        # il faut réindexer les données ou renomer un alias avec ES
-        if nickname != new_nickname:
-            # test si l'alias n'existe pas deja
-            index_profile.nickname = new_nickname
-            # A Ameliorer suppression de l'ancien alias et creation d'un nouveau
-            # suppression de ES Index : get_indices_by_alias retoune une liste
-            indexes_es = elastic_conn.get_indices_by_alias(nickname)
-            for index in indexes_es:
-                elastic_conn.delete_index(index)
-            # possibilté d'avoir plusiseurs profils pour une seule source
-            task = Task.objects.create(user=request.user,
-                                       alias=index_profile.alias,
-                                       description="2")
-            create_es_index.apply_async(
-                    kwargs={'nickname': new_nickname, 'user': request.user.pk},
-                    task_id=str(task.celery_id))
-
-        data['resource'] = index_profile.resource
-
+        expected = set(data.keys())
         fields = set(IndexProfile.Extras.fields)
-        if set(data.keys()).intersection(fields) != fields:
-            msg = 'Some of the input paramaters needed are missing.'
+        if expected.intersection(fields) != fields:
+            msg = 'Some of the input paramaters needed are missing: {}.'.format(
+                ', '.join("'{}'".format(str(item)) for item in fields.difference(expected)))
             return JsonResponse({'error': msg}, status=400)
 
         data = dict((k, v) for k, v in data.items() if k in fields)
 
-        for k, v in data.items():
-            setattr(index_profile, k, v)
+        if data['resource'] != index_profile.resource.location:
+            msg = 'The resource could not be changed'
+            return JsonResponse({'error': msg}, status=400)
+        # else:
+        data['resource'] = index_profile.resource
         try:
+            for k, v in data.items():
+                setattr(index_profile, k, v)
             index_profile.save()
-
         except IntegrityError as e:
             return JsonResponse({'error': e.__str__()}, status=409)
         except ValidationError as e:
@@ -145,46 +118,33 @@ class IndexProfilesDetail(View):
         return HttpResponse(status=204)
 
     @BasicAuth()
-    # @ExceptionsHandler(actions=errors_on_call())
     def delete(self, request, nickname):
 
         index_profile = \
             IndexProfile.get_or_raise(nickname, request.user)
-        # suppression des profil de recherche associé
-        search_models = SearchModel.objects.filter(index_profiles=index_profile)
-        for elt in search_models:
-            if elt.index_profiles.count() == 1:
-                elt.delete()
-        # suppression de ES Index : get_indices_by_alias retoune une liste
-        indexes_es = elastic_conn.get_indices_by_alias(index_profile.alias.handle)
-        for index in indexes_es:
-            elastic_conn.delete_index(index)
-        # Erreur sur IndexProfile.delete() suite a erreur sur ES_wrapper
-        # "elastic_conn.delete_index_by_alias" doit etre réintégrer
         index_profile.delete()
+
         return HttpResponse(status=204)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class IndexProfilesTasksList(View):
 
-    # @BasicAuth()
-    # @ExceptionsHandler(actions=errors_on_call())
+    @BasicAuth()
     def get(self, request, nickname):
         index_profile = IndexProfile.get_or_raise(nickname, request.user)
-        defaults = {"alias": index_profile.alias, "user": request.user}
+        defaults = {'alias': index_profile.alias, 'user': request.user}
         return JsonResponse(Task.list_renderer(defaults), safe=False)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(csrf_exempt, name='dispatch')
 class IndexProfilesTasksDetail(View):
 
-    # @BasicAuth()
-    # @ExceptionsHandler(actions=errors_on_call())
+    @BasicAuth()
     def get(self, request, nickname, tsk_id):
         index_profile = IndexProfile.get_or_raise(nickname, request.user)
         task = Task.get_with_permission(
-            {"id": literal_eval(tsk_id), "alias": index_profile.alias},
+            {'id': literal_eval(tsk_id), 'alias': index_profile.alias},
             request.user)
         return JsonResponse(task.detail_renderer(), safe=False)
 
@@ -196,12 +156,21 @@ class IndexProfilesPublish(View):
     def get(self, request, nickname):
 
         index_profile = IndexProfile.get_or_raise(nickname, request.user)
-        # possibilté d'avoir plusiseurs profils pour une seule source
-        task = Task.objects.create(user=request.user,
-                                   alias=index_profile.alias,
-                                   name=index_profile.name,
-                                   description="2")
 
+        related_tasks = Task.objects.filter(
+            user=request.user, alias=index_profile.alias,
+            success__isnull=True, stop_date__isnull=True, description=2)
+
+        if len(related_tasks) > 0:
+            return JsonResponse(
+                data={
+                    'error': 'You cannot overload a task that is currently running.',
+                    'details': {
+                        'current_task': [m.detail_renderer() for m in related_tasks]}},
+                status=423)
+
+        task = Task.objects.create(
+            user=request.user, alias=index_profile.alias, description='2')
         create_es_index.apply_async(
             kwargs={'nickname': nickname, 'user': request.user.pk},
             task_id=str(task.celery_id))

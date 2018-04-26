@@ -3,10 +3,9 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-from pathlib import Path
-
-from onegeo_api.utils import BasicAuth
 from onegeo_api.models import Source
+from onegeo_api.utils import BasicAuth
+from pathlib import Path
 
 
 PDF_BASE_DIR = settings.PDF_DATA_BASE_DIR

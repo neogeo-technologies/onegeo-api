@@ -1,59 +1,63 @@
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.http import JsonResponse
-import json
-# from onegeo_api.exceptions import MultiTaskError
+from django.urls import reverse
+from onegeo_api.extensions import DEFAULT_QUERY_DSL
 from onegeo_api.models.abstracts import AbstractModelProfile
 import re
-SERVICE_URL = "http://127.0.0.1:8000/api/services/"
+
 
 class SearchModel(AbstractModelProfile):
+
+    class Extras(object):
+        fields = ('indexes', 'location', 'name', 'query_dsl', 'service_url')
 
     class Meta(object):
         verbose_name = 'Search Model'
         verbose_name_plural = 'Search Models'
 
-    config = JSONField(
+    PATHNAME = '/services/{service}'
+
+    query_dsl = JSONField(
         verbose_name='Query DSL', blank=True, null=True)
 
     user = models.ForeignKey(
         to=User, verbose_name='User', blank=True, null=True)
 
-    index_profiles = models.ManyToManyField(
+    indexes = models.ManyToManyField(
         to='IndexProfile', verbose_name='Indexation profiles')
 
     @property
     def location(self):
-        return '/services/{}'.format(self.alias.handle)
+        return self.PATHNAME.format(service=self.alias.handle)
 
     @location.setter
-    def location(self):
-        raise AttributeError('Attibute is locked, you can not change it.')
+    def location(self, value):
+        try:
+            self.nickname = re.search('^{}$'.format(
+                self.PATHNAME.format(service='(\w+)/?')), value).group(1)
+        except AttributeError:
+            raise AttributeError("'Location' attibute is malformed.")
 
     @location.deleter
     def location(self):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
-    def detail_renderer(self, include=False, cascading=False, **others):
+    def detail_renderer(self, include=False, cascading=False, **kwargs):
         opts = {'include': cascading and include, 'cascading': cascading}
-        indexes_list = list(self.index_profiles.values_list('name'))
-        try:
-            config_json = json.loads(self.config)
-        except:
-            # to do avec message erreur
-            config_json = self.config
-
         return {
-            'config': config_json,
-            'indexes_list': indexes_list,
+            'query_dsl': self.query_dsl,
             'indexes': [
                 m.detail_renderer(**opts) if include else m.location
-                for m in self.index_profiles.all()],
+                for m in self.indexes.all()],
             'location': self.location,
             'name': self.name,
-            'es_result': SERVICE_URL + self.alias.handle + "/search"}
+            'service_url': 'http://{0}{1}'.format(
+                get_current_site(None),
+                reverse('onegeo_api:seamod_detail_search',
+                        kwargs={'nickname': self.alias.handle}))}
 
     @classmethod
     def list_renderer(cls, user, **opts):
@@ -67,23 +71,7 @@ class SearchModel(AbstractModelProfile):
             raise ValidationError(
                 'Some of the input paramaters needed are missing.')
 
-        if not re.match('^[\w\s]+$', self.name):
-            raise ValidationError("Malformed 'name' parameter.")
+        if not self.query_dsl:
+            self.query_dsl = DEFAULT_QUERY_DSL
 
-        return super().save(*args, **kwargs)
-
-    # TODO(cbenhabib): A implementer pour remplacer:
-    # get_search_model(), get_index_profiles_obj(), set_search_model_index_profiles()
-    @classmethod
-    def custom_create(cls, name, user, config):
-        error = None
-        sm = None
-        try:
-            sm, created = cls.objects.get_or_create(
-                name=name, defaults={"user": user, "config": config})
-        except ValidationError as e:
-            error = JsonResponse({"error": e.message}, status=409)
-        if created is False:
-            error = JsonResponse(data={"error": "Conflict"}, status=409)
-
-        return sm, error
+        super().save(*args, **kwargs)

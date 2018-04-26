@@ -135,8 +135,11 @@ class AbstractModelProfile(models.Model):
     alias = models.OneToOneField(
         to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
 
-    name = models.CharField(
-        verbose_name='Name', max_length=250, blank=True, null=True)
+    name = models.TextField(
+        verbose_name='Name', blank=True, null=True)
+
+    description = models.TextField(
+        verbose_name='Description', blank=True, null=True)
 
     user = models.ForeignKey(to=User, blank=True, null=True)
 
@@ -217,7 +220,7 @@ class AbstractModelProfile(models.Model):
         try:
             instance = cls.objects.get(alias__handle=nickname)
         except cls.DoesNotExist:
-            raise Http404
+            raise Http404()
         if instance.user != user:
             raise PermissionDenied()
         return instance

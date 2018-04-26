@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 from celery.decorators import task
+from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
 from django.apps import apps
 from django.contrib.auth.models import User
@@ -8,7 +9,17 @@ from django.utils import timezone
 from onegeo_api.elasticsearch_wrapper import elastic_conn
 from onegeo_api.models import IndexProfile
 from uuid import uuid4
+
+
 logger = get_task_logger(__name__)
+
+
+def is_task_successful(id):
+    return {
+        'FAILED': False,
+        'PENDING': None,
+        'SUCCESS': True}.get(AsyncResult(id).state)
+
 
 
 @task(name="create_resources_with_log", ignore_result=False)

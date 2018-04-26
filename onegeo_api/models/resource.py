@@ -10,6 +10,8 @@ class Resource(AbstractModelProfile):
         verbose_name = 'Resource'
         verbose_name_plural = 'Resources'
 
+    PATHNAME = '/sources/{source}/resources/{resource}'
+
     columns = JSONField(verbose_name='Columns')
 
     source = models.ForeignKey(
@@ -25,8 +27,8 @@ class Resource(AbstractModelProfile):
 
     @property
     def location(self):
-        return '/sources/{}/resources/{}'.format(
-            self.source.alias.handle, self.alias.handle)
+        return self.PATHNAME.format(
+            source=self.source.alias.handle, resource=self.alias.handle)
 
     @location.setter
     def location(self, *args, **kwargs):

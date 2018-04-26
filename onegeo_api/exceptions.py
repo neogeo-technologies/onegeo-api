@@ -3,6 +3,17 @@ from django.http import JsonResponse
 from functools import wraps
 
 
+class GenericException(Exception):
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __str__(self):
+        return ', '.join(self.args)
+
+
 class JsonError(Exception):
 
     def __init__(self, message, status):
@@ -11,14 +22,18 @@ class JsonError(Exception):
         super().__init__(message, status)
 
 
-class MultiTaskError(Exception):
+class MultiTaskError(GenericException):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-class UnexpectedError(Exception):
+class UnexpectedError(GenericException):
     """Oops, this is unexpected."""
+
+
+class ElasticException(GenericException):
+    """Elastic Exception."""
 
 
 class ContentTypeLookUp(object):

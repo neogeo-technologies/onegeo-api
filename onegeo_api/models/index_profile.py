@@ -9,19 +9,20 @@ import re
 class IndexProfile(AbstractModelProfile):
 
     class Extras(object):
-        fields = ('columns', 'name', 'resource', 'reindex_frequency')
+        fields = ('columns', 'location', 'name', 'resource', 'reindex_frequency')
 
     class Meta(object):
         verbose_name = 'Indexation Profile'
         verbose_name_plural = 'Indexation Profiles'
+
+    PATHNAME = 'indexes'
 
     REINDEX_FREQUENCY_CHOICES = (
         ('monthly', 'monthly'),
         ('weekly', 'weekly'),
         ('daily', 'daily'))
 
-    columns = JSONField(
-        verbose_name='Columns', blank=True, null=True)
+    columns = JSONField(verbose_name='Columns', blank=True, null=True)
 
     reindex_frequency = models.CharField(
         verbose_name='Re-indexation frequency',
@@ -29,20 +30,27 @@ class IndexProfile(AbstractModelProfile):
         default=REINDEX_FREQUENCY_CHOICES[0][0],
         max_length=250)
 
-    resource = models.ForeignKey(
-        to='Resource', verbose_name='Resource')
+    resource = models.ForeignKey(to='Resource', verbose_name='Resource')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._onegeo = None
+        try:
+            self._prev_nickname = self.alias.handle
+        except Exception:
+            self._prev_nickname = None
 
     @property
     def location(self):
-        return '/indexes/{}'.format(self.alias.handle)
+        return '/{0}/{1}'.format(self.PATHNAME, self.alias.handle)
 
     @location.setter
-    def location(self, *args, **kwargs):
-        raise AttributeError('Attibute is locked, you can not change it.')
+    def location(self, value):
+        try:
+            self.nickname = re.search(
+                '^/{}/(\w+)/?$'.format(self.PATHNAME), value).group(1)
+        except AttributeError:
+            raise AttributeError("'Location' attibute is malformed.")
 
     @location.deleter
     def location(self, *args, **kwargs):
@@ -63,23 +71,13 @@ class IndexProfile(AbstractModelProfile):
     def onegeo(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
-    def detail_renderer(self, include=False, cascading=False, **others):
-
+    def detail_renderer(self, include=False, cascading=False, **kwargs):
         return {
             'columns': self.columns,
             'location': self.location,
             'name': self.name,
             'reindex_frequency': self.reindex_frequency,
-            'resource': self.resource.name}
-
-        # return {
-        #     'columns': self.columns,
-        #     'location': self.location,
-        #     'name': self.name,
-        #     'reindex_frequency': self.reindex_frequency,
-        #     'resource': include and self.resource.detail_renderer(
-        #         include=cascading and include, cascading=cascading)['name']
-        #     or self.resource.location}
+            'resource': self.resource.location}
 
     @classmethod
     def list_renderer(cls, user, **opts):
@@ -92,11 +90,9 @@ class IndexProfile(AbstractModelProfile):
             raise ValidationError(
                 'Some of the input paramaters needed are missing.')
 
-        if not re.match('^[\w\s]+$', self.name):
-            raise ValidationError("Malformed 'name' parameter.")
-        # TODO A Vérifier !!!!!
         if not self.columns:
             self.columns = \
                 [prop.all() for prop in self.onegeo.iter_properties()]
+        # else: # TODO Vérifier si le document est conforme
 
         return super().save(*args, **kwargs)

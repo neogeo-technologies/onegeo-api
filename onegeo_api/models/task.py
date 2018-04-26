@@ -1,9 +1,14 @@
+from django.apps import apps
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import Http404
 from django.utils import timezone
+# from onegeo_api.celery_tasks import is_task_successful
 import uuid
+
+
+MODEL = 'onegeo_api'
 
 
 class Task(models.Model):
@@ -12,11 +17,12 @@ class Task(models.Model):
         verbose_name = 'Task'
         verbose_name_plural = 'Tasks'
 
-    DESCRIPTION = (
-        ('0', 'ND'),
-        ('1', 'Creation Source'),
-        ('2', 'Creation Index ES')
-    )
+    PATHNAME = '/tasks/{task}'
+
+    DESCRIPTION_CHOICES = (
+        ('0', 'Unkown'),
+        ('1', 'Data source analyzing'),
+        ('2', 'Indexing data'))
 
     alias = models.ForeignKey(
         to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
@@ -25,8 +31,8 @@ class Task(models.Model):
         verbose_name='UUID', default=uuid.uuid4, editable=False)
 
     description = models.CharField(
-                    verbose_name='Description', choices=DESCRIPTION,
-                    max_length=1, default='0')
+        verbose_name='Description',
+        choices=DESCRIPTION_CHOICES, max_length=1, default='0')
 
     start_date = models.DateTimeField(
         verbose_name='Start', auto_now_add=True)
@@ -38,9 +44,14 @@ class Task(models.Model):
 
     user = models.ForeignKey(to=User, verbose_name='User')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # if self.celery_id and (self.start_date and not self.stop_date):
+        #     self.success = is_task_successful(str(self.celery_id))
+
     @property
     def location(self):
-        return '/tasks/{}'.format(self.pk)
+        return self.PATHNAME.format(task=self.pk)
 
     @location.setter
     def location(self, *args, **kwargs):
@@ -52,26 +63,26 @@ class Task(models.Model):
 
     def detail_renderer(self):
 
-        if self.stop_date:
-            elapsed_time = (self.stop_date - self.start_date).total_seconds()
-        else:
-            elapsed_time = (timezone.now()-self.start_date).total_seconds()
+        elapsed_time = self.stop_date \
+            and (self.stop_date - self.start_date) \
+            or (timezone.now() - self.start_date)
+
+        Model = apps.get_model(MODEL, self.alias.model_name)
+        target = Model.objects.get(alias=self.alias)
 
         return {
-            'id': self.pk,
-            'alias': self.alias.handle,
-            'status': {
-                None: 'running',
-                False: 'failed',
-                True: 'done'}.get(self.success),
-            'description': self.get_description_display() +
-            ": " + self.alias.handle,
-            'location': self.location,
-            'success': self.success,
-            'elapsed_time': float("{0:.2f}".format(elapsed_time)),
             'dates': {
                 'start': self.start_date,
-                'stop': self.stop_date}}
+                'end': self.stop_date},
+            'type': self.get_description_display(),
+            'elapsed_time': float('{0:.2f}'.format(elapsed_time.total_seconds())),
+            'id': self.pk,
+            'location': self.location,
+            'status': {
+                None: 'Running',
+                False: 'Failed',
+                True: 'Done'}.get(self.success),
+            'target': target.location}
 
     @classmethod
     def list_renderer(cls, defaults):
@@ -83,7 +94,7 @@ class Task(models.Model):
         try:
             instance = cls.objects.get(**defaults)
         except cls.DoesNotExist:
-            raise Http404('Aucune tâche ne correspond à votre requête')
+            raise Http404()
         if instance.user and instance.user != user:
-            raise PermissionDenied("Vous n'avez pas la permission d'accéder à cette tâche")
+            raise PermissionDenied()
         return instance

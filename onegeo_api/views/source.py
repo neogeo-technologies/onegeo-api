@@ -23,7 +23,6 @@ class SourcesList(View):
 
     @BasicAuth()
     @ContentTypeLookUp()
-    # @ExceptionsHandler(actions=errors_on_call())
     def post(self, request):
 
         try:
@@ -46,7 +45,6 @@ class SourcesList(View):
 class SourcesDetail(View):
 
     @BasicAuth()
-    # @ExceptionsHandler(actions=errors_on_call())
     def get(self, request, nickname):
 
         opts = {'include': request.GET.get('include') == 'true' and True}
@@ -56,21 +54,34 @@ class SourcesDetail(View):
 
     @BasicAuth()
     @ContentTypeLookUp()
-    # @ExceptionsHandler(actions=errors_on_call())
     def put(self, request, nickname):
-        # mise à jour de la source
 
         try:
             data = json.loads(request.body.decode('utf-8'))
-            instance = Source.get_or_raise(nickname, request.user)
-            instance.save(data=data)
         except json.decoder.JSONDecodeError as e:
             return JsonResponse({'error': str(e)}, status=400)
 
+        expected = set(data.keys())
+        fields = set(Source.Extras.fields)
+        if expected.intersection(fields) != fields:
+            msg = 'Some of the input paramaters needed are missing: {}.'.format(
+                ', '.join("'{}'".format(str(item)) for item in fields.difference(expected)))
+            return JsonResponse({'error': msg}, status=400)
+
+        instance = Source.get_or_raise(nickname, request.user)
+
+        try:
+            for k, v in data.items():
+                setattr(instance, k, v)
+            instance.save()
+        except IntegrityError as e:
+            return JsonResponse({'error': e.__str__()}, status=409)
+        except ValidationError as e:
+            return JsonResponse({'error': e.__str__()}, status=400)
+        # other exceptions -> 500
         return HttpResponse(status=204)
 
     @BasicAuth()
-    # @ExceptionsHandler(actions=errors_on_call())
     def delete(self, request, nickname):
 
         source = Source.get_or_raise(slash_remove(nickname), request.user)
