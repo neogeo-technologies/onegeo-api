@@ -1,3 +1,19 @@
+# Copyright (c) 2017-2018 Neogeo-Technologies.
+# All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
+
 from abc import ABCMeta
 from abc import abstractmethod
 from django.http import JsonResponse
@@ -5,8 +21,8 @@ from functools import partial
 from functools import wraps
 from json import dumps
 from json import loads
-from re import findall
-from re import sub
+from onegeo_api.utils import clean_my_obj
+import re
 
 
 DEFAULT_QUERY_DSL = {
@@ -36,19 +52,15 @@ def input_parser(f):
         for k, v in params.items():
             query_dsl = query_dsl.replace('{{%{0}%}}'.format(k), v)
 
-        query_dsl = sub(
+        query_dsl = re.sub(
             '\"\{\%\s*((\d+\s*[-+\*/]?\s*)+)\%\}\"',
             partial(lambda m: str(eval(m.group(1)))), query_dsl)
 
-        query_dsl = sub(
+        query_dsl = re.sub(
             '\"\{\%(\s*((\d+\s*[-+\*/]?\s*)+)|\w+)\%\}\"', 'null', query_dsl)
 
-        self.query_dsl = loads(query_dsl)
-
-        print(self.query_dsl)
-
+        self.query_dsl = clean_my_obj(loads(query_dsl))
         return f(self, **params)
-
     return wrapper
 
 
@@ -65,7 +77,7 @@ class AbstractPlugin(metaclass=ABCMeta):
                 for p in index_profile.columns if not p['rejected'])
 
         self.qs = []
-        for find in findall('\{\%\w+\%\}', dumps(self.query_dsl)):
+        for find in re.findall('\{\%\w+?\%\}', dumps(self.query_dsl)):
             self.qs.append((find[2:-2], None, None))
 
     @abstractmethod
@@ -86,10 +98,6 @@ class Plugin(AbstractPlugin):
 
     @input_parser
     def input(self, **params):
-        if self.query_dsl and not params:
-            return DEFAULT_QUERY_DSL
-        if not self.query_dsl:
-            return DEFAULT_QUERY_DSL
         return self.query_dsl
 
     def output(self, data, **params):

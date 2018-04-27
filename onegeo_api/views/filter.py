@@ -1,3 +1,6 @@
+# TODO
+
+
 import json
 
 from django.http import JsonResponse
@@ -5,8 +8,6 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from onegeo_api.exceptions import ContentTypeLookUp
-from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
 from onegeo_api.models import Filter
 from onegeo_api.utils import BasicAuth
@@ -14,7 +15,6 @@ from onegeo_api.utils import clean_my_obj
 
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
-from onegeo_api.utils import errors_on_call
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -25,7 +25,6 @@ class TokenFiltersList(View):
         return JsonResponse(Filter.list_renderer(request.user), safe=False)
 
     @BasicAuth()
-    @ContentTypeLookUp()
     def post(self, request):
 
         user = request.user
@@ -61,16 +60,11 @@ class TokenFiltersList(View):
 class TokenFiltersDetail(View):
 
     @BasicAuth()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def get(self, request, alias):
         instance = Filter.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(instance.detail_renderer)
 
     @BasicAuth()
-    @ContentTypeLookUp()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def put(self, request, alias):
         instance = Filter.get_with_permission(slash_remove(alias), request.user)
 
@@ -89,8 +83,6 @@ class TokenFiltersDetail(View):
         return JsonResponse({}, status=204)
 
     @BasicAuth()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def delete(self, request, alias):
         user = request.user
         instance = Filter.get_with_permission(slash_remove(alias), user)

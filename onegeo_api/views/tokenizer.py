@@ -1,15 +1,14 @@
+# TODO
+
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 import json
-from onegeo_api.exceptions import ContentTypeLookUp
-from onegeo_api.exceptions import ExceptionsHandler
 from onegeo_api.models import Alias
 from onegeo_api.models import Tokenizer
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import clean_my_obj
-from onegeo_api.utils import errors_on_call
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
 
@@ -22,7 +21,6 @@ class TokenizersList(View):
         return JsonResponse(Tokenizer.list_renderer(request.user), safe=False)
 
     @BasicAuth()
-    @ContentTypeLookUp()
     def post(self, request):
         user = request.user
 
@@ -52,16 +50,11 @@ class TokenizersList(View):
 class TokenizersDetail(View):
 
     @BasicAuth()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def get(self, request, alias):
         instance = Tokenizer.get_with_permission(slash_remove(alias), request.user)
         return JsonResponse(instance.detail_renderer)
 
     @BasicAuth()
-    @ContentTypeLookUp()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def put(self, request, alias):
 
         data = request.body.decode('utf-8')
@@ -81,8 +74,6 @@ class TokenizersDetail(View):
         return JsonResponse({}, status=204)
 
     @BasicAuth()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def delete(self, request, alias):
         token = Tokenizer.get_with_permission(slash_remove(alias), request.user)
         token.delete()

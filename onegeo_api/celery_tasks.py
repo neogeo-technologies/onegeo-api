@@ -1,3 +1,19 @@
+# Copyright (c) 2017-2018 Neogeo-Technologies.
+# All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
+
 from __future__ import absolute_import
 from __future__ import unicode_literals
 from celery.decorators import task
@@ -6,7 +22,7 @@ from celery.utils.log import get_task_logger
 from django.apps import apps
 from django.contrib.auth.models import User
 from django.utils import timezone
-from onegeo_api.elasticsearch_wrapper import elastic_conn
+from onegeo_api.elastic import elastic_conn
 from onegeo_api.models import IndexProfile
 from uuid import uuid4
 
@@ -21,11 +37,8 @@ def is_task_successful(id):
         'SUCCESS': True}.get(AsyncResult(id).state)
 
 
-
-@task(name="create_resources_with_log", ignore_result=False)
+@task(name='create_resources_with_log', ignore_result=False)
 def create_resources_with_log(**kwargs):
-
-    # tache celery pour la creation des ressources d'une source
 
     Task = apps.get_model(app_label='onegeo_api', model_name='Task')
     Source = apps.get_model(app_label='onegeo_api', model_name='Source')
@@ -49,7 +62,7 @@ def create_resources_with_log(**kwargs):
         task.save()
 
 
-@task(name="create_es_index", ignore_result=False)
+@task(name='create_es_index', ignore_result=False)
 def create_es_index(**kwargs):
 
     # tache celery pour l'indexation des données dans ES
@@ -88,7 +101,7 @@ def create_es_index(**kwargs):
         index = str(uuid4())
         # construction du setting (default pour le moment)
         body = {
-            'mappings': {index: mappings.get("foo")},
+            'mappings': {index: mappings.get('foo')},
             # 'settings': {}
             }
         # recuperation la collection de documents

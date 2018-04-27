@@ -1,3 +1,6 @@
+# TODO
+
+
 import json
 from django.db import transaction
 from django.http import JsonResponse
@@ -5,14 +8,11 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from onegeo_api.exceptions import ContentTypeLookUp
-from onegeo_api.exceptions import ExceptionsHandler
-
 from onegeo_api.utils import BasicAuth
 from onegeo_api.utils import clean_my_obj
 from onegeo_api.utils import read_name
 from onegeo_api.utils import slash_remove
-from onegeo_api.utils import errors_on_call
+
 
 from onegeo_api.models import Alias
 from onegeo_api.models import Analyzer
@@ -28,7 +28,6 @@ class AnalyzersList(View):
         return JsonResponse(Analyzer.list_renderer(request.user), safe=False)
 
     @BasicAuth()
-    @ContentTypeLookUp()
     @transaction.atomic
     def post(self, request):
 
@@ -83,17 +82,12 @@ class AnalyzersList(View):
 class AnalyzersDetail(View):
 
     @BasicAuth()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def get(self, request, alias):
         user = user = request.user
         analyzer = Analyzer.get_with_permission(slash_remove(alias), user)
         return JsonResponse(analyzer.detail_renderer)
 
     @BasicAuth()
-    @ContentTypeLookUp()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def put(self, request, alias):
         user = request.user
         analyzer = Analyzer.get_with_permission(slash_remove(alias), user)
@@ -151,9 +145,6 @@ class AnalyzersDetail(View):
         return JsonResponse(data={}, status=204)
 
     @BasicAuth()
-    @ContentTypeLookUp()
-    @ExceptionsHandler(
-        actions=errors_on_call())
     def delete(self, request, alias):
         analyzer = Analyzer.get_with_permission(slash_remove(alias), request.user)
         analyzer.delete()

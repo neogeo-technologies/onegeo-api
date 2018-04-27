@@ -1,3 +1,19 @@
+# Copyright (c) 2017-2018 Neogeo-Technologies.
+# All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
+
 from django.conf.urls import url
 from onegeo_api.views.analyzer import AnalyzersDetail
 from onegeo_api.views.analyzer import AnalyzersList
@@ -8,8 +24,8 @@ from onegeo_api.views.index_profile import IndexProfilesList
 from onegeo_api.views.index_profile import IndexProfilesPublish
 from onegeo_api.views.index_profile import IndexProfilesTasksDetail
 from onegeo_api.views.index_profile import IndexProfilesTasksList
-from onegeo_api.views.main import Directories
-from onegeo_api.views.main import SupportedProtocols
+from onegeo_api.views import PdfDir
+from onegeo_api.views import Protocols
 from onegeo_api.views.resource import ResourcesDetail
 from onegeo_api.views.resource import ResourcesList
 from onegeo_api.views.search_model import Search
@@ -34,6 +50,8 @@ urlpatterns = [
     url('^indexes/(?P<nickname>\w+)/?$', IndexProfilesDetail.as_view(), name='indexes_detail'),
     url('^indexes/?$', IndexProfilesList.as_view(), name='indexes_list'),
     url('^indexes/(?P<nickname>\w+)/publish/?$', IndexProfilesPublish.as_view(), name='indexes_publish'),
+    url('^pdfdir/?$', PdfDir.as_view(), name='pdfdir'),
+    url('^protocols/?$', Protocols.as_view(), name='protocols'),
     url('^services/(?P<nickname>\w+)/search/?$', Search.as_view(), name='seamod_detail_search'),
     url('^services/(?P<nickname>\w+)/?$', SearchModelsDetail.as_view(), name='seamod_detail'),
     url('^services/?$', SearchModelsList.as_view(), name='seamod_list'),
@@ -41,8 +59,6 @@ urlpatterns = [
     url('^sources/(?P<nickname>\w+)/resources/?$', ResourcesList.as_view(), name='resources_list'),
     url('^sources/(?P<nickname>\w+)?$', SourcesDetail.as_view(), name='sources_detail'),
     url('^sources/?$', SourcesList.as_view(), name='sources_list'),
-    url('^sources_directories/?$', Directories.as_view(), name='directories'),
-    url('^supported_modes/?$', SupportedProtocols.as_view(), name='modes'),
     url('^tasks/(\d+)/?$', TasksDetail.as_view(), name='tasks_detail'),
     url('^tasks/?$', TasksList.as_view(), name='tasks_list'),
     url('^tokenfilters/(?P<alias>\w+)/?$', TokenFiltersDetail.as_view(), name='tokenfilters_detail'),
