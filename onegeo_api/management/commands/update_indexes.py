@@ -156,12 +156,14 @@ class Command(BaseCommand):
                                 if type(document['origin']['resource']) is dict:
                                     if document['origin']['resource']['name'] == 'delib':
                                         delib = True
-                            if delib is True and 'source' in document['origin'] and 'filename' in document['origin']:
-                                uri = document['origin']['source']['uri'].split("delib", 2)
-                                if len(uri) == 3:
-                                    dic_row["DELIB_URL"] = settings.SERVICE_URL + uri[2]
+                                    else:
+                                        delib = False
+                            if delib == True and 'filename' in document['origin']:
+                                uri = document['origin']['filename'].split("delib")
+                                if len(uri) == 2:
+                                    dic_row["DELIB_URL"] = settings.SERVICE_URL + uri[1]
 
-                        if delib is True:
+                        if delib == True:
                             # valeur par defaut
                             dic_row["COLL_NOM"] = "Métropole de Lyon"
                             dic_row["COLL_SIRET"] = "20004697700019"
