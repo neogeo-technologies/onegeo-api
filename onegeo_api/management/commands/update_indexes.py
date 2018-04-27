@@ -23,7 +23,7 @@ import os.path
 NOW = timezone.now()
 TITRE_COLONNE = ["COLL_NOM", "COLL_SIRET", "BUDGET_ANNEE", "COL_COMMUNE",
                  "DELIB_NUM", "DELIB_DATE", "DELIB_OBJET", "PREF_ID",
-                 "PREF_DATE", "DELIB_URL"]
+                 "DELIB_URL"]
 
 
 def iter_flt_from_anl(anl_name):
@@ -41,7 +41,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         for instance in Context.objects.all():
-            if self.is_index_to_update(instance):
+            # if self.is_index_to_update(instance):
                 self.update_index(instance)
 
     def is_index_to_update(self, instance):
@@ -145,46 +145,53 @@ class Command(BaseCommand):
                 if add_header is False:
                     writer.writerows([TITRE_COLONNE])
                 try:
-                    dic_row = OrderedDict.fromkeys(tuple(TITRE_COLONNE), None)
-                    # valeur par defaut
-                    dic_row["COLL_NOM"] = "Métropole de Lyon"
-                    dic_row["COLL_SIRET"] = "20004697700019"
-                    dic_row["PREF_ID"] = "Préfecture du Rhône"
-                    # Date de reception du pdf
-                    date_now = datetime.datetime.now(timezone.utc).isoformat()
-                    date_now = dateutil.parser.parse(date_now)
-                    dic_row["BUDGET_ANNEE"] = str(date_now.year)
-                    dic_row["PREF_DATE"] = str(date_now.year) + '-' + \
-                        str(date_now.month) + '-' + str(date_now.day)
-                    # champ properties du json
-                    if document['properties']:
-                        if type(document['properties']) is dict:
-                            # insertion des valeurs si elle existe
-                            # numero de sceance: DELIB_NUM
-                            if 'numero_seance' in document['properties']:
-                                dic_row["DELIB_NUM"] = document['properties']['numero_seance']
-                            # date sceance: DELIB_DATE
-                            if 'date_seance' in document['properties']:
-                                date_now = dateutil.parser.parse(document['properties']['date_seance'],dayfirst=True)
-                                dic_row["DELIB_DATE"] = str(date_now.year) + '-' + \
-                                    str(date_now.month).zfill(2) + '-' + str(date_now.day).zfill(2)
-                            # titre:  DELIB_OBJET
-                            if 'titre' in document['properties']:
-                                dic_row["DELIB_OBJET"] = document['properties']['titre']
-                            # commune:  COL_COMMUNE
-                            if 'communes' in document['properties']:
-                                dic_row["COL_COMMUNE"] = document['properties']['communes']
-
                     # URL absolue du pdf file: DELIB_URL
+                    delib = False
+                    # initialisation du dictionnaire
+                    dic_row = OrderedDict.fromkeys(tuple(TITRE_COLONNE), None)
                     if document['origin']:
+                        # verifier qu'on a bien des données de type delib
                         if type(document['origin']) is dict:
-                            if 'source' in document['origin'] and 'filename' in document['origin']:
+                            if 'resource' in document['origin']:
+                                if type(document['origin']['resource']) is dict:
+                                    if document['origin']['resource']['name'] == 'delib':
+                                        delib = True
+                            if delib is True and 'source' in document['origin'] and 'filename' in document['origin']:
+                                uri = document['origin']['source']['uri'].split("delib", 2)
+                                if len(uri) == 3:
+                                    dic_row["DELIB_URL"] = settings.SERVICE_URL + uri[2]
 
-                                dic_row["DELIB_URL"] = settings.SERVICE_URL + \
-                                    document['origin']['source']['uri'] + \
-                                    "/" + document['origin']['filename']
-                    # ecriture de la ligne
-                    writer.writerows([dic_row.values()])
+                        if delib is True:
+                            # valeur par defaut
+                            dic_row["COLL_NOM"] = "Métropole de Lyon"
+                            dic_row["COLL_SIRET"] = "20004697700019"
+                            dic_row["PREF_ID"] = "Préfecture du Rhône"
+                            # Date de reception du pdf
+                            date_now = datetime.datetime.now(timezone.utc).isoformat()
+                            date_now = dateutil.parser.parse(date_now)
+                            dic_row["BUDGET_ANNEE"] = str(date_now.year)
+                            # dic_row["PREF_DATE"] = str(date_now.year) + '-' + \
+                            #     str(date_now.month) + '-' + str(date_now.day)
+                            # champ properties du json
+                            if document['properties']:
+                                if type(document['properties']) is dict:
+                                    # insertion des valeurs si elle existe
+                                    # numero de sceance: DELIB_NUM
+                                    if 'numero_seance' in document['properties']:
+                                        dic_row["DELIB_NUM"] = document['properties']['numero_seance']
+                                    # date sceance: DELIB_DATE
+                                    if 'date_seance' in document['properties']:
+                                        date_now = dateutil.parser.parse(document['properties']['date_seance'],dayfirst=True)
+                                        dic_row["DELIB_DATE"] = str(date_now.year) + '-' + \
+                                            str(date_now.month).zfill(2) + '-' + str(date_now.day).zfill(2)
+                                    # titre:  DELIB_OBJET
+                                    if 'titre' in document['properties']:
+                                        dic_row["DELIB_OBJET"] = document['properties']['titre']
+                                    # commune:  COL_COMMUNE
+                                    if 'communes' in document['properties']:
+                                        dic_row["COL_COMMUNE"] = document['properties']['communes']
+                            # ecriture de la ligne
+                            writer.writerows([dic_row.values()])
                 except ValueError:
                     # logging.error("Erreur lors de la recuperation des donnees")
                     pass
