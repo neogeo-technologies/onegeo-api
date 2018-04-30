@@ -28,7 +28,7 @@ import re
 class SearchModel(AbstractModelProfile):
 
     class Extras(object):
-        fields = ('indexes', 'location', 'name', 'query_dsl', 'service_url')
+        fields = ('indexes', 'location', 'name', 'query_dsl')
 
     class Meta(object):
         verbose_name = 'Search Model'
@@ -51,6 +51,7 @@ class SearchModel(AbstractModelProfile):
 
     @location.setter
     def location(self, value):
+        print(value)
         try:
             self.nickname = re.search('^{}$'.format(
                 self.PATHNAME.format(service='(\w+)/?')), value).group(1)
@@ -59,6 +60,21 @@ class SearchModel(AbstractModelProfile):
 
     @location.deleter
     def location(self):
+        raise AttributeError('Attibute is locked, you can not delete it.')
+
+    @property
+    def service_url(self):
+        return 'http://{0}{1}'.format(
+            get_current_site(None),
+            reverse('onegeo_api:search_service',
+                    kwargs={'nickname': self.alias.handle}))
+
+    @service_url.setter
+    def service_url(self, value):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @service_url.deleter
+    def service_url(self):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     def detail_renderer(self, include=False, cascading=False, **kwargs):
@@ -70,10 +86,7 @@ class SearchModel(AbstractModelProfile):
                 for m in self.indexes.all()],
             'location': self.location,
             'name': self.name,
-            'service_url': 'http://{0}{1}'.format(
-                get_current_site(None),
-                reverse('onegeo_api:seamod_detail_search',
-                        kwargs={'nickname': self.alias.handle}))}
+            'service_url': self.service_url}
 
     @classmethod
     def list_renderer(cls, user, **opts):

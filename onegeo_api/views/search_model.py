@@ -52,7 +52,9 @@ class SearchModelsList(View):
         try:
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
-            return JsonResponse(data={'error': str(e)}, status=400)
+            return JsonResponse(
+                data={'error': 'Malformed JSON', 'details': e.__str__()},
+                status=400)
 
         data['user'] = request.user
 
@@ -65,15 +67,15 @@ class SearchModelsList(View):
         try:
             instance = SearchModel.objects.create(**data)
         except ValidationError as e:
-            return JsonResponse(data={'error': str(e)}, status=400)
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except IntegrityError as e:
-            return JsonResponse(data={'error': str(e)}, status=409)
+            return JsonResponse(data={'error': e.__str__()}, status=409)
 
         for item in indexes:
             try:
                 index_nickname = re.search('^/indexes/(\w+)/?$', item).group(1)
             except AttributeError as e:
-                return JsonResponse(data={'error': str(e)}, status=400)
+                return JsonResponse(data={'error': e.__str__()}, status=400)
             instance.indexes.add(
                 IndexProfile.get_or_raise(index_nickname, data['user']))
 
@@ -101,7 +103,9 @@ class SearchModelsDetail(View):
         try:
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
-            return JsonResponse(data={'error': str(e)}, status=400)
+            return JsonResponse(
+                data={'error': 'Malformed JSON', 'details': e.__str__()},
+                status=400)
 
         expected = set(data.keys())
         fields = set(SearchModel.Extras.fields)
@@ -153,10 +157,13 @@ class Search(View):
             if len(auth) == 2 and auth[0].lower() == 'basic':
                 user, password = b64decode(auth[1]).decode('utf-8').split(':')
 
-        try:
-            instance = SearchModel.objects.get(alias__handle=nickname)
-        except SearchModel.DoesNotExist:
-            return HttpResponse(status=404)
+        if nickname == '_all':
+            instance = SearchModel.objects.all()
+        else:
+            try:
+                instance = SearchModel.objects.get(alias__handle=nickname)
+            except SearchModel.DoesNotExist:
+                return HttpResponse(status=404)
 
         index_profiles = [
             m.indexprofile for m in
@@ -190,10 +197,54 @@ class Search(View):
                 data={'error': str(err)}, status=err.response.status_code)
 
         try:
-            print(plugin.input(**params))
             return plugin.output(
                 elastic_conn.search(index=index, body=plugin.input(**params)))
         except ElasticException as e:
             return JsonResponse(
                 data={'error': e.__str__(), 'details': e.details},
                 status=e.status_code)
+
+    def post(self, request, nickname):
+
+        try:
+            body = json.loads(request.body.decode('utf-8'))
+        except json.decoder.JSONDecodeError as e:
+            return JsonResponse(
+                data={'error': 'Malformed JSON', 'details': e.__str__()},
+                status=400)
+
+        user = None
+        password = None
+        if 'HTTP_AUTHORIZATION' in request.META:
+            auth = request.META['HTTP_AUTHORIZATION'].split()
+            if len(auth) == 2 and auth[0].lower() == 'basic':
+                user, password = b64decode(auth[1]).decode('utf-8').split(':')
+
+        if nickname == '_all':
+            instance = SearchModel.objects.all()
+        else:
+            try:
+                instance = SearchModel.objects.get(alias__handle=nickname)
+            except SearchModel.DoesNotExist:
+                return HttpResponse(status=404)
+
+        index_profiles = [
+            m.indexprofile for m in
+            SearchModel.indexes.through.objects.filter(searchmodel=instance)]
+        index = [m.alias.handle for m in index_profiles]
+
+        params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
+
+        if '_through' in params and not re.match(
+                '^(false|no)$', params.pop('_through'), flags=re.IGNORECASE):
+            try:
+                return JsonResponse(
+                    data=elastic_conn.search(
+                        index=index, params=params, body=body),
+                    status=200)
+            except ElasticException as e:
+                return JsonResponse(
+                    data={'error': e.__str__(), 'details': e.details},
+                    status=e.status_code)
+        # else:
+        return HttpResponse(status=400)

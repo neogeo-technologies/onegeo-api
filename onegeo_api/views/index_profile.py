@@ -163,7 +163,7 @@ class IndexProfilesTasksDetail(View):
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class IndexProfilesPublish(View):
+class IndexProfilesIndexing(View):
 
     @BasicAuth()
     def get(self, request, nickname):

@@ -37,7 +37,7 @@ class Task(models.Model):
     DESCRIPTION_CHOICES = (
         ('0', 'Unkown'),
         ('1', 'Data source analyzing'),
-        ('2', 'Indexing data'))
+        ('2', 'Indexing'))
 
     alias = models.ForeignKey(
         to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
@@ -81,10 +81,10 @@ class Task(models.Model):
         target = Model.objects.get(alias=self.alias)
 
         return {
+            'action': self.get_description_display(),
             'dates': {
                 'start': self.start_date,
                 'end': self.stop_date},
-            'type': self.get_description_display(),
             'elapsed_time': float('{0:.2f}'.format(elapsed_time.total_seconds())),
             'id': self.pk,
             'location': self.location,

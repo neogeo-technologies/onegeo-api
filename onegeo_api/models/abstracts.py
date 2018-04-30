@@ -60,6 +60,8 @@ class Alias(models.Model):
         # Si creation sans alias depuis les modeles.
         if not self.handle:
             self.handle = str(self.uuid)[:7]
+        if self.handle == '_all':
+            raise IntegrityError("'_all' is a forbidden keyword.")
         return super().save(*args, **kwargs)
 
     # TODO Supprimer les méthodes après avoir repris la partie Analyzis

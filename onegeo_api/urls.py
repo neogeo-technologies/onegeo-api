@@ -17,11 +17,12 @@
 from django.conf.urls import url
 from onegeo_api.views.analyzer import AnalyzersDetail
 from onegeo_api.views.analyzer import AnalyzersList
+from onegeo_api.views.catalog import Catalog
 from onegeo_api.views.filter import TokenFiltersDetail
 from onegeo_api.views.filter import TokenFiltersList
 from onegeo_api.views.index_profile import IndexProfilesDetail
+from onegeo_api.views.index_profile import IndexProfilesIndexing
 from onegeo_api.views.index_profile import IndexProfilesList
-from onegeo_api.views.index_profile import IndexProfilesPublish
 from onegeo_api.views.index_profile import IndexProfilesTasksDetail
 from onegeo_api.views.index_profile import IndexProfilesTasksList
 from onegeo_api.views import PdfDir
@@ -43,25 +44,26 @@ app_name = 'onegeo_api'
 
 
 urlpatterns = [
-    url('^analyzers/(?P<alias>\w+)/?$', AnalyzersDetail.as_view(), name='analyzers_detail'),
-    url('^analyzers/?$', AnalyzersList.as_view(), name='analyzers_list'),
-    url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name='indexes_task_view_list'),
-    url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name='indexes_task_view_detail'),
-    url('^indexes/(?P<nickname>\w+)/?$', IndexProfilesDetail.as_view(), name='indexes_detail'),
-    url('^indexes/?$', IndexProfilesList.as_view(), name='indexes_list'),
-    url('^indexes/(?P<nickname>\w+)/publish/?$', IndexProfilesPublish.as_view(), name='indexes_publish'),
+    url('^analyzers/(?P<alias>\w+)/?$', AnalyzersDetail.as_view(), name='analyzer'),
+    url('^analyzers/?$', AnalyzersList.as_view(), name='analyzers'),
+    url('^catalog/?$', Catalog.as_view(), name='catalog'),
+    url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name='index_tasks'),
+    url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name='index_task'),
+    url('^indexes/(?P<nickname>\w+)/?$', IndexProfilesDetail.as_view(), name='index'),
+    url('^indexes/?$', IndexProfilesList.as_view(), name='indexes'),
+    url('^indexes/(?P<nickname>\w+)/indexing/?$', IndexProfilesIndexing.as_view(), name='indexing'),
     url('^pdfdir/?$', PdfDir.as_view(), name='pdfdir'),
     url('^protocols/?$', Protocols.as_view(), name='protocols'),
-    url('^services/(?P<nickname>\w+)/search/?$', Search.as_view(), name='seamod_detail_search'),
-    url('^services/(?P<nickname>\w+)/?$', SearchModelsDetail.as_view(), name='seamod_detail'),
-    url('^services/?$', SearchModelsList.as_view(), name='seamod_list'),
-    url('^sources/(\w+)/resources/(?P<nickname>\w+)/?$', ResourcesDetail.as_view(), name='resources_detail'),
-    url('^sources/(?P<nickname>\w+)/resources/?$', ResourcesList.as_view(), name='resources_list'),
-    url('^sources/(?P<nickname>\w+)?$', SourcesDetail.as_view(), name='sources_detail'),
-    url('^sources/?$', SourcesList.as_view(), name='sources_list'),
-    url('^tasks/(\d+)/?$', TasksDetail.as_view(), name='tasks_detail'),
-    url('^tasks/?$', TasksList.as_view(), name='tasks_list'),
-    url('^tokenfilters/(?P<alias>\w+)/?$', TokenFiltersDetail.as_view(), name='tokenfilters_detail'),
-    url('^tokenfilters/?$', TokenFiltersList.as_view(), name='tokenfilters_list'),
-    url('^tokenizers/(?P<alias>\w+)/?$', TokenizersDetail.as_view(), name='tokenizers_detail'),
-    url('^tokenizers/?$', TokenizersList.as_view(), name='tokenizers_list')]
+    url('^services/(?P<nickname>\w+)/search/?$', Search.as_view(), name='search_service'),
+    url('^services/(?P<nickname>\w+)/?$', SearchModelsDetail.as_view(), name='search_model'),
+    url('^services/?$', SearchModelsList.as_view(), name='search_models'),
+    url('^sources/(\w+)/resources/(?P<nickname>\w+)/?$', ResourcesDetail.as_view(), name='resource'),
+    url('^sources/(?P<nickname>\w+)/resources/?$', ResourcesList.as_view(), name='resources'),
+    url('^sources/(?P<nickname>\w+)?$', SourcesDetail.as_view(), name='source'),
+    url('^sources/?$', SourcesList.as_view(), name='sources'),
+    url('^tasks/(\d+)/?$', TasksDetail.as_view(), name='task'),
+    url('^tasks/?$', TasksList.as_view(), name='tasks'),
+    url('^tokenfilters/(?P<alias>\w+)/?$', TokenFiltersDetail.as_view(), name='tokenfilter'),
+    url('^tokenfilters/?$', TokenFiltersList.as_view(), name='tokenfilters'),
+    url('^tokenizers/(?P<alias>\w+)/?$', TokenizersDetail.as_view(), name='tokenizer'),
+    url('^tokenizers/?$', TokenizersList.as_view(), name='tokenizers')]
