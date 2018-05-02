@@ -1,0 +1,5 @@
+psycopg2
+django>=1.10,<1.11
+elasticsearch>=5.0.0,<6.0.0
+PyPDF2
+-e git+https://github.com/neogeo-technologies/onegeo-manager.git@nightly#egg=onegeo_manager-nightly
