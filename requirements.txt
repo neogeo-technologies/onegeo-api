@@ -1,5 +1,7 @@
-psycopg2
+celery
 django>=1.10,<1.11
 elasticsearch>=5.0.0,<6.0.0
+psycopg2
 PyPDF2
+redis
 -e git+https://github.com/neogeo-technologies/onegeo-manager.git@nightly#egg=onegeo_manager-nightly
