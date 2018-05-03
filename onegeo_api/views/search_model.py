@@ -158,20 +158,22 @@ class Search(View):
                 user, password = b64decode(auth[1]).decode('utf-8').split(':')
 
         if nickname == '_all':
-            instance = SearchModel.objects.all()
+            index_profiles = [
+                m.indexprofile for m in
+                SearchModel.indexes.through.objects.filter(
+                    searchmodel__in=SearchModel.objects.all())]
         else:
             try:
-                instance = SearchModel.objects.get(alias__handle=nickname)
+                index_profiles = [
+                    m.indexprofile for m in
+                    SearchModel.indexes.through.objects.filter(
+                        searchmodel=SearchModel.objects.get(alias__handle=nickname))]
             except SearchModel.DoesNotExist:
                 return HttpResponse(status=404)
 
-        index_profiles = [
-            m.indexprofile for m in
-            SearchModel.indexes.through.objects.filter(searchmodel=instance)]
         index = [m.alias.handle for m in index_profiles]
 
         params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
-
         if '_through' in params and not re.match(
                 '^(false|no)$', params.pop('_through'), flags=re.IGNORECASE):
             try:
