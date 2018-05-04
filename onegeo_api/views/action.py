@@ -34,7 +34,14 @@ class ActionView(View):
 
     def _retreive_analysis(self, analyzers):
 
-        analysis = {'analyzer': {}, 'filter': {}, 'tokenizer': {}}
+        analysis = {
+            'analyzer': {},
+            'filter': {},
+            'tokenizer': {},
+            'normalizer': {
+                'default': {
+                    'type': 'custom',
+                    'filter': ['lowercase', 'asciifolding']}}}
 
         for analyzer_name in analyzers:
             analyzer = Analyzer.objects.get(name=analyzer_name)
@@ -132,6 +139,8 @@ class ActionView(View):
             onegeo_context.update_property(context_name, 'weight', col_property['weight'])
             onegeo_context.update_property(context_name, 'analyzer', col_property['analyzer'])
             onegeo_context.update_property(context_name, 'search_analyzer', col_property['search_analyzer'])
+            if 'normalizer' in col_property:
+                onegeo_context.update_property(context_name, 'normalizer', col_property['normalizer'])
 
         opts = {}
 

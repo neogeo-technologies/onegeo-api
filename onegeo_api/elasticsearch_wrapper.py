@@ -56,7 +56,6 @@ class ElasticWrapper(metaclass=Singleton):
         def rebuild(index, name, doc_type, collections, pipeline,
                     succeed=None, failed=None, error=error, dump=None):
 
-
             self.push_document(index, name, doc_type, collections, pipeline,
                                succeed=succeed, failed=failed, error=error, dump=dump)
 
@@ -95,7 +94,8 @@ class ElasticWrapper(metaclass=Singleton):
                           'id': str(uuid4())[0:7], 'index': index}
 
                 # dump csv
-                dump(document)
+                dump and dump(document)
+
                 if pipeline is not None:
                     params.update({'pipeline': pipeline})
                 try:
