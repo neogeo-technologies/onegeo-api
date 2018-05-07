@@ -26,5 +26,5 @@ class Catalog(View):
 
     def get(self, request):
 
-        data = [{'href': m.service_url} for m in SearchModel.objects.all()]
+        data = [{'url': m.service_url} for m in SearchModel.objects.all()]
         return JsonResponse(data=data, status=200, safe=False)
