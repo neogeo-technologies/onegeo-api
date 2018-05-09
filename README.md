@@ -65,7 +65,7 @@ Puis
 D'abord :
 
 ```shell
-> vim /onegeo_venv/config/settings.py
+> vi /onegeo_venv/config/settings.py
 ```
 
 ```python
@@ -161,7 +161,7 @@ SITE_ID = 1
 Ensuite :
 
 ```shell
-> vim /onegeo_venv/config/urls.py
+> vi /onegeo_venv/config/urls.py
 ```
 
 ```python
