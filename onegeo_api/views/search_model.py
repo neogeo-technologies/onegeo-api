@@ -164,12 +164,12 @@ class Search(View):
                     searchmodel__in=SearchModel.objects.all())]
         else:
             try:
-                index_profiles = [
-                    m.indexprofile for m in
-                    SearchModel.indexes.through.objects.filter(
-                        searchmodel=SearchModel.objects.get(alias__handle=nickname))]
+                instance = SearchModel.objects.get(alias__handle=nickname)
             except SearchModel.DoesNotExist:
                 return HttpResponse(status=404)
+            index_profiles = [
+                m.indexprofile for m in
+                SearchModel.indexes.through.objects.filter(searchmodel=instance)]
 
         index = [m.alias.handle for m in index_profiles]
 
@@ -229,12 +229,12 @@ class Search(View):
                     searchmodel__in=SearchModel.objects.all())]
         else:
             try:
-                index_profiles = [
-                    m.indexprofile for m in
-                    SearchModel.indexes.through.objects.filter(
-                        searchmodel=SearchModel.objects.get(alias__handle=nickname))]
+                instance = SearchModel.objects.get(alias__handle=nickname)
             except SearchModel.DoesNotExist:
                 return HttpResponse(status=404)
+            index_profiles = [
+                m.indexprofile for m in
+                SearchModel.indexes.through.objects.filter(searchmodel=instance)]
 
         index = [m.alias.handle for m in index_profiles]
 
