@@ -6,6 +6,7 @@
 > apt-get install python3.5-dev python3.5-venv
 > apt-get install binutils
 > apt-get install git
+> apt-get install redis
 ```
 
 #### Mettre en place l'environnement virtuel Python 3.5
@@ -22,7 +23,19 @@
 (onegeo_venv) /onegeo_venv> pip install 'django>=1.10,<1.11'
 (onegeo_venv) /onegeo_venv> pip install 'elasticsearch>=5.0.0,<6.0.0'
 (onegeo_venv) /onegeo_venv> pip install PyPDF2
+(onegeo_venv) /onegeo_venv> pip install redis
+(onegeo_venv) /onegeo_venv> pip install celery
 (onegeo_venv) /onegeo_venv> pip install --process-dependency-links --egg git+https://github.com/neogeo-technologies/onegeo-manager.git@0.0.1#egg=onegeo_manager-0.0.1
+```
+
+#### Lancer Redis
+
+Utilisez pour cela la commande `redis-server`.
+
+#### Ainsi que le worker __Celery__
+
+```shell
+(onegeo_venv) /onegeo_venv> celery -A config worker --loglevel=info
 ```
 
 #### Récupérer les codes sources
@@ -71,8 +84,9 @@ INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
-    'django.contrib.sessions',
     'django.contrib.messages',
+    'django.contrib.sessions',
+    'django.contrib.sites',
     'django.contrib.staticfiles',
     'onegeo_api']
 
@@ -109,7 +123,8 @@ DATABASES = {
         'HOST':  'localhost',
         'PORT': '5432'}}
 
-ES_VAR = {'HOST': 'elasticsearch', 'PORT': '80'}
+ELASTICSEARCH_HOSTS = [
+    {'host': 'localhost', 'port': '9200', 'timeout': 10}]
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -130,17 +145,26 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = '/var/www/html/static/'
 
-PDF_DATA_BASE_DIR = '/path/to/data/pdf'
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+PDF_DATA_BASE_DIR = '/path/to/data/pdf'  # optionnel
+
+SITE_ID = 1
 
 ```
 
-Puis :
+Ensuite :
 
 ```shell
 > vim /onegeo_venv/config/urls.py
 ```
 
-``` python
+```python
 from django.conf.urls import include
 from django.conf.urls import url
 from django.contrib import admin
@@ -150,6 +174,36 @@ urlpatterns = [
     url('^admin/', admin.site.urls),
     url('^api/', include('onegeo_api.urls'))]
 
+```
+
+Ainsi que :
+
+```shell
+> vi /onegeo_venv/config/celery.py
+```
+
+```python
+import os
+from celery import Celery
+from django.conf import settings
+
+# set the default Django settings module for the 'celery' program.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+app = Celery('config')
+app.config_from_object('django.conf:settings', namespace='CELERY')
+# Load task modules from all registered Django app configs.
+app.autodiscover_tasks()
+```
+
+Et :
+
+```shell
+> vi /onegeo_venv/config/__init__.py
+```
+
+```python
+from __future__ import absolute_import
+from .celery import app as celery_app
 ```
 
 #### Vérifier l'installation
@@ -192,97 +246,6 @@ urlpatterns = [
 (onegeo_venv) /onegeo_venv> python manage.py loaddata onegeo_api/data.json
 ```
 
-
 #### Pour Apache (mode wsgi)
 
 Ajouter dans la configuration du site `WSGIPassAuthorization on`
-
-
-
-
-#### Mise en place de Celery pour les tâches asynchrones
-
-Installation de Redis
-
- ```shell
-/onegeo_venv> wget http://download.redis.io/releases/redis-4.0.8.tar.gz
-/onegeo_venv> tar xzf redis-4.0.8.tar.gz
-/onegeo_venv> cd redis-4.0.8
-/onegeo_venv> make
-  ```
- 
-Mac:
-```shell
- /onegeo_venv> brew install redis
- ```
-
-Installation du client Python pourRedis
-```shell
- /onegeo_venv> pip install redis
- ```
-Installation de Celery
- ```shell
- /onegeo_venv> pip install celery
- ```
- 
-Configuration de Celery
- 
- Créer et Éditer le fichier config/celery.py avec le code python ci-dessous:
- 
-```shell
-/onegeo_venv> vim /onegeo_venv/config/celery.py
-```
-
-```python
-import os
-from celery import Celery
-from django.conf import settings
-
-# set the default Django settings module for the 'celery' program.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-app = Celery('config')
-app.config_from_object('django.conf:settings', namespace='CELERY')
-# Load task modules from all registered Django app configs.
-app.autodiscover_tasks()
-```
-
-Créer ou Éditer le fichier __init__.py (config/__init__.py):
-
-```python
-from __future__ import absolute_import
-from .celery import app as celery_app  
-```
-
-Editer de nouveau le fichier settings.py (config/settings):
-
-```python
-CELERY_TASK_URL = 'XXXXXXXX' -> URL d'acces à One geo TODO!
-CELERY_BROKER_URL = 'redis://localhost:6379'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379'
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
-```
-
-#### Commande à lancer en local
-
-Lancement de Redis:
-
-```shell
-/onegeo_venv> redis-server
-```
-[Optionnel] Test que Redis est bien lancé:
-
-```shell
-/onegeo_venv> redis-cli ping
-```
-
-Lancement du worker Celery:
-```shell
-/onegeo_venv> celery -A config worker --loglevel=info
-```
-
- 
-
-
