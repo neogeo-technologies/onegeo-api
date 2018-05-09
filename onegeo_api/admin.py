@@ -16,6 +16,7 @@
 
 from django.contrib import admin
 from django.contrib.auth.models import Group
+from onegeo_api.models import Analysis
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
@@ -52,5 +53,11 @@ class TaskAdmin(admin.ModelAdmin):
 
 @admin.register(SearchModel)
 class SearchModelAdmin(admin.ModelAdmin):
+    list_display = ['name', 'user']
+    ordering = ['name']
+
+
+@admin.register(Analysis)
+class AnalysisAdmin(admin.ModelAdmin):
     list_display = ['name', 'user']
     ordering = ['name']

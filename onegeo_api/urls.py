@@ -15,11 +15,8 @@
 
 
 from django.conf.urls import url
-from onegeo_api.views.analyzer import AnalyzersDetail
-from onegeo_api.views.analyzer import AnalyzersList
+from onegeo_api.views.analysis import AnalyzerList
 from onegeo_api.views.catalog import Catalog
-from onegeo_api.views.filter import TokenFiltersDetail
-from onegeo_api.views.filter import TokenFiltersList
 from onegeo_api.views.index_profile import IndexProfilesDetail
 from onegeo_api.views.index_profile import IndexProfilesIndexing
 from onegeo_api.views.index_profile import IndexProfilesList
@@ -36,16 +33,13 @@ from onegeo_api.views.source import SourcesDetail
 from onegeo_api.views.source import SourcesList
 from onegeo_api.views.task import TasksDetail
 from onegeo_api.views.task import TasksList
-from onegeo_api.views.tokenizer import TokenizersDetail
-from onegeo_api.views.tokenizer import TokenizersList
 
 
 app_name = 'onegeo_api'
 
 
 urlpatterns = [
-    url('^analyzers/(?P<alias>\w+)/?$', AnalyzersDetail.as_view(), name='analyzer'),
-    url('^analyzers/?$', AnalyzersList.as_view(), name='analyzers'),
+    url('^analysis/analyzers?$', AnalyzerList.as_view(), name='analyzers'),
     url('^catalog/?$', Catalog.as_view(), name='catalog'),
     url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name='index_tasks'),
     url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name='index_task'),
@@ -62,8 +56,4 @@ urlpatterns = [
     url('^sources/(?P<nickname>\w+)?$', SourcesDetail.as_view(), name='source'),
     url('^sources/?$', SourcesList.as_view(), name='sources'),
     url('^tasks/(\d+)/?$', TasksDetail.as_view(), name='task'),
-    url('^tasks/?$', TasksList.as_view(), name='tasks'),
-    url('^tokenfilters/(?P<alias>\w+)/?$', TokenFiltersDetail.as_view(), name='tokenfilter'),
-    url('^tokenfilters/?$', TokenFiltersList.as_view(), name='tokenfilters'),
-    url('^tokenizers/(?P<alias>\w+)/?$', TokenizersDetail.as_view(), name='tokenizer'),
-    url('^tokenizers/?$', TokenizersList.as_view(), name='tokenizers')]
+    url('^tasks/?$', TasksList.as_view(), name='tasks')]

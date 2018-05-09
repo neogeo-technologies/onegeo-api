@@ -23,6 +23,7 @@ from django.apps import apps
 from django.contrib.auth.models import User
 from django.utils import timezone
 from onegeo_api.elastic import elastic_conn
+from onegeo_api.models.analysis import get_analysis_setting
 from onegeo_api.models import IndexProfile
 from uuid import uuid4
 
@@ -70,8 +71,9 @@ def create_es_index(**kwargs):
     Task = apps.get_model(app_label='onegeo_api', model_name='Task')
     user = User.objects.get(pk=kwargs['user'])
     index_profile = IndexProfile.get_or_raise(kwargs['nickname'], user)
-    # index_profile = kwargs['index_profile']
     task = Task.objects.get(celery_id=create_es_index.request.id)
+
+    analyzers = []
 
     try:
         for col_property in iter(index_profile.columns):
@@ -91,19 +93,33 @@ def create_es_index(**kwargs):
                 name, 'searchable', col_property['searchable'])
             index_profile.onegeo.update_property(
                 name, 'weight', col_property['weight'])
-            index_profile.onegeo.update_property(
-                name, 'analyzer', col_property['analyzer'])
-            index_profile.onegeo.update_property(
-                name, 'search_analyzer', col_property['search_analyzer'])
+
+            analyzer = col_property['analyzer']
+            if analyzer and analyzer not in analyzers:
+                analyzers.append(analyzer)
+            index_profile.onegeo.update_property(name, 'analyzer', analyzer)
+
+            analyzer = col_property['search_analyzer']
+            if analyzer and analyzer not in analyzers:
+                analyzers.append(analyzer)
+            index_profile.onegeo.update_property(name, 'search_analyzer', analyzer)
+
         # mapping pour ES
         mappings = index_profile.onegeo.generate_elastic_mapping()
         # creer ou mettre à jour l'index ES (par les alias)
+
         index = str(uuid4())
-        # construction du setting (default pour le moment)
+
+        def get_settings(analyzers=None):  # TODO Déplacer et finir la fonction
+            settings = {}
+            analyzers and settings.update(
+                {'analysis': get_analysis_setting(analyzers)})
+            return settings
+
         body = {
-            'mappings': {index: mappings.get('foo')},
-            # 'settings': {}
-            }
+            'mappings': {index: mappings.get('foo')},  # TODO `Name` devrait être optionnel (onegeo-manager)
+            'settings': get_settings(analyzers=analyzers)}
+
         # recuperation la collection de documents
         collection = index_profile.onegeo.get_collection()
 

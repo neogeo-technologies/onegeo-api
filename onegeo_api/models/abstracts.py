@@ -18,7 +18,6 @@ from abc import abstractmethod
 from abc import abstractproperty
 from django.apps import apps
 from django.contrib.auth.models import User
-from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
 from django.db import models
@@ -167,55 +166,3 @@ class AbstractModelProfile(models.Model):
         if instance.user != user:
             raise PermissionDenied()
         return instance
-
-
-# TODO Revoir la gestion des class de type Analyzis
-class AbstractModelAnalyzis(models.Model):
-    """Héritée par les modèles: Analyzer, Filter, Tokenizer."""
-
-    name = models.CharField(
-        verbose_name='Name', max_length=250, unique=True)
-
-    user = models.ForeignKey(User, verbose_name='User', blank=True, null=True)
-
-    config = JSONField(
-        verbose_name='Configuration', blank=True, null=True)
-
-    reserved = models.BooleanField(
-        verbose_name='Reserved', default=False)
-
-    alias = models.OneToOneField(
-        to="Alias", on_delete=models.CASCADE)
-
-    class Meta(object):
-        abstract = True
-
-    def __unicode__(self):
-            return self.name
-
-    def save(self, *args, **kwargs):
-        model_name = kwargs.pop('model_name', 'Undefined')
-
-        # "if not self.alias" retourne une erreur RelatedObjectDoesNotExist ??
-        if not self.alias_id:
-            self.alias = Alias.objects.create(model_name=model_name)
-        return super().save(*args, **kwargs)
-
-    def detail_renderer(self):
-        raise NotImplemented
-
-    @classmethod
-    def list_renderer(cls, *args, **kwargs):
-        raise NotImplemented
-
-    @classmethod
-    def create_with_response(cls, *args, **kwargs):
-        raise NotImplemented
-
-    @property
-    def delete_with_response(self):
-        raise NotImplemented
-
-    @classmethod
-    def get_with_permission(cls, *args, **kwargs):
-        raise NotImplemented
