@@ -23,17 +23,18 @@ from onegeo_api.utils import Singleton
 from uuid import uuid4
 
 
+HOSTS = settings.ELASTICSEARCH_HOSTS
+
+
 class ElasticWrapper(metaclass=Singleton):
 
     def __init__(self):
-        self.conn = Elasticsearch([
-            {'host': settings.ES_VAR['HOST'], 'timeout': 60}])
-        self.conn.cluster.health(wait_for_status='yellow', request_timeout=60)
+        self.conn = Elasticsearch(hosts=HOSTS)
 
     def create_index(self, index, body):
         self.conn.indices.create(index=index, body=body)
 
-    def push_collection(self, index, doc_type, collection, step=100):
+    def push_collection(self, index, doc_type, collection, step=10):
         body, count = '', 1
         for document in collection:
             header = {
