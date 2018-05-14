@@ -23,7 +23,7 @@ import re
 
 
 DEFAULT_QUERY_DSL = {
-    'from': '{%from|10%}',
+    'from': '{%from|0%}',
     'highlight': {
         'fields': {
             'properties.*': {
@@ -38,7 +38,7 @@ DEFAULT_QUERY_DSL = {
                     'fields': ['properties.*'],
                     'fuzziness': 'auto',
                     'query': '{%query%}'}}]}},
-    'size': '{%size|0%}'}
+    'size': '{%size|10%}'}
 
 
 class AbstractPlugin(metaclass=ABCMeta):
@@ -54,8 +54,10 @@ class AbstractPlugin(metaclass=ABCMeta):
                 for p in index_profile.columns if not p['rejected'])
 
         self.qs = []
-        for find in re.findall('\{\%\w+?\%\}', dumps(self.query_dsl)):
-            self.qs.append((find[2:-2], None, None))
+        for found in re.findall('(?<={%).+?(?=%})', dumps(self.query_dsl)):
+            kv = tuple(found.split('|'))
+            k, v = len(kv) == 2 and (kv[0], kv[1]) or (kv[0], None)
+            self.qs.append((k, None, None, v))
 
     @abstractmethod
     def input(self, **params):
