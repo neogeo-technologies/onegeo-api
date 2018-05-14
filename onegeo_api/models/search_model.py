@@ -51,7 +51,6 @@ class SearchModel(AbstractModelProfile):
 
     @location.setter
     def location(self, value):
-        print(value)
         try:
             self.nickname = re.search('^{}$'.format(
                 self.PATHNAME.format(service='(\w+)/?')), value).group(1)

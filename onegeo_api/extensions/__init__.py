@@ -17,11 +17,8 @@
 from abc import ABCMeta
 from abc import abstractmethod
 from django.http import JsonResponse
-from functools import partial
-from functools import wraps
 from json import dumps
 from json import loads
-from onegeo_api.utils import clean_my_obj
 import re
 
 
@@ -35,33 +32,13 @@ DEFAULT_QUERY_DSL = {
                 'type': 'plain'}}},
     'query': {
         'bool': {
-            'must': [{
+            'should': [{
+                'match_all': {}}, {
                 'multi_match': {
                     'fields': ['properties.*'],
                     'fuzziness': 'auto',
                     'query': '{%query%}'}}]}},
     'size': '{%size%}'}
-
-
-def input_parser(f):
-
-    @wraps(f)
-    def wrapper(self, **params):
-        query_dsl = dumps(self.query_dsl)
-
-        for k, v in params.items():
-            query_dsl = query_dsl.replace('{{%{0}%}}'.format(k), v)
-
-        query_dsl = re.sub(
-            '\"\{\%\s*((\d+\s*[-+\*/]?\s*)+)\%\}\"',
-            partial(lambda m: str(eval(m.group(1)))), query_dsl)
-
-        query_dsl = re.sub(
-            '\"\{\%(\s*((\d+\s*[-+\*/]?\s*)+)|\w+)\%\}\"', 'null', query_dsl)
-
-        self.query_dsl = clean_my_obj(loads(query_dsl))
-        return f(self, **params)
-    return wrapper
 
 
 class AbstractPlugin(metaclass=ABCMeta):
@@ -96,8 +73,14 @@ class Plugin(AbstractPlugin):
     def __init__(self, query_dsl, index_profiles, **kwargs):
         super().__init__(query_dsl, index_profiles, **kwargs)
 
-    @input_parser
     def input(self, **params):
+        self.query_dsl = loads(re.sub(
+            '{%.+?%}',
+            lambda m: re.sub(
+                '{%(\w+)(\|(.+))?%}',
+                lambda m: params.get(m.group(1), m.group(3)),
+                m.group(0)),
+            dumps(self.query_dsl)))
         return self.query_dsl
 
     def output(self, data, **params):
