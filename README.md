@@ -25,18 +25,12 @@
 (onegeo_venv) /onegeo_venv> pip install PyPDF2
 (onegeo_venv) /onegeo_venv> pip install redis
 (onegeo_venv) /onegeo_venv> pip install celery
-(onegeo_venv) /onegeo_venv> pip install --process-dependency-links --egg git+https://github.com/neogeo-technologies/onegeo-manager.git@0.0.1#egg=onegeo_manager-0.0.1
+(onegeo_venv) /onegeo_venv> pip install --process-dependency-links git+https://github.com/neogeo-technologies/onegeo-manager.git@nightly#egg=onegeo_manager
 ```
 
 #### Lancer Redis
 
 Utilisez pour cela la commande `redis-server`.
-
-#### Ainsi que le worker __Celery__
-
-```shell
-(onegeo_venv) /onegeo_venv> celery -A config worker --loglevel=info
-```
 
 #### Récupérer les codes sources
 
@@ -206,6 +200,13 @@ from __future__ import absolute_import
 from .celery import app as celery_app
 ```
 
+
+#### Maintenant lancer le worker __Celery__
+
+```shell
+(onegeo_venv) /onegeo_venv> celery -A config worker --loglevel=info
+```
+
 #### Vérifier l'installation
 
 ```shell
@@ -238,13 +239,6 @@ from .celery import app as celery_app
 (onegeo_venv) /onegeo_venv> python manage.py collectstatic
 ```
 
-#### Charger les données par défaut en base
-
-```shell
-> cd /onegeo_venv
-/onegeo_venv> source bin/activate
-(onegeo_venv) /onegeo_venv> python manage.py loaddata onegeo_api/data.json
-```
 
 #### Pour Apache (mode wsgi)
 
