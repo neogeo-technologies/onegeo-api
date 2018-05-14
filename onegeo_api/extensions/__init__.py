@@ -23,7 +23,7 @@ import re
 
 
 DEFAULT_QUERY_DSL = {
-    'from': '{%from%}',
+    'from': '{%from|10%}',
     'highlight': {
         'fields': {
             'properties.*': {
@@ -38,7 +38,7 @@ DEFAULT_QUERY_DSL = {
                     'fields': ['properties.*'],
                     'fuzziness': 'auto',
                     'query': '{%query%}'}}]}},
-    'size': '{%size%}'}
+    'size': '{%size|0%}'}
 
 
 class AbstractPlugin(metaclass=ABCMeta):
