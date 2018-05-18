@@ -76,7 +76,7 @@ def create_es_index(**kwargs):
     index_profile = IndexProfile.get_or_raise(kwargs['nickname'], user)
     task = Task.objects.get(celery_id=create_es_index.request.id)
 
-    analyzers = ['my_first_custom_analyzer']
+    analyzers = []
 
     try:
         for col_property in iter(index_profile.columns):
