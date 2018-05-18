@@ -26,7 +26,7 @@ class IndexProfile(AbstractModelProfile):
 
     class Extras(object):
         fields = (
-            'columns', 'location', 'name', 'resource', 'reindex_frequency')
+            'columns', 'location', 'resource', 'reindex_frequency', 'title')
 
     class Meta(object):
         verbose_name = 'Indexation Profile'
@@ -92,18 +92,18 @@ class IndexProfile(AbstractModelProfile):
         return {
             'columns': self.columns,
             'location': self.location,
-            'name': self.name,
+            'title': self.title,
             'reindex_frequency': self.reindex_frequency,
             'resource': self.resource.location}
 
     @classmethod
     def list_renderer(cls, user, **opts):
         return [item.detail_renderer(**opts)
-                for item in cls.objects.filter(user=user)]
+                for item in cls.objects.filter(user=user).order_by('title')]
 
     def save(self, *args, **kwargs):
 
-        if not self.name or not self.resource:
+        if not self.title or not self.resource:
             raise ValidationError(
                 'Some of the input paramaters needed are missing.')
 

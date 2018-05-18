@@ -19,7 +19,7 @@ from django.contrib.auth import authenticate
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from functools import wraps
-from re import search
+from onegeo_api.exceptions import ConflictError
 
 
 class BasicAuth(object):
@@ -77,17 +77,32 @@ def clean_my_obj(obj):
         return obj
 
 
-def slash_remove(uri):  # TODO Supprimer la méthode
-    return uri.endswith('/') and uri[:-1] or uri
+def merge_two_objs(obj1, obj2, path=None):
+    """Merge `obj1` to `obj2`."""
+    if path is None:
+        path = []
+    for k in obj2:
+        if k in obj1:
+            if isinstance(obj1[k], dict) and isinstance(obj2[k], dict):
+                merge_two_objs(obj1[k], obj2[k], path + [str(k)])
+            elif obj1[k] == obj2[k]:
+                pass
+            else:
+                raise ConflictError(
+                    'Conflict at {0}.{1}'.format('.'.join(path), str(k)))
+        else:
+            obj1[k] = obj2[k]
+    return obj1
 
 
-def read_name(body_data):  # TODO Supprimer la méthode
-    name = body_data.get("name", "")
-    if name == "":
-        return None
-    try:
-        name = search("^[a-z0-9_]{2,100}$", name)
-        name = name.group(0)
-    except AttributeError:
-        return None
-    return name
+# def merge_obj(obj1, obj2):  # generator way...
+#     for k in set(obj1) | set(obj2):  # Union syntaxe
+#         if k in obj1 and k in obj2:
+#             if isinstance(obj1[k], dict) and isinstance(obj2[k], dict):
+#                 yield (k, dict(merge_obj(obj1[k], obj2[k])))
+#             else:
+#                 yield (k, obj2[k])
+#         elif k in obj1:
+#             yield (k, obj1[k])
+#         else:
+#             yield (k, obj2[k])

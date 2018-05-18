@@ -29,20 +29,20 @@ admin.site.unregister(Group)
 
 @admin.register(IndexProfile)
 class IndexProfileAdmin(admin.ModelAdmin):
-    list_display = ['name']
-    ordering = ['name']
+    list_display = ['title']
+    ordering = ['title']
 
 
 @admin.register(Resource)
 class ResourceAdmin(admin.ModelAdmin):
-    list_display = ['name']
-    ordering = ['name']
+    list_display = ['title']
+    ordering = ['title']
 
 
 @admin.register(Source)
 class SourceAdmin(admin.ModelAdmin):
-    list_display = ['name', 'location']
-    ordering = ['name']
+    list_display = ['title', 'location']
+    ordering = ['title']
 
 
 @admin.register(Task)
@@ -53,11 +53,11 @@ class TaskAdmin(admin.ModelAdmin):
 
 @admin.register(SearchModel)
 class SearchModelAdmin(admin.ModelAdmin):
-    list_display = ['name', 'user']
-    ordering = ['name']
+    list_display = ['title', 'user']
+    ordering = ['title']
 
 
 @admin.register(Analysis)
 class AnalysisAdmin(admin.ModelAdmin):
-    list_display = ['name', 'user']
-    ordering = ['name']
+    list_display = ['title', 'user']
+    ordering = ['title']

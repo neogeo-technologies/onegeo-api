@@ -33,6 +33,9 @@ class Resource(AbstractModelProfile):
     source = models.ForeignKey(
         to='Source', verbose_name='Source', on_delete=models.CASCADE)
 
+    typename = models.CharField(
+        verbose_name='Typename', max_length=100, blank=True, null=True)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._onegeo = None
@@ -58,7 +61,7 @@ class Resource(AbstractModelProfile):
     def onegeo(self, *args, **kwargs):
         if not self._onegeo:
             self._onegeo = \
-                self.source.onegeo.get_resources(names=[self.name])[0]
+                self.source.onegeo.get_resources(names=[self.typename])[0]
         return self._onegeo
 
     @onegeo.setter
@@ -74,7 +77,7 @@ class Resource(AbstractModelProfile):
             'columns': self.columns,
             'indexes': [m.location for m in self.indexes],
             'location': self.location,
-            'name': self.name or self.alias.handle}
+            'title': self.title or self.alias.handle}
 
     @classmethod
     def list_renderer(cls, nickname, user, **kwargs):
@@ -82,4 +85,4 @@ class Resource(AbstractModelProfile):
         source = model.get_or_raise(nickname, user)
         return [
             item.detail_renderer(**kwargs)
-            for item in cls.objects.filter(source=source).order_by('name')]
+            for item in cls.objects.filter(source=source).order_by('title')]

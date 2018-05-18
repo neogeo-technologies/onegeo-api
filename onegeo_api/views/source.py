@@ -24,7 +24,6 @@ from django.views.generic import View
 import json
 from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
-from onegeo_api.utils import slash_remove
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -42,15 +41,22 @@ class SourcesList(View):
         try:
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
+
+        # TODO Peut être remplacé par TypeError plus bas
+        if 'title' not in data or 'protocol' not in data or 'uri' not in data:
+            msg = 'Some of the input paramaters needed are missing.'
+            return JsonResponse({'error': msg}, status=400)
 
         data['user'] = request.user
         try:
             Source.objects.create(**data)
+        except TypeError as e:
+            return JsonResponse({'error': e.__str__()}, status=400)
         except ValidationError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
         except IntegrityError as e:
-            return JsonResponse({'error': str(e)}, status=409)
+            return JsonResponse({'error': e.__str__()}, status=409)
 
         return JsonResponse(data={}, status=202)
 
@@ -72,7 +78,7 @@ class SourcesDetail(View):
         try:
             data = json.loads(request.body.decode('utf-8'))
         except json.decoder.JSONDecodeError as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': e.__str__()}, status=400)
 
         expected = set(data.keys())
         fields = set(Source.Extras.fields)
@@ -97,6 +103,6 @@ class SourcesDetail(View):
     @BasicAuth()
     def delete(self, request, nickname):
 
-        source = Source.get_or_raise(slash_remove(nickname), request.user)
+        source = Source.get_or_raise(nickname, request.user)
         source.delete()
         return HttpResponse(status=204)

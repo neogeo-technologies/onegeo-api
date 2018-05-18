@@ -25,7 +25,7 @@ from django.views.generic import View
 from importlib import import_module
 import json
 from onegeo_api.elastic import elastic_conn
-from onegeo_api.exceptions import ElasticException
+from onegeo_api.exceptions import ElasticError
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import SearchModel
 from onegeo_api.utils import BasicAuth
@@ -60,12 +60,15 @@ class SearchModelsList(View):
 
         indexes = data.pop('indexes')
 
-        if 'name' not in data:
+        # TODO Peut être remplacé par TypeError plus bas
+        if 'title' not in data:
             msg = 'Some of the input paramaters needed are missing.'
             return JsonResponse(data={'error': msg}, status=400)
 
         try:
             instance = SearchModel.objects.create(**data)
+        except TypeError as e:
+            return JsonResponse({'error': e.__str__()}, status=400)
         except ValidationError as e:
             return JsonResponse(data={'error': e.__str__()}, status=400)
         except IntegrityError as e:
@@ -180,7 +183,7 @@ class Search(View):
                 return JsonResponse(
                     data=elastic_conn.search(index=index, params=params),
                     status=200)
-            except ElasticException as e:
+            except ElasticError as e:
                 return JsonResponse(
                     data={'error': e.__str__(), 'details': e.details},
                     status=e.status_code)
@@ -201,7 +204,7 @@ class Search(View):
         try:
             return plugin.output(
                 elastic_conn.search(index=index, body=plugin.input(**params)))
-        except ElasticException as e:
+        except ElasticError as e:
             return JsonResponse(
                 data={'error': e.__str__(), 'details': e.details},
                 status=e.status_code)
@@ -247,7 +250,7 @@ class Search(View):
                     data=elastic_conn.search(
                         index=index, params=params, body=body),
                     status=200)
-            except ElasticException as e:
+            except ElasticError as e:
                 return JsonResponse(
                     data={'error': e.__str__(), 'details': e.details},
                     status=e.status_code)

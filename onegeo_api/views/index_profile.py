@@ -53,7 +53,8 @@ class IndexProfilesList(View):
 
         data['user'] = request.user
 
-        if 'name' not in data or 'resource' not in data:
+        # TODO Peut être remplacé par TypeError plus bas
+        if 'title' not in data or 'resource' not in data:
             msg = 'Some of the input paramaters needed are missing.'
             return JsonResponse({'error': msg}, status=400)
 
@@ -69,6 +70,8 @@ class IndexProfilesList(View):
 
         try:
             instance = IndexProfile.objects.create(**data)
+        except TypeError as e:
+            return JsonResponse({'error': e.__str__()}, status=400)
         except ValidationError as e:
             return JsonResponse({'error': e.__str__()}, status=400)
         except IntegrityError as e:

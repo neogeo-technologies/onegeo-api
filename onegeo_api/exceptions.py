@@ -14,11 +14,6 @@
 # under the License.
 
 
-from django.core.handlers.wsgi import WSGIRequest
-from django.http import JsonResponse
-from functools import wraps
-
-
 class GenericException(Exception):
 
     def __init__(self, *args, **kwargs):
@@ -30,23 +25,9 @@ class GenericException(Exception):
         return ', '.join(self.args)
 
 
-class JsonError(Exception):
-
-    def __init__(self, message, status):
-        self.message = message
-        self.status = status
-        super().__init__(message, status)
+class ElasticError(GenericException):
+    """Elastic Error."""
 
 
-class MultiTaskError(GenericException):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-class UnexpectedError(GenericException):
-    """Oops, this is unexpected."""
-
-
-class ElasticException(GenericException):
-    """Elastic Exception."""
+class ConflictError(GenericException):
+    """Conflict Error."""

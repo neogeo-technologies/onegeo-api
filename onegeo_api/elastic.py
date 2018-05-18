@@ -18,7 +18,7 @@ from django.conf import settings
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions as ElasticExceptions
 import json
-from onegeo_api.exceptions import ElasticException
+from onegeo_api.exceptions import ElasticError
 from onegeo_api.utils import Singleton
 from uuid import uuid4
 
@@ -103,7 +103,7 @@ class ElasticWrapper(metaclass=Singleton):
         try:
             return self.conn.search(index=index, body=body, params=params)
         except ElasticExceptions.TransportError as e:
-            raise ElasticException(
+            raise ElasticError(
                 'Elasticsearch returns an error {0} ({1})'.format(
                     e.status_code, e.error),
                 status_code=e.status_code, details=e.info, error=e.error)

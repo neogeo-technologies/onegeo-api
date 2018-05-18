@@ -89,7 +89,7 @@ class AbstractModelProfile(models.Model):
     alias = models.OneToOneField(
         to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
 
-    name = models.TextField(verbose_name='Name', blank=True, null=True)
+    title = models.TextField(verbose_name='Tilte', blank=True, null=True)
 
     description = models.TextField(
         verbose_name='Description', blank=True, null=True)
@@ -103,7 +103,7 @@ class AbstractModelProfile(models.Model):
         return self.alias.handle
 
     def __unicode__(self):
-        return self.name or self._nickname
+        return self.title or self._nickname
 
     @property
     def nickname(self):

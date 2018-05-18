@@ -23,7 +23,7 @@ from django.apps import apps
 from django.contrib.auth.models import User
 from django.utils import timezone
 from onegeo_api.elastic import elastic_conn
-from onegeo_api.models.analysis import get_analysis_setting
+from onegeo_api.models.analysis import get_complete_analysis
 from onegeo_api.models import IndexProfile
 from uuid import uuid4
 
@@ -51,8 +51,11 @@ def create_resources_with_log(**kwargs):
     try:
         for item in source.onegeo.get_resources():
             Resource.objects.create(**{
-                'source': source, 'name': item.name,
-                'columns': item.columns, 'user': source.user})
+                'columns': item.columns,
+                'source': source,
+                'title': item.title,
+                'typename': item.name,
+                'user': source.user})
     except Exception as e:
         logger.error(e)
         task.success = False
@@ -73,7 +76,7 @@ def create_es_index(**kwargs):
     index_profile = IndexProfile.get_or_raise(kwargs['nickname'], user)
     task = Task.objects.get(celery_id=create_es_index.request.id)
 
-    analyzers = []
+    analyzers = ['my_first_custom_analyzer']
 
     try:
         for col_property in iter(index_profile.columns):
@@ -110,15 +113,11 @@ def create_es_index(**kwargs):
 
         index = str(uuid4())
 
-        def get_settings(analyzers=None):  # TODO Déplacer et finir la fonction
-            settings = {}
-            analyzers and settings.update(
-                {'analysis': get_analysis_setting(analyzers)})
-            return settings
-
         body = {
             'mappings': {index: mappings.get('foo')},  # TODO `Name` devrait être optionnel (onegeo-manager)
-            'settings': get_settings(analyzers=analyzers)}
+            'settings': {
+                'analysis': get_complete_analysis(
+                    analyzer=analyzers, user=user)}}
 
         # recuperation la collection de documents
         collection = index_profile.onegeo.get_collection()

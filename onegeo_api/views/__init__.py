@@ -28,7 +28,9 @@ PDF_DIR_PATH = settings.PDF_DATA_BASE_DIR
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class PdfDir(View):
+class Uris(View):
+
+    # TODO not only for pdf dir..
 
     def all_sub_directories(self, dirpath=PDF_DIR_PATH):
         p = Path(dirpath)

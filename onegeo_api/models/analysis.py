@@ -19,7 +19,7 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.db import models
 from functools import reduce
-import operator
+from onegeo_api.utils import merge_two_objs
 
 
 class Analysis(models.Model):
@@ -28,42 +28,55 @@ class Analysis(models.Model):
         verbose_name = 'Analysis document'
         verbose_name_plural = 'Analysis documents'
 
-    name = models.TextField(
-        verbose_name='Name', blank=True, null=True, unique=True)
+    title = models.TextField(
+        verbose_name='Title', blank=True, null=True, unique=True)
 
-    user = models.ForeignKey(User, verbose_name='User', blank=True, null=True)
+    user = models.ForeignKey(
+        User, verbose_name='User', blank=True, null=True)
 
     document = JSONField(verbose_name='Document', blank=True, null=True)
 
-    def save(self, *args, **kwargs):
-        try:
-            self.name = self.get_analyzer()
-        except NotImplementedError:
-            raise ValidationError('Document analysis is malformed.')
-        super().save(*args, **kwargs)
-
-    def get_analyzer(self):
-        analyzers = [
-            m for m in self.document['analyzer'].keys()
-            if 'analyzer' in self.document]
-        if len(analyzers) < 0:
-            raise NotImplementedError()  # TODO
-        if len(analyzers) > 1:
-            raise NotImplementedError()  # TODO
-        return analyzers.pop()
+    def clean(self, *args, **kwargs):
+        components = self.get_components(
+            user=self.user, exclude_pk=[self.pk])
+        for component in components.keys():
+            key = component[:-1]  # plural to singular
+            if key in self.document:
+                for val in self.document[key].keys():
+                    if val in components[component]:
+                        raise ValidationError(
+                            "The {0} name '{1}' is already taken.".format(key, val))
 
     @classmethod
-    def list_renderer(cls, user):
-        return reduce(operator.add, [
-            item.detail_renderer() for item in cls.objects.filter(user=user)])
+    def get_components(cls, user=None, exclude_pk=None):
+        data = {'analyzers': [], 'normalizers': []}
+        queryset = cls.objects.filter(user=user)
+        if exclude_pk:
+            queryset = queryset.exclude(pk__in=exclude_pk)
+        for instance in queryset:
+            document = instance.document
+            for component in data.keys():
+                key = component[:-1]  # plural to singular
+                if key in document:
+                    data[component].extend(list(document[key].keys()))
+        return data
+
+    @classmethod
+    def get_component_by_name(cls, component, name, user=None):
+        for instance in cls.objects.filter(user=user):
+            if component in instance.document \
+                    and name in instance.document[component]:
+                return instance.document
+        # else:
+        raise cls.DoesNotExist(
+            "Analysis component '{0}' as {1} does not exists.".format(
+                name, component))
 
 
-def get_analysis_setting(analyzers):  # TODO finir
-    data = {}
-    for analyzer in analyzers:
-        try:
-            instance = Analysis.objects.get(name=analyzer)
-        except Analysis.DoesNotExist:
-            raise ValidationError('Analyzer does not exixts')
-        data.update(instance.document)
-    return data
+def get_complete_analysis(user=None, **kwargs):
+    documents = []
+    for component, names in kwargs.items():
+        for name in names:
+            documents.append(
+                Analysis.get_component_by_name(component, name, user=user))
+    return reduce(merge_two_objs, documents)

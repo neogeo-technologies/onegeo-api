@@ -14,22 +14,32 @@
 # under the License.
 
 
+from django.http import Http404
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
-# from functools import reduce
 from onegeo_api.models import Analysis
-# import operator
+from onegeo_api.utils import BasicAuth
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class AnalyzerList(View):
+class Analyses(View):
 
-    def get(self, request):
-        # data = reduce(operator.add, [
-        #     item.get_analyzers() for item
-        #     in Analysis.objects.filter(user=request.user)])
-        data = [item.get_analyzer() for item
-                in Analysis.objects.filter(user=request.user)]
+    @BasicAuth()
+    def get(self, request, component=None, name=None):
+
+        if component and name:
+            try:
+                data = Analysis.get_component_by_name(
+                    component[:-1], name, user=request.user)
+            except Analysis.DoesNotExist:
+                raise Http404()
+        else:
+            data = Analysis.get_components(user=request.user)
+            if component:
+                if component not in data:
+                    raise Http404()
+                data = data[component]
+
         return JsonResponse(data=data, safe=False)

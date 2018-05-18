@@ -25,7 +25,7 @@ import re
 class Source(AbstractModelProfile):
 
     class Extras(object):
-        fields = ('location', 'name', 'protocol', 'uri')
+        fields = ('location', 'protocol', 'title', 'uri')
 
     class Meta(object):
         verbose_name = 'Source'
@@ -82,18 +82,18 @@ class Source(AbstractModelProfile):
     def detail_renderer(self, **kwargs):
         return {
             'location': self.location,
-            'name': self.name,
+            'title': self.title,
             'protocol': self.protocol,
             'uri': self.uri}
 
     @classmethod
     def list_renderer(cls, user, **opts):
         return [item.detail_renderer(**opts) for item
-                in cls.objects.filter(user=user).order_by('name')]
+                in cls.objects.filter(user=user).order_by('title')]
 
     def save(self, *args, **kwargs):
 
-        if not self.name or not self.protocol or not self.uri:
+        if not self.title or not self.protocol or not self.uri:
             raise ValidationError(
                 'Some of the input paramaters needed are missing.')
 

@@ -28,7 +28,7 @@ import re
 class SearchModel(AbstractModelProfile):
 
     class Extras(object):
-        fields = ('indexes', 'location', 'name', 'query_dsl')
+        fields = ('indexes', 'location', 'query_dsl', 'title')
 
     class Meta(object):
         verbose_name = 'Search Model'
@@ -62,7 +62,7 @@ class SearchModel(AbstractModelProfile):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
     @property
-    def service_url(self):
+    def service_url(self, with_params=False):
         return 'http://{0}{1}'.format(
             get_current_site(None),
             reverse('onegeo_api:search_service',
@@ -84,18 +84,18 @@ class SearchModel(AbstractModelProfile):
                 m.detail_renderer(**opts) if include else m.location
                 for m in self.indexes.all()],
             'location': self.location,
-            'name': self.name,
+            'title': self.title,
             'service_url': self.service_url}
 
     @classmethod
     def list_renderer(cls, user, **opts):
         return [
             search_model.detail_renderer(**opts)
-            for search_model in cls.objects.filter(user=user)]
+            for search_model in cls.objects.filter(user=user).order_by('title')]
 
     def save(self, *args, **kwargs):
 
-        if not self.name:
+        if not self.title:
             raise ValidationError(
                 'Some of the input paramaters needed are missing.')
 

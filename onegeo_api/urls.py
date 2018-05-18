@@ -15,14 +15,13 @@
 
 
 from django.conf.urls import url
-from onegeo_api.views.analysis import AnalyzerList
+from onegeo_api.views.analysis import Analyses
 from onegeo_api.views.catalog import Catalog
 from onegeo_api.views.index_profile import IndexProfilesDetail
 from onegeo_api.views.index_profile import IndexProfilesIndexing
 from onegeo_api.views.index_profile import IndexProfilesList
 from onegeo_api.views.index_profile import IndexProfilesTasksDetail
 from onegeo_api.views.index_profile import IndexProfilesTasksList
-from onegeo_api.views import PdfDir
 from onegeo_api.views import Protocols
 from onegeo_api.views.resource import ResourcesDetail
 from onegeo_api.views.resource import ResourcesList
@@ -33,20 +32,24 @@ from onegeo_api.views.source import SourcesDetail
 from onegeo_api.views.source import SourcesList
 from onegeo_api.views.task import TasksDetail
 from onegeo_api.views.task import TasksList
+from onegeo_api.views import Uris
 
 
 app_name = 'onegeo_api'
 
 
-urlpatterns = [
-    url('^analysis/analyzers?$', AnalyzerList.as_view(), name='analyzers'),
+urlpatterns = (
+    # TODO Une seule expression regex
+    url('^analysis/(?P<component>\w+)/(?P<name>\w+)/?', Analyses.as_view(), name='analysis_component'),
+    url('^analysis/(?P<component>\w+)/?', Analyses.as_view(), name='analysis_components'),
+    url('^analysis/?', Analyses.as_view(), name='analysis'),
+
     url('^catalog/?$', Catalog.as_view(), name='catalog'),
     url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name='index_tasks'),
     url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name='index_task'),
     url('^indexes/(?P<nickname>\w+)/?$', IndexProfilesDetail.as_view(), name='index'),
     url('^indexes/?$', IndexProfilesList.as_view(), name='indexes'),
     url('^indexes/(?P<nickname>\w+)/indexing/?$', IndexProfilesIndexing.as_view(), name='indexing'),
-    url('^pdfdir/?$', PdfDir.as_view(), name='pdfdir'),
     url('^protocols/?$', Protocols.as_view(), name='protocols'),
     url('^services/(?P<nickname>\w+)/search/?$', Search.as_view(), name='search_service'),
     url('^services/(?P<nickname>\w+)/?$', SearchModelsDetail.as_view(), name='search_model'),
@@ -56,4 +59,5 @@ urlpatterns = [
     url('^sources/(?P<nickname>\w+)?$', SourcesDetail.as_view(), name='source'),
     url('^sources/?$', SourcesList.as_view(), name='sources'),
     url('^tasks/(\d+)/?$', TasksDetail.as_view(), name='task'),
-    url('^tasks/?$', TasksList.as_view(), name='tasks')]
+    url('^tasks/?$', TasksList.as_view(), name='tasks'),
+    url('^uris/?$', Uris.as_view(), name='uris'))
