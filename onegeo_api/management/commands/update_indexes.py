@@ -24,6 +24,8 @@ NOW = timezone.now()
 TITRE_COLONNE = ["COLL_NOM", "COLL_SIRET", "BUDGET_ANNEE", "COL_COMMUNE",
                  "DELIB_NUM", "DELIB_DATE", "DELIB_OBJET", "PREF_ID",
                  "DELIB_URL"]
+# chemin d'ecriture du fichier csv
+FILE_PATH = settings.DUMP_DELIB + 'actes.csv'
 
 
 def iter_flt_from_anl(anl_name):
@@ -134,15 +136,14 @@ class Command(BaseCommand):
               Fonction permettant la generation d'un dump CSV tous les jours
               après l'intégration de nouveaux documents
             '''
-            # chemin d'ecriture du fichier csv
-            file_path = settings.DUMP_DELIB + 'delib_' + datetime.datetime.now().date().strftime('%Y%m%d')+'.csv'
-            add_header = False
-            if os.path.exists(file_path):
-                add_header = True
-            with open(file_path, 'a') as csvfile:
+            add_header = True
+            if os.path.exists(FILE_PATH):
+                add_header = False
+
+            with open(FILE_PATH, 'a') as csvfile:
                 writer = csv.writer(csvfile)
                 # ecriture de l'entete du csv (titre des colonnes)
-                if add_header is False:
+                if add_header is True:
                     writer.writerows([TITRE_COLONNE])
                 try:
                     # URL absolue du pdf file: DELIB_URL
@@ -171,7 +172,6 @@ class Command(BaseCommand):
                             # Date de reception du pdf
                             date_now = datetime.datetime.now(timezone.utc).isoformat()
                             date_now = dateutil.parser.parse(date_now)
-                            dic_row["BUDGET_ANNEE"] = str(date_now.year)
                             # dic_row["PREF_DATE"] = str(date_now.year) + '-' + \
                             #     str(date_now.month) + '-' + str(date_now.day)
                             # champ properties du json
@@ -186,17 +186,24 @@ class Command(BaseCommand):
                                         date_now = dateutil.parser.parse(document['properties']['date_seance'],dayfirst=True)
                                         dic_row["DELIB_DATE"] = str(date_now.year) + '-' + \
                                             str(date_now.month).zfill(2) + '-' + str(date_now.day).zfill(2)
+                                        dic_row["BUDGET_ANNEE"] = str(date_now.year)
                                     # titre:  DELIB_OBJET
                                     if 'titre' in document['properties']:
                                         dic_row["DELIB_OBJET"] = document['properties']['titre']
                                     # commune:  COL_COMMUNE
                                     if 'communes' in document['properties']:
                                         dic_row["COL_COMMUNE"] = document['properties']['communes']
-                            # ecriture de la ligne
-                            writer.writerows([dic_row.values()])
+                            # ecriture de la ligne si il y a une date de déliberation
+                            if dic_row["DELIB_DATE"]:
+                                writer.writerows([dic_row.values()])
                 except ValueError:
                     # logging.error("Erreur lors de la recuperation des donnees")
                     pass
+
+        # suppression de l'ancien csv
+        if os.path.exists(FILE_PATH):
+            os.remove(FILE_PATH)
+            # os.rename(FILE_PATH,  settings.DUMP_DELIB + 'actes_old.csv')
 
         opts.update({"error": on_index_error,
                      "failed": on_index_failure,
@@ -205,6 +212,11 @@ class Command(BaseCommand):
 
         elastic_conn.create_or_replace_index(
             index_uuid, instance.name, instance.name, body, **opts)
+
+        # # supression de l'ancien dump si le  nouveau dump a ete crée
+        # if os.path.exists(settings.DUMP_DELIB + 'actes_old.csv') and \
+        #    os.path.exists(FILE_PATH):
+        #     os.remove(settings.DUMP_DELIB + 'actes_old.csv')
 
         return task.description
 
