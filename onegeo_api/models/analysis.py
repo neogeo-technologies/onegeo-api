@@ -20,6 +20,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from functools import reduce
 from onegeo_api.utils import merge_two_objs
+from onegeo_api.exceptions import ConflictError
 
 
 class Analysis(models.Model):
@@ -38,7 +39,16 @@ class Analysis(models.Model):
 
     def clean(self, *args, **kwargs):
         components = self.get_components(
-            user=self.user, exclude_pk=[self.pk])
+            user=self.user, exclude_pk=self.pk and [self.pk])
+
+        try:
+            # Vérifie si le document ne contient pas de doublon ambigu..
+            reduce(merge_two_objs, [
+                instance.document for instance
+                in Analysis.objects.filter(user=self.user)] + [self.document])
+        except ConflictError as e:
+            raise ValidationError(e.__str__())
+
         for component in components.keys():
             key = component[:-1]  # plural to singular
             if key in self.document:
@@ -81,6 +91,6 @@ def get_complete_analysis(user=None, **kwargs):
                 Analysis.get_component_by_name(component, name, user=user))
     if len(documents) > 1:
         return reduce(merge_two_objs, documents)
-    if len(documents) == 0:
+    if len(documents) == 1:
         return documents[0]
     return {}

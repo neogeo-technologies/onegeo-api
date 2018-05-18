@@ -78,7 +78,7 @@ def clean_my_obj(obj):
 
 
 def merge_two_objs(obj1, obj2, path=None):
-    """Merge `obj1` to `obj2`."""
+    """Merge 'obj1' to 'obj2'."""
     if path is None:
         path = []
     for k in obj2:
@@ -89,7 +89,9 @@ def merge_two_objs(obj1, obj2, path=None):
                 pass
             else:
                 raise ConflictError(
-                    'Conflict at {0}.{1}'.format('.'.join(path), str(k)))
+                    "Conflict error at path: '{0}.{1}'. '{2}' is ambiguous.".format(
+                        '.'.join(path), str(k),
+                        ', '.join(list(set(obj2[k]) - set(obj1[k])))))
         else:
             obj1[k] = obj2[k]
     return obj1
