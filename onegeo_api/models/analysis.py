@@ -79,4 +79,8 @@ def get_complete_analysis(user=None, **kwargs):
         for name in names:
             documents.append(
                 Analysis.get_component_by_name(component, name, user=user))
-    return reduce(merge_two_objs, documents)
+    if len(documents) > 1:
+        return reduce(merge_two_objs, documents)
+    if len(documents) == 0:
+        return documents[0]
+    return {}
