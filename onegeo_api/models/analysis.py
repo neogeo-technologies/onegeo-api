@@ -19,8 +19,11 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.db import models
 from functools import reduce
-from onegeo_api.utils import merge_two_objs
+from onegeo_api.elastic import elastic_conn
 from onegeo_api.exceptions import ConflictError
+from onegeo_api.exceptions import ElasticError
+from onegeo_api.utils import merge_two_objs
+from uuid import uuid4
 
 
 class Analysis(models.Model):
@@ -41,14 +44,7 @@ class Analysis(models.Model):
         components = self.get_components(
             user=self.user, exclude_pk=self.pk and [self.pk])
 
-        try:
-            # Vérifie si le document ne contient pas de doublon ambigu..
-            reduce(merge_two_objs, [
-                instance.document for instance
-                in Analysis.objects.filter(user=self.user)] + [self.document])
-        except ConflictError as e:
-            raise ValidationError(e.__str__())
-
+        # Vérifie si le document ne contient pas des composants du même nom..
         for component in components.keys():
             key = component[:-1]  # plural to singular
             if key in self.document:
@@ -56,6 +52,28 @@ class Analysis(models.Model):
                     if val in components[component]:
                         raise ValidationError(
                             "The {0} name '{1}' is already taken.".format(key, val))
+
+        # Vérifie si le document ne contient pas de doublon ambigu..
+        # Par exemple deux composants de même nom (c'est le cas pour les
+        # « filters » et « token filters ») doivent être strictement identique
+        # afin de ne pas génèrer des incohérences lors de la compilation
+        # du « settings ».
+        try:
+            reduce(merge_two_objs, [
+                instance.document for instance
+                in Analysis.objects.filter(user=self.user)] + [self.document])
+        except ConflictError as e:
+            raise ValidationError(e.__str__())
+
+        # Vérifie si le document est valide..
+        try:
+            index = str(uuid4())
+            elastic_conn.create_index(
+                index, {'settings': {'analysis': self.document}})
+        except ElasticError as e:
+            raise ValidationError(e.description)
+        else:
+            elastic_conn.delete_index(index)
 
     @classmethod
     def get_components(cls, user=None, exclude_pk=None):

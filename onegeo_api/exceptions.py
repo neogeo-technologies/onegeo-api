@@ -28,6 +28,10 @@ class GenericException(Exception):
 class ElasticError(GenericException):
     """Elastic Error."""
 
+    @property
+    def description(self):
+        return self.details['error']['reason']
+
 
 class ConflictError(GenericException):
     """Conflict Error."""

@@ -88,23 +88,16 @@ def merge_two_objs(obj1, obj2, path=None):
             elif obj1[k] == obj2[k]:
                 pass
             else:
+                if isinstance(obj2[k], str):
+                    desc = "value '{}' is ambiguous".format(obj2[k])
+                else:
+                    desc = "values {} are ambiguous".format(
+                        ', '.join(["'{}'".format(v) for v
+                                   in (set(obj2[k]) - set(obj1[k]))]))
+
                 raise ConflictError(
-                    "Conflict error at path: '{0}.{1}'. '{2}' is ambiguous.".format(
-                        '.'.join(path), str(k),
-                        ', '.join(list(set(obj2[k]) - set(obj1[k])))))
+                    "Conflict error at path: '{0}.{1}': {2}".format(
+                        '.'.join(path), str(k), desc))
         else:
             obj1[k] = obj2[k]
     return obj1
-
-
-# def merge_obj(obj1, obj2):  # generator way...
-#     for k in set(obj1) | set(obj2):  # Union syntaxe
-#         if k in obj1 and k in obj2:
-#             if isinstance(obj1[k], dict) and isinstance(obj2[k], dict):
-#                 yield (k, dict(merge_obj(obj1[k], obj2[k])))
-#             else:
-#                 yield (k, obj2[k])
-#         elif k in obj1:
-#             yield (k, obj1[k])
-#         else:
-#             yield (k, obj2[k])

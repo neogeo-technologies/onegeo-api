@@ -16,7 +16,7 @@
 
 from django.conf import settings
 from elasticsearch import Elasticsearch
-from elasticsearch import exceptions as ElasticExceptions
+from functools import wraps
 import json
 from onegeo_api.exceptions import ElasticError
 from onegeo_api.utils import Singleton
@@ -26,14 +26,30 @@ from uuid import uuid4
 HOSTS = settings.ELASTICSEARCH_HOSTS
 
 
+def elastic_exceptions_handler(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            if e.__class__.__qualname__ == 'RequestError':
+                raise ElasticError(
+                    'Elasticsearch returns an error {0}: {1}.'.format(e.status_code, e.error),
+                    status_code=e.status_code, details=e.info, error=e.error)
+            raise e
+    return wrapper
+
+
 class ElasticWrapper(metaclass=Singleton):
 
     def __init__(self):
         self.conn = Elasticsearch(hosts=HOSTS)
 
+    @elastic_exceptions_handler
     def create_index(self, index, body):
         self.conn.indices.create(index=index, body=body)
 
+    @elastic_exceptions_handler
     def push_collection(self, index, doc_type, collection, step=10):
         body, count = '', 1
         for document in collection:
@@ -51,9 +67,11 @@ class ElasticWrapper(metaclass=Singleton):
             body, count = '', 1
         self.conn.bulk(index=index, doc_type=doc_type, body=body)
 
+    @elastic_exceptions_handler
     def delete_index(self, index):
         self.conn.indices.delete(index=index)
 
+    @elastic_exceptions_handler
     def switch_aliases(self, index, name):
         body = {'actions': []}
         indices = self.get_indices_by_alias(name)
@@ -77,6 +95,7 @@ class ElasticWrapper(metaclass=Singleton):
         for i in range(len(indices)):
             self.delete_index(indices[i])
 
+    @elastic_exceptions_handler
     def get_indices_by_alias(self, name):
         indices = []
         if self.conn.indices.exists_alias(name=name):
@@ -85,6 +104,7 @@ class ElasticWrapper(metaclass=Singleton):
                 indices.append(index)
         return indices
 
+    @elastic_exceptions_handler
     def get_aliases_by_index(self, index):
         aliases = []
         if self.conn.indices.exists(index=index):
@@ -93,20 +113,13 @@ class ElasticWrapper(metaclass=Singleton):
                 aliases.append(alias)
         return aliases
 
+    @elastic_exceptions_handler
     def update_aliases(self, body):
-        try:
-            self.conn.indices.update_aliases(body=body)
-        except ElasticExceptions.RequestError as e:
-            raise ValueError(e.__str__())
+        self.conn.indices.update_aliases(body=body)
 
+    @elastic_exceptions_handler
     def search(self, index='_all', body=None, params={}):
-        try:
-            return self.conn.search(index=index, body=body, params=params)
-        except ElasticExceptions.TransportError as e:
-            raise ElasticError(
-                'Elasticsearch returns an error {0} ({1})'.format(
-                    e.status_code, e.error),
-                status_code=e.status_code, details=e.info, error=e.error)
+        return self.conn.search(index=index, body=body, params=params)
 
 
 elastic_conn = ElasticWrapper()
