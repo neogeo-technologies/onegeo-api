@@ -17,13 +17,13 @@
 from django.db.models.signals import post_delete
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from onegeo_api.celery_tasks import create_resources_with_log
+from onegeo_api.celery_tasks import data_source_analyzing
 from onegeo_api.elastic import elastic_conn
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import SearchModel
 from onegeo_api.models import Source
-from onegeo_api.models.task import Task
+from uuid import uuid4
 
 
 @receiver(post_save, sender=IndexProfile)
@@ -44,10 +44,11 @@ def update_elastic_alias(sender, instance, **kwargs):
 @receiver(post_save, sender=Source)
 def create_related_resource(sender, instance, **kwargs):
     if kwargs.get('created') is True:
-        task = Task.objects.create(
-            user=instance.user, alias=instance.alias, description='1')
-        create_resources_with_log.apply_async(
-            kwargs={'pk': instance.pk}, task_id=str(task.celery_id))
+        data_source_analyzing.apply_async(
+            kwargs={'alias': instance.alias.pk,
+                    'source': instance.pk,
+                    'user': instance.user.pk},
+            task_id=str(uuid4()))
 
 
 @receiver(post_delete, sender=IndexProfile)

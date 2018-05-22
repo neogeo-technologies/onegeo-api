@@ -23,12 +23,13 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 import json
-from onegeo_api.celery_tasks import create_es_index
+from onegeo_api.celery_tasks import indexing
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 import re
+from uuid import uuid4
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -170,25 +171,12 @@ class IndexProfilesIndexing(View):
 
     @BasicAuth()
     def get(self, request, nickname):
-
         index_profile = IndexProfile.get_or_raise(nickname, request.user)
 
-        related_tasks = Task.objects.filter(
-            user=request.user, alias=index_profile.alias,
-            success__isnull=True, stop_date__isnull=True, description=2)
-
-        if len(related_tasks) > 0:
-            return JsonResponse(
-                data={
-                    'error': 'You cannot overload a task that is currently running.',
-                    'details': {
-                        'current_task': [m.detail_renderer() for m in related_tasks]}},
-                status=423)
-
-        task = Task.objects.create(
-            user=request.user, alias=index_profile.alias, description='2')
-        create_es_index.apply_async(
-            kwargs={'nickname': nickname, 'user': request.user.pk},
-            task_id=str(task.celery_id))
+        indexing.apply_async(
+            kwargs={'alias': index_profile.alias.pk,
+                    'index_profile': index_profile.pk,
+                    'user': request.user.pk},
+            task_id=str(uuid4()))
 
         return HttpResponse(status=202)

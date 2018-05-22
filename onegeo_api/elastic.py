@@ -16,6 +16,7 @@
 
 from django.conf import settings
 from elasticsearch import Elasticsearch
+from elasticsearch import exceptions
 from functools import wraps
 import json
 from onegeo_api.exceptions import ElasticError
@@ -32,11 +33,14 @@ def elastic_exceptions_handler(f):
         try:
             return f(*args, **kwargs)
         except Exception as e:
-            if e.__class__.__qualname__ == 'RequestError':
-                raise ElasticError(
-                    'Elasticsearch returns an error {0}: {1}.'.format(e.status_code, e.error),
-                    status_code=e.status_code, details=e.info, error=e.error)
-            raise e
+            qname = e.__class__.__qualname__
+            if qname not in exceptions.__all__:
+                raise e
+            if qname in ('ImproperlyConfigured', 'SerializationError'):
+                raise ElasticError(e.__str__())
+            raise ElasticError(
+                'Elasticsearch returns an error {0}: {1}.'.format(e.status_code, e.error),
+                status_code=e.status_code, details=e.info, error=e.error)
     return wrapper
 
 
@@ -76,14 +80,11 @@ class ElasticWrapper(metaclass=Singleton):
         body = {'actions': []}
         indices = self.get_indices_by_alias(name)
         for old_index in iter(indices):
-
             prev_aliases = self.get_aliases_by_index(old_index)
             for prev_alias in prev_aliases:
-
                 if prev_alias != name:
                     body['actions'].append(
                         {'add': {'index': index, 'alias': prev_alias}})
-
             body['actions'].append(
                 {'remove': {'index': old_index, 'alias': name}})
 

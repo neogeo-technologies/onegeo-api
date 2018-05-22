@@ -16,6 +16,7 @@
 
 from django.apps import apps
 from django.contrib.auth.models import User
+from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import Http404
@@ -34,20 +35,11 @@ class Task(models.Model):
 
     PATHNAME = '/tasks/{task}'
 
-    DESCRIPTION_CHOICES = (
-        ('0', 'Unkown'),
-        ('1', 'Data source analyzing'),
-        ('2', 'Indexing'))
-
     alias = models.ForeignKey(
         to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
 
     celery_id = models.UUIDField(
         verbose_name='UUID', default=uuid.uuid4, editable=False)
-
-    description = models.CharField(
-        verbose_name='Description',
-        choices=DESCRIPTION_CHOICES, max_length=1, default='0')
 
     start_date = models.DateTimeField(
         verbose_name='Start', auto_now_add=True)
@@ -57,7 +49,12 @@ class Task(models.Model):
 
     success = models.NullBooleanField(verbose_name='Success')
 
+    task_name = models.CharField(
+        verbose_name='Task name', max_length=100, null=True, blank=True)
+
     user = models.ForeignKey(to=User, verbose_name='User')
+
+    details = JSONField(verbose_name='Details', blank=True, null=True)
 
     @property
     def location(self):
@@ -81,17 +78,18 @@ class Task(models.Model):
         target = Model.objects.get(alias=self.alias)
 
         return {
-            'action': self.get_description_display(),
+            'task_name': self.task_name,
             'dates': {
                 'start': self.start_date,
                 'end': self.stop_date},
+            'details': self.details,
             'elapsed_time': float('{0:.2f}'.format(elapsed_time.total_seconds())),
             'id': self.pk,
             'location': self.location,
             'status': {
-                None: 'Running',
-                False: 'Failed',
-                True: 'Done'}.get(self.success),
+                None: 'pending',
+                False: 'failed',
+                True: 'done'}.get(self.success),
             'target': target.location}
 
     @classmethod

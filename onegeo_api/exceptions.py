@@ -30,7 +30,10 @@ class ElasticError(GenericException):
 
     @property
     def description(self):
-        return self.details['error']['reason']
+        try:
+            return self.details['error']['reason']
+        except Exception:
+            return str(self.details)
 
 
 class ConflictError(GenericException):

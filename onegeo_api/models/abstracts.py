@@ -122,7 +122,7 @@ class AbstractModelProfile(models.Model):
         except Exception as e:
             if e.__class__.__qualname__ == 'RelatedObjectDoesNotExist':
                 stack = inspect.stack()
-                caller = stack[1][0].f_locals['self'].__class__.__qualname__
+                caller = stack[0][0].f_locals['self'].__class__.__qualname__
                 self.alias = Alias.objects.create(
                     handle=self.nickname, model_name=caller)
             else:
@@ -154,7 +154,6 @@ class AbstractModelProfile(models.Model):
 
     @classmethod
     def get_or_raise(cls, nickname, user):
-
         # TODO
         # alias = Alias.objects.filter(handle=nickname, uuid=nickname)
         # print(alias)
