@@ -46,8 +46,7 @@ class Resource(AbstractModelProfile):
 
     @property
     def location(self):
-        return self.PATHNAME.format(
-            source=self.source.alias.handle, resource=self.alias.handle)
+        return self.PATHNAME.format(source=self.source.name, resource=self.name)
 
     @location.setter
     def location(self, *args, **kwargs):
@@ -77,12 +76,13 @@ class Resource(AbstractModelProfile):
             'columns': self.columns,
             'indexes': [m.location for m in self.indexes],
             'location': self.location,
-            'title': self.title or self.alias.handle}
+            'title': self.title,
+            'uuid': self.uuid}
 
     @classmethod
     def list_renderer(cls, nickname, user, **kwargs):
         model = apps.get_model(app_label='onegeo_api', model_name='Source')
-        source = model.get_or_raise(nickname, user)
+        source = model.get_or_raise(nickname, user=user)
         return [
             item.detail_renderer(**kwargs)
             for item in cls.objects.filter(source=source).order_by('title')]

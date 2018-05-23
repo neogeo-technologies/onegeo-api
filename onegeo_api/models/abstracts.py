@@ -19,75 +19,44 @@ from abc import abstractproperty
 from django.apps import apps
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db import models
 from django.http import Http404
 import inspect
-from onegeo_api.utils import clean_my_obj
-import uuid
+from uuid import uuid4
 
 
 class Alias(models.Model):
-    """Table des alias (nickname) à utiliser sur l'ensemble des modèles."""
-
-    # TODO Construire MODELS_CHOICES avec __all__ de __init__
-    MODELS_CHOICES = (
-        ('Undefined', 'Undefined'),  # ???
-        ('Analyzer', 'Analyzer'),
-        ('IndexProfile', 'IndexProfile'),
-        ('Filter', 'Filter'),
-        ('Resource', 'Resource'),
-        ('SearchModel', 'SearchModel'),
-        ('Source', 'Source'),
-        ('Tokenizer', 'Tokenizer'))
+    """Table des alias à utiliser sur l'ensemble des modèles."""
 
     uuid = models.UUIDField(
-        verbose_name='UUID', default=uuid.uuid4,
-        primary_key=True, editable=False)
+        verbose_name='UUID', default=uuid4, primary_key=True, editable=False)
 
-    handle = models.CharField(
-        verbose_name='Nickname', max_length=250, unique=True)
+    alias_name = models.CharField(
+        verbose_name='Alias name', max_length=100, blank=True, null=True)
 
-    model_name = models.CharField(
-        verbose_name='Model', max_length=30,
-        choices=MODELS_CHOICES, default=MODELS_CHOICES[0][0])
+    model_name = models.CharField(verbose_name='Model name', max_length=100)
 
     def __str__(self):
-        return self.handle
+        return self.alias_name or self.uuid
 
     def save(self, *args, **kwargs):
-        # Si creation sans alias depuis les modeles.
-        if not self.handle:
-            self.handle = str(self.uuid)[:7]
-        if self.handle == '_all':
-            raise IntegrityError("'_all' is a forbidden keyword.")
-        return super().save(*args, **kwargs)
-
-    # TODO Supprimer les méthodes après avoir repris la partie Analyzis
-
-    @classmethod
-    def custom_create(cls, model_name, handle=None):
-        return cls.objects.create(
-            **clean_my_obj({'model_name': model_name, 'handle': handle}))
-
-    def update_handle(self, new_handle):
-        self.handle = new_handle
-        self.save()
-
-    @classmethod
-    def updating_is_allowed(cls, new_handle, current_handle):
-        if new_handle != current_handle:
-            if cls.objects.filter(handle=new_handle).exists():
-                return False
-        return True
+        if self.alias_name:
+            if self.alias_name.startswith('_'):
+                raise ValidationError(
+                    "Alias name could not starts with '_' character.")
+            queryset = Alias.objects.filter(
+                alias_name=self.alias_name, model_name=self.model_name)
+            if len(queryset) > 0 and queryset[0] != self:
+                raise IntegrityError('This alias name is already in use.')
+        super().save(*args, **kwargs)
 
 
 class AbstractModelProfile(models.Model):
 
-    _nickname = None
-
     alias = models.OneToOneField(
-        to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
+        to='Alias', verbose_name='Alias', on_delete=models.CASCADE)
 
     title = models.TextField(verbose_name='Tilte', blank=True, null=True)
 
@@ -100,31 +69,49 @@ class AbstractModelProfile(models.Model):
         abstract = True
 
     def __str__(self):
-        return self.alias.handle
+        return self.name
 
     def __unicode__(self):
-        return self.title or self._nickname
+        return self.name
+
+    def __init__(self, *args, **kwargs):
+        self.nickname = None
+        super().__init__(*args, **kwargs)
 
     @property
-    def nickname(self):
-        return self._nickname
+    def name(self):
+        return self.alias.alias_name or self.uuid[:7]
 
-    @nickname.setter
-    def nickname(self, value):
-        if self.alias.handle != value \
-                and Alias.objects.filter(handle=value).exists():
-            raise IntegrityError('This Nickname is already in use.')
-        self._nickname = value
+    @name.setter
+    def name(self, value):
+        raise AttributeError("Attibute 'name' is locked, you can not change it.")
+
+    @name.deleter
+    def name(self):
+        raise AttributeError("Attibute 'name' is locked, you can not delete it.")
+
+    @property
+    def uuid(self):
+        return str(self.alias.uuid)
+
+    @uuid.setter
+    def uuid(self, value):
+        if value != str(self.alias.uuid):
+            raise AttributeError("Attibute 'uuid' is locked, you can not change it.")
+
+    @uuid.deleter
+    def uuid(self):
+        raise AttributeError("Attibute 'uuid' is locked, you can not delete it.")
 
     def save(self, *args, **kwargs):
         try:
-            self.alias.handle = self.nickname
+            self.alias.alias_name = self.nickname
         except Exception as e:
             if e.__class__.__qualname__ == 'RelatedObjectDoesNotExist':
                 stack = inspect.stack()
                 caller = stack[0][0].f_locals['self'].__class__.__qualname__
                 self.alias = Alias.objects.create(
-                    handle=self.nickname, model_name=caller)
+                    alias_name=self.nickname, model_name=caller)
             else:
                 raise e
         else:
@@ -153,15 +140,13 @@ class AbstractModelProfile(models.Model):
             "This is an abstract method. You can't do anything with it.")
 
     @classmethod
-    def get_or_raise(cls, nickname, user):
-        # TODO
-        # alias = Alias.objects.filter(handle=nickname, uuid=nickname)
-        # print(alias)
-
-        try:
-            instance = cls.objects.get(alias__handle=nickname)
-        except cls.DoesNotExist:
+    def get_or_raise(cls, name, user=None):
+        queryset = cls.objects.filter(
+            models.Q(alias__uuid__startswith=name) |
+            models.Q(alias__alias_name=name))
+        if len(queryset) != 1:
             raise Http404()
-        if instance.user != user:
+        instance = queryset[0]
+        if user and user != instance.user:
             raise PermissionDenied()
         return instance

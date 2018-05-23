@@ -30,7 +30,7 @@ class ResourcesList(View):
     @BasicAuth()
     def get(self, request, nickname):
         user = request.user
-        source = Source.get_or_raise(nickname, user)
+        source = Source.get_or_raise(nickname, user=user)
 
         try:
             task = Task.objects.get(alias=source.alias)
@@ -63,5 +63,5 @@ class ResourcesDetail(View):
 
     @BasicAuth()
     def get(self, request, nickname):
-        resource = Resource.get_or_raise(nickname, request.user)
+        resource = Resource.get_or_raise(nickname, user=request.user)
         return JsonResponse(resource.detail_renderer())

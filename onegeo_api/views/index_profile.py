@@ -67,16 +67,18 @@ class IndexProfilesList(View):
             return JsonResponse({'error': e.__str__()}, status=400)
 
         data['resource'] = \
-            Resource.get_or_raise(resource_nickname, data['user'])
+            Resource.get_or_raise(resource_nickname, user=data['user'])
 
         try:
             instance = IndexProfile.objects.create(**data)
         except TypeError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except ValidationError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
+            return JsonResponse(data={'error': e.message}, status=400)
+        except AttributeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except IntegrityError as e:
-            return JsonResponse({'error': e.__str__()}, status=409)
+            return JsonResponse(data={'error': e.__str__()}, status=409)
 
         response = HttpResponse(status=201)
         response['Content-Location'] = instance.location
@@ -92,7 +94,7 @@ class IndexProfilesDetail(View):
         opts = {
             'include': request.GET.get('include') == 'true' and True,
             'cascading': request.GET.get('cascading') == 'true' and True}
-        index_profile = IndexProfile.get_or_raise(nickname, request.user)
+        index_profile = IndexProfile.get_or_raise(nickname, user=request.user)
 
         return JsonResponse(
             index_profile.detail_renderer(**opts),
@@ -107,7 +109,7 @@ class IndexProfilesDetail(View):
             return JsonResponse({'error': e.__str__()}, status=400)
 
         user = request.user
-        index_profile = IndexProfile.get_or_raise(nickname, user)
+        index_profile = IndexProfile.get_or_raise(nickname, user=user)
 
         expected = set(data.keys())
         fields = set(IndexProfile.Extras.fields)
@@ -127,18 +129,22 @@ class IndexProfilesDetail(View):
             for k, v in data.items():
                 setattr(index_profile, k, v)
             index_profile.save()
-        except IntegrityError as e:
-            return JsonResponse({'error': e.__str__()}, status=409)
+        except TypeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except ValidationError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
-        # other exceptions -> 500
+            return JsonResponse(data={'error': e.message}, status=400)
+        except AttributeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
+        except IntegrityError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=409)
+
         return HttpResponse(status=204)
 
     @BasicAuth()
     def delete(self, request, nickname):
 
         index_profile = \
-            IndexProfile.get_or_raise(nickname, request.user)
+            IndexProfile.get_or_raise(nickname, user=request.user)
         index_profile.delete()
 
         return HttpResponse(status=204)
@@ -149,7 +155,7 @@ class IndexProfilesTasksList(View):
 
     @BasicAuth()
     def get(self, request, nickname):
-        index_profile = IndexProfile.get_or_raise(nickname, request.user)
+        index_profile = IndexProfile.get_or_raise(nickname, user=request.user)
         defaults = {'alias': index_profile.alias, 'user': request.user}
         return JsonResponse(Task.list_renderer(defaults), safe=False)
 
@@ -159,7 +165,7 @@ class IndexProfilesTasksDetail(View):
 
     @BasicAuth()
     def get(self, request, nickname, tsk_id):
-        index_profile = IndexProfile.get_or_raise(nickname, request.user)
+        index_profile = IndexProfile.get_or_raise(nickname, user=request.user)
         task = Task.get_with_permission(
             {'id': literal_eval(tsk_id), 'alias': index_profile.alias},
             request.user)
@@ -171,7 +177,7 @@ class IndexProfilesIndexing(View):
 
     @BasicAuth()
     def get(self, request, nickname):
-        index_profile = IndexProfile.get_or_raise(nickname, request.user)
+        index_profile = IndexProfile.get_or_raise(nickname, user=request.user)
 
         indexing.apply_async(
             kwargs={'alias': index_profile.alias.pk,

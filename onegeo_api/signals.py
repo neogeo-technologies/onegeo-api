@@ -26,21 +26,6 @@ from onegeo_api.models import Source
 from uuid import uuid4
 
 
-@receiver(post_save, sender=IndexProfile)
-def update_elastic_alias(sender, instance, **kwargs):
-    if kwargs.get('created') is False:
-        prev_alias = instance._prev_nickname
-        next_alias = instance.nickname
-        if prev_alias != next_alias:
-            body = {'actions': []}
-            for index in elastic_conn.get_indices_by_alias(prev_alias):
-                body['actions'].append({'remove': {
-                    'index': index, 'alias': prev_alias}})
-                body['actions'].append({'add': {
-                    'index': index, 'alias': next_alias}})
-                elastic_conn.update_aliases(body)
-
-
 @receiver(post_save, sender=Source)
 def create_related_resource(sender, instance, **kwargs):
     if kwargs.get('created') is True:
@@ -53,7 +38,7 @@ def create_related_resource(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=IndexProfile)
 def delete_elastic_related_index(sender, instance, **kwargs):
-    for index in elastic_conn.get_indices_by_alias(instance.alias.handle):
+    for index in elastic_conn.get_indices_by_alias(instance.uuid):
         elastic_conn.delete_index(index)
 
 

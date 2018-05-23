@@ -32,7 +32,7 @@ class IndexProfile(AbstractModelProfile):
         verbose_name = 'Indexation Profile'
         verbose_name_plural = 'Indexation Profiles'
 
-    PATHNAME = 'indexes'
+    PATHNAME = '/indexes/{index}'
 
     REINDEX_FREQUENCY_CHOICES = (
         ('monthly', 'monthly'),
@@ -52,20 +52,16 @@ class IndexProfile(AbstractModelProfile):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._onegeo = None
-        try:
-            self._prev_nickname = self.alias.handle
-        except Exception:
-            self._prev_nickname = None
 
     @property
     def location(self):
-        return '/{0}/{1}'.format(self.PATHNAME, self.alias.handle)
+        return self.PATHNAME.format(index=self.name)
 
     @location.setter
     def location(self, value):
         try:
-            self.nickname = re.search(
-                '^/{}/(\w+)/?$'.format(self.PATHNAME), value).group(1)
+            self.nickname = re.search('^{}$'.format(
+                self.PATHNAME.format(index='(\w+)/?')), value).group(1)
         except AttributeError:
             raise AttributeError("'Location' attibute is malformed.")
 
@@ -94,7 +90,8 @@ class IndexProfile(AbstractModelProfile):
             'location': self.location,
             'title': self.title,
             'reindex_frequency': self.reindex_frequency,
-            'resource': self.resource.location}
+            'resource': self.resource.location,
+            'uuid': self.uuid}
 
     @classmethod
     def list_renderer(cls, user, **opts):

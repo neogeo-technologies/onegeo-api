@@ -32,15 +32,17 @@ class Analysis(models.Model):
         verbose_name = 'Analysis document'
         verbose_name_plural = 'Analysis documents'
 
-    title = models.TextField(
-        verbose_name='Title', blank=True, null=True, unique=True)
+    title = models.TextField(verbose_name='Title')
 
-    user = models.ForeignKey(
-        User, verbose_name='User', blank=True, null=True)
+    user = models.ForeignKey(User, verbose_name='User')
 
-    document = JSONField(verbose_name='Document', blank=True, null=True)
+    document = JSONField(verbose_name='Document')
 
     def clean(self, *args, **kwargs):
+
+        if not self.user_id:
+            raise ValidationError('User is mandatory.')  # C'est caca
+
         components = self.get_components(
             user=self.user, exclude_pk=self.pk and [self.pk])
 

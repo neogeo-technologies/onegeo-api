@@ -57,7 +57,6 @@ class SearchModelsList(View):
                 status=400)
 
         data['user'] = request.user
-
         indexes = data.pop('indexes')
 
         # TODO Peut être remplacé par TypeError plus bas
@@ -68,19 +67,21 @@ class SearchModelsList(View):
         try:
             instance = SearchModel.objects.create(**data)
         except TypeError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except ValidationError as e:
+            return JsonResponse(data={'error': e.message}, status=400)
+        except AttributeError as e:
             return JsonResponse(data={'error': e.__str__()}, status=400)
         except IntegrityError as e:
             return JsonResponse(data={'error': e.__str__()}, status=409)
 
         for item in indexes:
             try:
-                index_nickname = re.search('^/indexes/(\w+)/?$', item).group(1)
+                val = re.search('^/indexes/(\w+)/?$', item).group(1)
             except AttributeError as e:
                 return JsonResponse(data={'error': e.__str__()}, status=400)
             instance.indexes.add(
-                IndexProfile.get_or_raise(index_nickname, data['user']))
+                IndexProfile.get_or_raise(val, user=data['user']))
 
         response = HttpResponse(status=201)
         response['Content-Location'] = instance.location
@@ -96,12 +97,14 @@ class SearchModelsDetail(View):
             'include': request.GET.get('include') == 'true' and True,
             'cascading': request.GET.get('cascading') == 'true' and True}
 
-        search_model = SearchModel.get_or_raise(nickname, request.user)
+        search_model = SearchModel.get_or_raise(nickname, user=request.user)
         return JsonResponse(
             data=search_model.detail_renderer(**opts), status=200)
 
     @BasicAuth()
     def put(self, request, nickname):
+
+        user = request.user
 
         try:
             data = json.loads(request.body.decode('utf-8'))
@@ -119,31 +122,35 @@ class SearchModelsDetail(View):
 
         data = dict((k, v) for k, v in data.items() if k in fields)
 
-        instance = SearchModel.get_or_raise(nickname, request.user)
+        instance = SearchModel.get_or_raise(nickname, user=user)
 
         try:
-            data['indexes'] = IndexProfile.objects.filter(
-                user=request.user, alias__handle__in=[
-                    re.search('^/indexes/(\w+)/?$', index_location).group(1)
-                    for index_location in data['indexes']])
+            data['indexes'] = [
+                IndexProfile.get_or_raise(
+                    re.search('^/indexes/((\w|-){1,100})/?$', index_location).group(1),
+                    user=user)
+                for index_location in data['indexes']]
         except Exception as e:
             return JsonResponse(data={'error': e.__str__()}, status=400)
 
         try:
             for k, v in data.items():
-                print(k, v)
                 setattr(instance, k, v)
             instance.save()
+        except TypeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
+        except ValidationError as e:
+            return JsonResponse(data={'error': e.message}, status=400)
+        except AttributeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except IntegrityError as e:
             return JsonResponse(data={'error': e.__str__()}, status=409)
-        except ValidationError as e:
-            return JsonResponse(data={'error': e.__str__()}, status=400)
-        # other exceptions -> 500
+
         return HttpResponse(status=204)
 
     @BasicAuth()
     def delete(self, request, nickname):
-        search_model = SearchModel.get_or_raise(nickname, request.user)
+        search_model = SearchModel.get_or_raise(nickname, user=request.user)
         search_model.delete()
         return HttpResponse(status=204)
 
@@ -167,14 +174,14 @@ class Search(View):
                     searchmodel__in=SearchModel.objects.all())]
         else:
             try:
-                instance = SearchModel.objects.get(alias__handle=nickname)
+                instance = SearchModel.get_or_raise(nickname)
             except SearchModel.DoesNotExist:
                 return HttpResponse(status=404)
             index_profiles = [
                 m.indexprofile for m in
                 SearchModel.indexes.through.objects.filter(searchmodel=instance)]
 
-        index = [m.alias.handle for m in index_profiles]
+        index = [m.uuid for m in index_profiles]
 
         params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
         if '_through' in params and not re.match(
@@ -232,14 +239,14 @@ class Search(View):
                     searchmodel__in=SearchModel.objects.all())]
         else:
             try:
-                instance = SearchModel.objects.get(alias__handle=nickname)
+                instance = SearchModel.get_or_raise(nickname)
             except SearchModel.DoesNotExist:
                 return HttpResponse(status=404)
             index_profiles = [
                 m.indexprofile for m in
                 SearchModel.indexes.through.objects.filter(searchmodel=instance)]
 
-        index = [m.alias.handle for m in index_profiles]
+        index = [m.uuid for m in index_profiles]
 
         params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
 

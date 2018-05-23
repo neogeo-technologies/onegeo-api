@@ -36,7 +36,7 @@ class Source(AbstractModelProfile):
     PROTOCOL_CHOICES = onegeo_manager.protocol.all()
 
     protocol = models.CharField(
-        verbose_name='Protocol', max_length=250, choices=PROTOCOL_CHOICES)
+        verbose_name='Protocol', max_length=100, choices=PROTOCOL_CHOICES)
 
     uri = models.CharField(verbose_name='URI', max_length=2048)
 
@@ -46,7 +46,7 @@ class Source(AbstractModelProfile):
 
     @property
     def location(self):
-        return self.PATHNAME.format(source=self.alias.handle)
+        return self.PATHNAME.format(source=self.name)
 
     @location.setter
     def location(self, value):
@@ -84,6 +84,7 @@ class Source(AbstractModelProfile):
             'location': self.location,
             'title': self.title,
             'protocol': self.protocol,
+            'uuid': self.uuid,
             'uri': self.uri}
 
     @classmethod

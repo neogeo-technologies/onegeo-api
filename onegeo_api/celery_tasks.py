@@ -167,4 +167,4 @@ def indexing(alias=None, index_profile=None, user=None):
 
     elastic_conn.create_index(index, body)
     elastic_conn.push_collection(index, index, index_profile.onegeo.get_collection())
-    elastic_conn.switch_aliases(index, index_profile.alias.handle)
+    elastic_conn.switch_aliases(index, index_profile.uuid)

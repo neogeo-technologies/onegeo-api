@@ -47,7 +47,7 @@ class SearchModel(AbstractModelProfile):
 
     @property
     def location(self):
-        return self.PATHNAME.format(service=self.alias.handle)
+        return self.PATHNAME.format(service=self.name)
 
     @location.setter
     def location(self, value):
@@ -66,7 +66,7 @@ class SearchModel(AbstractModelProfile):
         return 'http://{0}{1}'.format(
             get_current_site(None),
             reverse('onegeo_api:search_service',
-                    kwargs={'nickname': self.alias.handle}))
+                    kwargs={'nickname': self.name}))
 
     @service_url.setter
     def service_url(self, value):
@@ -85,7 +85,8 @@ class SearchModel(AbstractModelProfile):
                 for m in self.indexes.all()],
             'location': self.location,
             'title': self.title,
-            'service_url': self.service_url}
+            'service_url': self.service_url,
+            'uuid': self.uuid}
 
     @classmethod
     def list_renderer(cls, user, **opts):

@@ -52,11 +52,13 @@ class SourcesList(View):
         try:
             Source.objects.create(**data)
         except TypeError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except ValidationError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
+            return JsonResponse(data={'error': e.message}, status=400)
+        except AttributeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except IntegrityError as e:
-            return JsonResponse({'error': e.__str__()}, status=409)
+            return JsonResponse(data={'error': e.__str__()}, status=409)
 
         return JsonResponse(data={}, status=202)
 
@@ -69,7 +71,7 @@ class SourcesDetail(View):
 
         opts = {'include': request.GET.get('include') == 'true' and True}
         # Pas logique (TODO)
-        instance = Source.get_or_raise(nickname, request.user)
+        instance = Source.get_or_raise(nickname, user=request.user)
         return JsonResponse(instance.detail_renderer(**opts), safe=False)
 
     @BasicAuth()
@@ -87,22 +89,26 @@ class SourcesDetail(View):
                 ', '.join("'{}'".format(str(item)) for item in fields.difference(expected)))
             return JsonResponse({'error': msg}, status=400)
 
-        instance = Source.get_or_raise(nickname, request.user)
+        instance = Source.get_or_raise(nickname, user=request.user)
 
         try:
             for k, v in data.items():
                 setattr(instance, k, v)
             instance.save()
-        except IntegrityError as e:
-            return JsonResponse({'error': e.__str__()}, status=409)
+        except TypeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
         except ValidationError as e:
-            return JsonResponse({'error': e.__str__()}, status=400)
-        # other exceptions -> 500
+            return JsonResponse(data={'error': e.message}, status=400)
+        except AttributeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
+        except IntegrityError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=409)
+
         return HttpResponse(status=204)
 
     @BasicAuth()
     def delete(self, request, nickname):
 
-        source = Source.get_or_raise(nickname, request.user)
+        source = Source.get_or_raise(nickname, user=request.user)
         source.delete()
         return HttpResponse(status=204)
