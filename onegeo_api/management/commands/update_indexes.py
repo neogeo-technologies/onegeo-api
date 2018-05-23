@@ -196,9 +196,9 @@ class Command(BaseCommand):
                             # ecriture de la ligne si il y a une date de déliberation
                             if dic_row["DELIB_DATE"]:
                                 writer.writerows([dic_row.values()])
-                except ValueError:
+                except:
                     # logging.error("Erreur lors de la recuperation des donnees")
-                    pass
+                    continue
 
         # suppression de l'ancien csv
         if os.path.exists(FILE_PATH):
