@@ -198,7 +198,7 @@ class Command(BaseCommand):
                                 writer.writerows([dic_row.values()])
                 except:
                     # logging.error("Erreur lors de la recuperation des donnees")
-                    continue
+                    pass
 
         # suppression de l'ancien csv
         if os.path.exists(FILE_PATH):
