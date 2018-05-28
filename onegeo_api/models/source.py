@@ -17,6 +17,7 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.urls import reverse
 from onegeo_api.models.abstracts import AbstractModelProfile
 import onegeo_manager
 import re
@@ -31,8 +32,6 @@ class Source(AbstractModelProfile):
         verbose_name = 'Source'
         verbose_name_plural = 'Sources'
 
-    PATHNAME = '/sources/{source}'
-
     PROTOCOL_CHOICES = onegeo_manager.protocol.all()
 
     protocol = models.CharField(
@@ -46,13 +45,14 @@ class Source(AbstractModelProfile):
 
     @property
     def location(self):
-        return self.PATHNAME.format(source=self.name)
+        return reverse(
+            'onegeo_api:source', kwargs={'name': str(self.name)})
 
     @location.setter
     def location(self, value):
         try:
-            self.nickname = re.search('^{}$'.format(
-                self.PATHNAME.format(source='(\w+)/?')), value).group(1)
+            self.nickname = re.search(
+                'sources/(?P<name>(\w|-){1,100})/?$', value).group('name')
         except AttributeError:
             raise AttributeError("'Location' attibute is malformed.")
 

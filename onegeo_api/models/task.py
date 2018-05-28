@@ -20,11 +20,22 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import Http404
+from django.urls import reverse
 from django.utils import timezone
-import uuid
+from uuid import uuid4
 
 
-MODEL = 'onegeo_api'
+APP = 'onegeo_api'
+
+
+class AsyncTaskManager(models.Manager):
+
+    def create(self, **kwargs):
+        kwargs['is_async'] = True
+        super().create(**kwargs)
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_async=True)
 
 
 class Task(models.Model):
@@ -33,13 +44,24 @@ class Task(models.Model):
         verbose_name = 'Task'
         verbose_name_plural = 'Tasks'
 
-    PATHNAME = '/tasks/{task}'
+    uuid = models.UUIDField(
+        verbose_name='UUID', default=uuid4, primary_key=True, editable=False)
 
     alias = models.ForeignKey(
-        to='Alias', verbose_name='Nickname', on_delete=models.CASCADE)
+        to='Alias', verbose_name='Alias', on_delete=models.CASCADE)
 
-    celery_id = models.UUIDField(
-        verbose_name='UUID', default=uuid.uuid4, editable=False)
+    resource_ns = models.CharField(
+        verbose_name='Resource Namespace', max_length=100)
+
+    user = models.ForeignKey(to=User, verbose_name='User')
+
+    task_name = models.CharField(
+        verbose_name='Task name', max_length=100, null=True, blank=True)
+
+    is_async = models.BooleanField(
+        verbose_name='Is asynchronous', default=False)
+
+    success = models.NullBooleanField(verbose_name='Success')
 
     start_date = models.DateTimeField(
         verbose_name='Start', auto_now_add=True)
@@ -47,18 +69,29 @@ class Task(models.Model):
     stop_date = models.DateTimeField(
         verbose_name='Stop', null=True, blank=True)
 
-    success = models.NullBooleanField(verbose_name='Success')
-
-    task_name = models.CharField(
-        verbose_name='Task name', max_length=100, null=True, blank=True)
-
-    user = models.ForeignKey(to=User, verbose_name='User')
-
     details = JSONField(verbose_name='Details', blank=True, null=True)
+
+    logged = models.Manager()
+    asynchronous = AsyncTaskManager()
+
+    @property
+    def elapsed_time(self):
+        return self.stop_date \
+            and (self.stop_date - self.start_date) \
+            or (timezone.now() - self.start_date)
+
+    @elapsed_time.setter
+    def elapsed_time(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @elapsed_time.deleter
+    def elapsed_time(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not delete it.')
 
     @property
     def location(self):
-        return self.PATHNAME.format(task=self.pk)
+        return reverse(
+            'onegeo_api:logged_task', kwargs={'uuid': str(self.uuid)})
 
     @location.setter
     def location(self, *args, **kwargs):
@@ -68,39 +101,49 @@ class Task(models.Model):
     def location(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
+    @property
+    def target_location(self):
+        Model = apps.get_model(APP, self.alias.model_name)
+        instance = Model.objects.get(alias=self.alias)
+        return reverse(
+            'onegeo_api:{}'.format(self.resource_ns),
+            kwargs={'name': str(instance.name)})
+
+    @target_location.setter
+    def target_location(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @target_location.deleter
+    def target_location(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not delete it.')
+
     def detail_renderer(self):
-
-        elapsed_time = self.stop_date \
-            and (self.stop_date - self.start_date) \
-            or (timezone.now() - self.start_date)
-
-        Model = apps.get_model(MODEL, self.alias.model_name)
-        target = Model.objects.get(alias=self.alias)
 
         return {
             'task_name': self.task_name,
             'dates': {
                 'start': self.start_date,
                 'end': self.stop_date},
-            'details': self.details,
-            'elapsed_time': float('{0:.2f}'.format(elapsed_time.total_seconds())),
-            'id': self.pk,
+            'description': self.details,
+            'elapsed_time': float(
+                '{0:.2f}'.format(self.elapsed_time.total_seconds())),
+            'id': self.uuid,
             'location': self.location,
             'status': {
                 None: 'pending',
                 False: 'failed',
                 True: 'done'}.get(self.success),
-            'target': target.location}
+            'target': self.target_location}
 
     @classmethod
     def list_renderer(cls, defaults):
         return [t.detail_renderer() for t in
-                cls.objects.filter(**defaults).order_by('-start_date')]
+                cls.logged.filter(**defaults).order_by('-start_date')]
 
     @classmethod
     def get_with_permission(cls, defaults, user):
         try:
-            instance = cls.objects.get(**defaults)
+            instance = cls.logged.get(**defaults)
         except cls.DoesNotExist:
             raise Http404()
         if instance.user and instance.user != user:

@@ -17,6 +17,7 @@
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.urls import reverse
 from onegeo_api.models.abstracts import AbstractModelProfile
 import onegeo_manager
 import re
@@ -31,8 +32,6 @@ class IndexProfile(AbstractModelProfile):
     class Meta(object):
         verbose_name = 'Indexation Profile'
         verbose_name_plural = 'Indexation Profiles'
-
-    PATHNAME = '/indexes/{index}'
 
     REINDEX_FREQUENCY_CHOICES = (
         ('monthly', 'monthly'),
@@ -55,13 +54,14 @@ class IndexProfile(AbstractModelProfile):
 
     @property
     def location(self):
-        return self.PATHNAME.format(index=self.name)
+        return reverse(
+            'onegeo_api:index_profile', kwargs={'name': str(self.name)})
 
     @location.setter
     def location(self, value):
         try:
-            self.nickname = re.search('^{}$'.format(
-                self.PATHNAME.format(index='(\w+)/?')), value).group(1)
+            self.nickname = re.search(
+                'indexes/(?P<name>(\w|-){1,100})/?$', value).group('name')
         except AttributeError:
             raise AttributeError("'Location' attibute is malformed.")
 

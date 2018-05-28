@@ -47,8 +47,8 @@ class SourceAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['start_date', 'success']
-    ordering = ['start_date']
+    list_display = ['task_name', 'start_date', 'stop_date', 'success']
+    ordering = ['-start_date']
 
 
 @admin.register(SearchModel)

@@ -17,6 +17,7 @@
 from django.apps import apps
 from django.contrib.postgres.fields import JSONField
 from django.db import models
+from django.urls import reverse
 from onegeo_api.models.abstracts import AbstractModelProfile
 
 
@@ -25,8 +26,6 @@ class Resource(AbstractModelProfile):
     class Meta(object):
         verbose_name = 'Resource'
         verbose_name_plural = 'Resources'
-
-    PATHNAME = '/sources/{source}/resources/{resource}'
 
     columns = JSONField(verbose_name='Columns')
 
@@ -46,7 +45,9 @@ class Resource(AbstractModelProfile):
 
     @property
     def location(self):
-        return self.PATHNAME.format(source=self.source.name, resource=self.name)
+        return reverse(
+            'onegeo_api:resource', kwargs={'source': str(self.source.name),
+                                           'name': str(self.name)})
 
     @location.setter
     def location(self, *args, **kwargs):
@@ -80,9 +81,9 @@ class Resource(AbstractModelProfile):
             'uuid': self.uuid}
 
     @classmethod
-    def list_renderer(cls, nickname, user, **kwargs):
+    def list_renderer(cls, name, user, **kwargs):
         model = apps.get_model(app_label='onegeo_api', model_name='Source')
-        source = model.get_or_raise(nickname, user=user)
+        source = model.get_or_raise(name, user=user)
         return [
             item.detail_renderer(**kwargs)
             for item in cls.objects.filter(source=source).order_by('title')]

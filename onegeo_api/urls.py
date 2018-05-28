@@ -20,8 +20,8 @@ from onegeo_api.views.catalog import Catalog
 from onegeo_api.views.index_profile import IndexProfilesDetail
 from onegeo_api.views.index_profile import IndexProfilesIndexing
 from onegeo_api.views.index_profile import IndexProfilesList
-from onegeo_api.views.index_profile import IndexProfilesTasksDetail
-from onegeo_api.views.index_profile import IndexProfilesTasksList
+# from onegeo_api.views.index_profile import IndexProfilesTasksDetail
+# from onegeo_api.views.index_profile import IndexProfilesTasksList
 from onegeo_api.views import Protocols
 from onegeo_api.views.resource import ResourcesDetail
 from onegeo_api.views.resource import ResourcesList
@@ -30,8 +30,9 @@ from onegeo_api.views.search_model import SearchModelsDetail
 from onegeo_api.views.search_model import SearchModelsList
 from onegeo_api.views.source import SourcesDetail
 from onegeo_api.views.source import SourcesList
-from onegeo_api.views.task import TasksDetail
-from onegeo_api.views.task import TasksList
+from onegeo_api.views.task import AsyncTask
+from onegeo_api.views.task import LoggedTask
+from onegeo_api.views.task import LoggedTasks
 from onegeo_api.views import Uris
 
 
@@ -45,19 +46,28 @@ urlpatterns = (
     url('^analysis/?', Analyses.as_view(), name='analysis'),
 
     url('^catalog/?$', Catalog.as_view(), name='catalog'),
-    url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name='index_tasks'),
-    url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name='index_task'),
-    url('^indexes/(?P<nickname>(\w|-){1,100})/?$', IndexProfilesDetail.as_view(), name='index'),
-    url('^indexes/?$', IndexProfilesList.as_view(), name='indexes'),
-    url('^indexes/(?P<nickname>(\w|-){1,100})/indexing/?$', IndexProfilesIndexing.as_view(), name='indexing'),
+
+    # url('^indexes/(\w+)/tasks/(\d+)/?$', IndexProfilesTasksDetail.as_view(), name='index_task'),
+    # url('^indexes/(\w+)/tasks/?$', IndexProfilesTasksList.as_view(), name='index_tasks'),
+
+    url('^indexes/(?P<name>(\w|-){1,100})/index/?$', IndexProfilesIndexing.as_view(), name='index'),
+    url('^indexes/(?P<name>(\w|-){1,100})/?$', IndexProfilesDetail.as_view(), name='index_profile'),
+    url('^indexes/?$', IndexProfilesList.as_view(), name='index_profiles'),
+
     url('^protocols/?$', Protocols.as_view(), name='protocols'),
-    url('^services/(?P<nickname>(\w|-){1,100})/search/?$', Search.as_view(), name='search_service'),
-    url('^services/(?P<nickname>(\w|-){1,100})/?$', SearchModelsDetail.as_view(), name='search_model'),
+
+    url('^queue/(?P<uuid>(\w|-){1,100})/?$', AsyncTask.as_view(), name='queue'),
+
+    url('^services/(?P<name>(\w|-){1,100})/search/?$', Search.as_view(), name='search'),
+    url('^services/(?P<name>(\w|-){1,100})/?$', SearchModelsDetail.as_view(), name='search_model'),
     url('^services/?$', SearchModelsList.as_view(), name='search_models'),
-    url('^sources/(\w|-){1,100}/resources/(?P<nickname>(\w|-){1,100})/?$', ResourcesDetail.as_view(), name='resource'),
-    url('^sources/(?P<nickname>(\w|-){1,100})/resources/?$', ResourcesList.as_view(), name='resources'),
-    url('^sources/(?P<nickname>(\w|-){1,100})?$', SourcesDetail.as_view(), name='source'),
+
+    url('^sources/(?P<source>(\w|-){1,100})/resources/(?P<name>(\w|-){1,100})/?$', ResourcesDetail.as_view(), name='resource'),
+    url('^sources/(?P<name>(\w|-){1,100})/resources/?$', ResourcesList.as_view(), name='resources'),
+    url('^sources/(?P<name>(\w|-){1,100})/?$', SourcesDetail.as_view(), name='source'),
     url('^sources/?$', SourcesList.as_view(), name='sources'),
-    url('^tasks/(\d+)/?$', TasksDetail.as_view(), name='task'),
-    url('^tasks/?$', TasksList.as_view(), name='tasks'),
+
+    url('^tasks/(?P<uuid>(\w|-){1,100})/?$', LoggedTask.as_view(), name='logged_task'),
+    url('^tasks/?$', LoggedTasks.as_view(), name='logged_tasks'),
+
     url('^uris/?$', Uris.as_view(), name='uris'))

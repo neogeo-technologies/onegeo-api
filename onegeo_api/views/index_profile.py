@@ -14,19 +14,22 @@
 # under the License.
 
 
-from ast import literal_eval
+# from ast import literal_eval
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.http import HttpResponse
 from django.http import JsonResponse
+from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 import json
 from onegeo_api.celery_tasks import indexing
+from onegeo_api.elastic import elastic_conn
+from onegeo_api.exceptions import ElasticError
 from onegeo_api.models import IndexProfile
 from onegeo_api.models import Resource
-from onegeo_api.models import Task
+# from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
 import re
 from uuid import uuid4
@@ -60,14 +63,14 @@ class IndexProfilesList(View):
             return JsonResponse({'error': msg}, status=400)
 
         try:
-            resource_nickname = re.search(
+            resource_name = re.search(
                 '^/sources/(\w+)/resources/(\w+)/?$',
                 data.pop('resource')).group(2)
         except AttributeError as e:
             return JsonResponse({'error': e.__str__()}, status=400)
 
         data['resource'] = \
-            Resource.get_or_raise(resource_nickname, user=data['user'])
+            Resource.get_or_raise(resource_name, user=data['user'])
 
         try:
             instance = IndexProfile.objects.create(**data)
@@ -89,19 +92,36 @@ class IndexProfilesList(View):
 class IndexProfilesDetail(View):
 
     @BasicAuth()
-    def get(self, request, nickname):
+    def get(self, request, name):
 
         opts = {
             'include': request.GET.get('include') == 'true' and True,
             'cascading': request.GET.get('cascading') == 'true' and True}
-        index_profile = IndexProfile.get_or_raise(nickname, user=request.user)
+        index_profile = IndexProfile.get_or_raise(name, user=request.user)
 
         return JsonResponse(
             index_profile.detail_renderer(**opts),
             safe=False, status=200)
 
     @BasicAuth()
-    def put(self, request, nickname):
+    def post(self, request, name):
+        index_profile = IndexProfile.get_or_raise(name, user=request.user)
+
+        task_id = uuid4()
+        indexing.apply_async(
+            kwargs={'alias': index_profile.alias.pk,
+                    'index_profile': index_profile.pk,
+                    'user': request.user.pk,
+                    'resource_ns': 'index'},
+            task_id=str(task_id))
+
+        response = HttpResponse(status=202)
+        response['Content-Location'] = reverse(
+            'onegeo_api:queue', kwargs={'uuid': str(task_id)})
+        return response
+
+    @BasicAuth()
+    def put(self, request, name):
 
         try:
             data = json.loads(request.body.decode('utf-8'))
@@ -109,7 +129,7 @@ class IndexProfilesDetail(View):
             return JsonResponse({'error': e.__str__()}, status=400)
 
         user = request.user
-        index_profile = IndexProfile.get_or_raise(nickname, user=user)
+        index_profile = IndexProfile.get_or_raise(name, user=user)
 
         expected = set(data.keys())
         fields = set(IndexProfile.Extras.fields)
@@ -141,48 +161,62 @@ class IndexProfilesDetail(View):
         return HttpResponse(status=204)
 
     @BasicAuth()
-    def delete(self, request, nickname):
+    def delete(self, request, name):
 
         index_profile = \
-            IndexProfile.get_or_raise(nickname, user=request.user)
+            IndexProfile.get_or_raise(name, user=request.user)
         index_profile.delete()
 
         return HttpResponse(status=204)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class IndexProfilesTasksList(View):
-
-    @BasicAuth()
-    def get(self, request, nickname):
-        index_profile = IndexProfile.get_or_raise(nickname, user=request.user)
-        defaults = {'alias': index_profile.alias, 'user': request.user}
-        return JsonResponse(Task.list_renderer(defaults), safe=False)
-
-
-@method_decorator(csrf_exempt, name='dispatch')
-class IndexProfilesTasksDetail(View):
-
-    @BasicAuth()
-    def get(self, request, nickname, tsk_id):
-        index_profile = IndexProfile.get_or_raise(nickname, user=request.user)
-        task = Task.get_with_permission(
-            {'id': literal_eval(tsk_id), 'alias': index_profile.alias},
-            request.user)
-        return JsonResponse(task.detail_renderer(), safe=False)
+# @method_decorator(csrf_exempt, name='dispatch')
+# class IndexProfilesTasksList(View):
+#
+#     @BasicAuth()
+#     def get(self, request, name):
+#         index_profile = IndexProfile.get_or_raise(name, user=request.user)
+#         defaults = {'alias': index_profile.alias, 'user': request.user}
+#         return JsonResponse(Task.list_renderer(defaults), safe=False)
+#
+#
+# @method_decorator(csrf_exempt, name='dispatch')
+# class IndexProfilesTasksDetail(View):
+#
+#     @BasicAuth()
+#     def get(self, request, name, tsk_id):
+#         index_profile = IndexProfile.get_or_raise(name, user=request.user)
+#         task = Task.get_with_permission(
+#             {'id': literal_eval(tsk_id), 'alias': index_profile.alias},
+#             request.user)
+#         return JsonResponse(task.detail_renderer(), safe=False)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class IndexProfilesIndexing(View):
 
     @BasicAuth()
-    def get(self, request, nickname):
-        index_profile = IndexProfile.get_or_raise(nickname, user=request.user)
+    def get(self, request, name):
+        index_profile = IndexProfile.get_or_raise(name, user=request.user)
 
-        indexing.apply_async(
-            kwargs={'alias': index_profile.alias.pk,
-                    'index_profile': index_profile.pk,
-                    'user': request.user.pk},
-            task_id=str(uuid4()))
+        try:
+            return JsonResponse(
+                data=elastic_conn.get_index(index=str(index_profile.uuid)),
+                status=200)
+        except ElasticError as e:
+            return JsonResponse(
+                data={'error': e.__str__(), 'details': e.details},
+                status=e.status_code)
 
-        return HttpResponse(status=202)
+    @BasicAuth()
+    def delete(self, request, name):
+        index_profile = IndexProfile.get_or_raise(name, user=request.user)
+
+        try:
+            elastic_conn.delete_index(index=str(index_profile.uuid))
+        except ElasticError as e:
+            return JsonResponse(
+                data={'error': e.__str__(), 'details': e.details},
+                status=e.status_code)
+
+        return HttpResponse(status=204)

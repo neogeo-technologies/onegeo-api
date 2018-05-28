@@ -34,8 +34,6 @@ class SearchModel(AbstractModelProfile):
         verbose_name = 'Search Model'
         verbose_name_plural = 'Search Models'
 
-    PATHNAME = '/services/{service}'
-
     query_dsl = JSONField(
         verbose_name='Query DSL', blank=True, null=True)
 
@@ -47,13 +45,14 @@ class SearchModel(AbstractModelProfile):
 
     @property
     def location(self):
-        return self.PATHNAME.format(service=self.name)
+        return reverse(
+            'onegeo_api:search_model', kwargs={'name': str(self.name)})
 
     @location.setter
     def location(self, value):
         try:
-            self.nickname = re.search('^{}$'.format(
-                self.PATHNAME.format(service='(\w+)/?')), value).group(1)
+            self.nickname = re.search(
+                'services/(?P<name>(\w|-){1,100})/?$', value).group('name')
         except AttributeError:
             raise AttributeError("'Location' attibute is malformed.")
 
@@ -65,8 +64,7 @@ class SearchModel(AbstractModelProfile):
     def service_url(self, with_params=False):
         return 'http://{0}{1}'.format(
             get_current_site(None),
-            reverse('onegeo_api:search_service',
-                    kwargs={'nickname': self.name}))
+            reverse('onegeo_api:search', kwargs={'name': self.name}))
 
     @service_url.setter
     def service_url(self, value):

@@ -14,18 +14,26 @@
 # under the License.
 
 
-from ast import literal_eval
-from django.http import HttpResponseRedirect
+from django.conf import settings
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from functools import reduce
 from onegeo_api.models import Task
 from onegeo_api.utils import BasicAuth
+from onegeo_api.utils import HttpResponseSeeOther
+from urllib.parse import urljoin
+
+
+APP = 'onegeo_api'
+API_BASE_PATH = settings.API_BASE_PATH
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class TasksList(View):
+class LoggedTasks(View):
 
     @BasicAuth()
     def get(self, request):
@@ -34,11 +42,43 @@ class TasksList(View):
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class TasksDetail(View):
+class LoggedTask(View):
 
     @BasicAuth()
-    def get(self, request, id):
-        task = Task.get_with_permission({'id': literal_eval(id)}, request.user)
-        if task.success:
-            return HttpResponseRedirect(task['header_location'])  # TODO 303
-        return JsonResponse(task.detail_renderer, safe=False)
+    def get(self, request, uuid):
+        try:
+            instance = Task.logged.get(uuid__startswith=uuid)
+        except Task.DoesNotExist:
+            raise Http404()
+        if instance.user and instance.user != request.user:
+            raise PermissionDenied()
+        return JsonResponse(instance.detail_renderer())
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AsyncTask(View):
+
+    @BasicAuth()
+    def get(self, request, uuid):
+
+        try:
+            instance = Task.asynchronous.get(uuid__startswith=uuid)
+        except Task.DoesNotExist:
+            raise Http404()
+        if instance.user and instance.user != request.user:
+            raise PermissionDenied()
+        if instance.success is False:
+            return HttpResponseSeeOther(
+                redirect_to=reduce(
+                    urljoin, ['/', API_BASE_PATH, instance.location[1:]]))
+        if instance.success is True:
+            return HttpResponseSeeOther(
+                redirect_to=reduce(
+                    urljoin, ['/', API_BASE_PATH, instance.target.location[1:]]))
+        # else: instance.success is None
+        return JsonResponse(data={
+            # TODO task should be cancelable
+            'status': 'pending',
+            'start': instance.start_date,
+            'elapsed_time': float('{0:.2f}'.format(
+                instance.elapsed_time.total_seconds()))})

@@ -48,19 +48,21 @@ IndexProfile = apps.get_model(app_label='onegeo_api', model_name='IndexProfile')
 @before_task_publish.connect
 def on_beforehand(headers=None, body=None, sender=None, **kwargs):
     """Create a model-task entry and kill all celery-tasks from same sender."""
-    task_id = headers['id']
+    uuid = headers['id']
     alias = Alias.objects.get(pk=body[1]['alias'])
     user = User.objects.get(pk=body[1]['user'])
+    resource_ns = body[1]['resource_ns']
 
-    related_tasks = Task.objects.filter(
+    related_tasks = Task.asynchronous.filter(
         alias=alias, task_name=sender, user=user,
         stop_date__isnull=True, success__isnull=True)
 
     if len(related_tasks) > 0:
-        revoke([task.celery_id for task in related_tasks], terminate=True)
+        revoke([task.uuid for task in related_tasks], terminate=True)
     # then
-    Task.objects.create(
-        alias=alias, celery_id=UUID(task_id), task_name=sender, user=user)
+    Task.asynchronous.create(
+        uuid=UUID(uuid), alias=alias,
+        task_name=sender, user=user, resource_ns=resource_ns)
 
 
 # @task_prerun.connect
@@ -70,19 +72,19 @@ def on_beforehand(headers=None, body=None, sender=None, **kwargs):
 
 @task_revoked.connect
 def on_task_revoked(sender=None, request=None, **kwargs):
-    Task.objects.filter(celery_id=UUID(request.id)).update(
+    Task.logged.filter(uuid=UUID(request.id)).update(
         success=False, details={'reason': 'revoked'})
 
 
 @task_unknown.connect
 def on_task_unknown(sender=None, request=None, **kwargs):
-    Task.objects.filter(celery_id=UUID(request.id)).update(
+    Task.logged.filter(uuid=UUID(request.id)).update(
         success=False, details={'reason': 'revoked'})
 
 
 @task_rejected.connect
 def on_task_rejected(sender=None, request=None, **kwargs):
-    Task.objects.filter(celery_id=UUID(request.id)).update(
+    Task.logged.filter(uuid=UUID(request.id)).update(
         success=False, details={'reason': 'revoked'})
 
 
@@ -94,18 +96,18 @@ def on_task_failure(task_id=None, sender=None, exception=None, **kwargs):
     else:
         details = exception.__str__()
 
-    Task.objects.filter(celery_id=UUID(task_id)).update(
+    Task.logged.filter(uuid=UUID(task_id)).update(
         success=False, details={'reason': 'error', 'details': details})
 
 
 @task_success.connect
 def on_task_success(sender=None, **kwargs):
-    Task.objects.filter(celery_id=UUID(sender.request.id)).update(success=True)
+    Task.logged.filter(uuid=UUID(sender.request.id)).update(success=True)
 
 
 @task_postrun.connect
 def on_task_postrun(task_id=None, **kwargs):
-    Task.objects.filter(celery_id=UUID(task_id)).update(stop_date=timezone.now())
+    Task.logged.filter(uuid=UUID(task_id)).update(stop_date=timezone.now())
 
 
 # @after_task_publish.connect
@@ -114,7 +116,7 @@ def on_task_postrun(task_id=None, **kwargs):
 
 
 @task(name='data_source_analyzing', ignore_result=False)
-def data_source_analyzing(alias=None, source=None, user=None):
+def data_source_analyzing(alias=None, source=None, user=None, resource_ns=None):
     source = Source.objects.get(pk=source)
 
     for item in source.onegeo.get_resources():
@@ -124,7 +126,7 @@ def data_source_analyzing(alias=None, source=None, user=None):
 
 
 @task(name='indexing', ignore_result=False)
-def indexing(alias=None, index_profile=None, user=None):
+def indexing(alias=None, index_profile=None, user=None, resource_ns=None):
     user = User.objects.get(pk=user)
     index_profile = IndexProfile.objects.get(pk=index_profile)
 

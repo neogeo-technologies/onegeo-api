@@ -28,12 +28,12 @@ from onegeo_api.utils import BasicAuth
 class ResourcesList(View):
 
     @BasicAuth()
-    def get(self, request, nickname):
+    def get(self, request, name):
         user = request.user
-        source = Source.get_or_raise(nickname, user=user)
+        source = Source.get_or_raise(name, user=user)
 
         try:
-            task = Task.objects.get(alias=source.alias)
+            task = Task.logged.get(alias=source.alias)
         except Task.DoesNotExist:
             data = {'error': ('Something wrong happened. '
                               'Database was corrupted '
@@ -42,7 +42,7 @@ class ResourcesList(View):
             opts = {'status': 418}
         else:
             if task.stop_date and task.success is True:
-                data = Resource.list_renderer(nickname, user)
+                data = Resource.list_renderer(name, user)
                 opts = {'safe': False}
 
             if task.stop_date and task.success is False:
@@ -62,6 +62,6 @@ class ResourcesList(View):
 class ResourcesDetail(View):
 
     @BasicAuth()
-    def get(self, request, nickname):
-        resource = Resource.get_or_raise(nickname, user=request.user)
+    def get(self, request, name):
+        resource = Resource.get_or_raise(name, user=request.user)
         return JsonResponse(resource.detail_renderer())

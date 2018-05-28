@@ -92,17 +92,18 @@ class SearchModelsList(View):
 class SearchModelsDetail(View):
 
     @BasicAuth()
-    def get(self, request, nickname):
+    def get(self, request, name):
+
         opts = {
             'include': request.GET.get('include') == 'true' and True,
             'cascading': request.GET.get('cascading') == 'true' and True}
 
-        search_model = SearchModel.get_or_raise(nickname, user=request.user)
+        search_model = SearchModel.get_or_raise(name, user=request.user)
         return JsonResponse(
             data=search_model.detail_renderer(**opts), status=200)
 
     @BasicAuth()
-    def put(self, request, nickname):
+    def put(self, request, name):
 
         user = request.user
 
@@ -122,12 +123,14 @@ class SearchModelsDetail(View):
 
         data = dict((k, v) for k, v in data.items() if k in fields)
 
-        instance = SearchModel.get_or_raise(nickname, user=user)
+        instance = SearchModel.get_or_raise(name, user=user)
 
         try:
             data['indexes'] = [
                 IndexProfile.get_or_raise(
-                    re.search('^/indexes/((\w|-){1,100})/?$', index_location).group(1),
+                    re.search(
+                        'indexes/(?P<name>(\w|-){1,100})/?$',
+                        index_location).group('name'),
                     user=user)
                 for index_location in data['indexes']]
         except Exception as e:
@@ -149,8 +152,8 @@ class SearchModelsDetail(View):
         return HttpResponse(status=204)
 
     @BasicAuth()
-    def delete(self, request, nickname):
-        search_model = SearchModel.get_or_raise(nickname, user=request.user)
+    def delete(self, request, name):
+        search_model = SearchModel.get_or_raise(name, user=request.user)
         search_model.delete()
         return HttpResponse(status=204)
 
@@ -158,7 +161,7 @@ class SearchModelsDetail(View):
 @method_decorator(csrf_exempt, name='dispatch')
 class Search(View):
 
-    def get(self, request, nickname):
+    def get(self, request, name):
 
         user = None
         password = None
@@ -167,14 +170,14 @@ class Search(View):
             if len(auth) == 2 and auth[0].lower() == 'basic':
                 user, password = b64decode(auth[1]).decode('utf-8').split(':')
 
-        if nickname == '_all':
+        if name == '_all':
             index_profiles = [
                 m.indexprofile for m in
                 SearchModel.indexes.through.objects.filter(
                     searchmodel__in=SearchModel.objects.all())]
         else:
             try:
-                instance = SearchModel.get_or_raise(nickname)
+                instance = SearchModel.get_or_raise(name)
             except SearchModel.DoesNotExist:
                 return HttpResponse(status=404)
             index_profiles = [
@@ -197,7 +200,7 @@ class Search(View):
 
         # else:
         try:
-            ext = import_module('...extensions.{}'.format(nickname), __name__)
+            ext = import_module('...extensions.{}'.format(name), __name__)
         except ImportError:
             ext = import_module('...extensions.__init__', __name__)
         # else:
@@ -216,7 +219,7 @@ class Search(View):
                 data={'error': e.__str__(), 'details': e.details},
                 status=e.status_code)
 
-    def post(self, request, nickname):
+    def post(self, request, name):
 
         try:
             body = json.loads(request.body.decode('utf-8'))
@@ -232,14 +235,14 @@ class Search(View):
             if len(auth) == 2 and auth[0].lower() == 'basic':
                 user, password = b64decode(auth[1]).decode('utf-8').split(':')
 
-        if nickname == '_all':
+        if name == '_all':
             index_profiles = [
                 m.indexprofile for m in
                 SearchModel.indexes.through.objects.filter(
                     searchmodel__in=SearchModel.objects.all())]
         else:
             try:
-                instance = SearchModel.get_or_raise(nickname)
+                instance = SearchModel.get_or_raise(name)
             except SearchModel.DoesNotExist:
                 return HttpResponse(status=404)
             index_profiles = [

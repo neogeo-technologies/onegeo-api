@@ -26,7 +26,7 @@ from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
 
 
-@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(csrf_exempt, name='dispatch')
 class SourcesList(View):
 
     @BasicAuth()
@@ -67,15 +67,15 @@ class SourcesList(View):
 class SourcesDetail(View):
 
     @BasicAuth()
-    def get(self, request, nickname):
+    def get(self, request, name):
 
         opts = {'include': request.GET.get('include') == 'true' and True}
         # Pas logique (TODO)
-        instance = Source.get_or_raise(nickname, user=request.user)
+        instance = Source.get_or_raise(name, user=request.user)
         return JsonResponse(instance.detail_renderer(**opts), safe=False)
 
     @BasicAuth()
-    def put(self, request, nickname):
+    def put(self, request, name):
 
         try:
             data = json.loads(request.body.decode('utf-8'))
@@ -89,7 +89,7 @@ class SourcesDetail(View):
                 ', '.join("'{}'".format(str(item)) for item in fields.difference(expected)))
             return JsonResponse({'error': msg}, status=400)
 
-        instance = Source.get_or_raise(nickname, user=request.user)
+        instance = Source.get_or_raise(name, user=request.user)
 
         try:
             for k, v in data.items():
@@ -107,8 +107,8 @@ class SourcesDetail(View):
         return HttpResponse(status=204)
 
     @BasicAuth()
-    def delete(self, request, nickname):
+    def delete(self, request, name):
 
-        source = Source.get_or_raise(nickname, user=request.user)
+        source = Source.get_or_raise(name, user=request.user)
         source.delete()
         return HttpResponse(status=204)

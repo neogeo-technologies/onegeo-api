@@ -32,7 +32,8 @@ def create_related_resource(sender, instance, **kwargs):
         data_source_analyzing.apply_async(
             kwargs={'alias': instance.alias.pk,
                     'source': instance.pk,
-                    'user': instance.user.pk},
+                    'user': instance.user.pk,
+                    'resource_ns': 'resources'},
             task_id=str(uuid4()))
 
 

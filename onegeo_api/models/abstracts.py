@@ -28,7 +28,6 @@ from uuid import uuid4
 
 
 class Alias(models.Model):
-    """Table des alias à utiliser sur l'ensemble des modèles."""
 
     uuid = models.UUIDField(
         verbose_name='UUID', default=uuid4, primary_key=True, editable=False)
@@ -39,7 +38,7 @@ class Alias(models.Model):
     model_name = models.CharField(verbose_name='Model name', max_length=100)
 
     def __str__(self):
-        return self.alias_name or self.uuid
+        return self.alias_name or str(self.uuid)
 
     def save(self, *args, **kwargs):
         if self.alias_name:
@@ -120,7 +119,7 @@ class AbstractModelProfile(models.Model):
 
     def delete(self, *args, **kwargs):
         Task = apps.get_model(app_label='onegeo_api', model_name='Task')
-        Task.objects.filter(alias=self.alias).delete()
+        Task.logged.filter(alias=self.alias).delete()
         return super().delete(*args, **kwargs)
 
     @abstractproperty

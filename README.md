@@ -150,6 +150,8 @@ PDF_DATA_BASE_DIR = '/path/to/data/pdf'  # optionnel
 
 SITE_ID = 1
 
+API_BASE_PATH = 'api/'
+
 ```
 
 Ensuite :
@@ -160,13 +162,17 @@ Ensuite :
 
 ```python
 from django.conf.urls import include
+from django.conf import settings
 from django.conf.urls import url
 from django.contrib import admin
 
 
+API_BASE_PATH = settings.API_BASE_PATH
+
+
 urlpatterns = [
     url('^admin/', admin.site.urls),
-    url('^api/', include('onegeo_api.urls'))]
+    url('^{}'.format(API_BASE_PATH), include('onegeo_api.urls', namespace='onegeo-api'))]
 
 ```
 

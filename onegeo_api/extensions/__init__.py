@@ -49,7 +49,7 @@ class AbstractPlugin(metaclass=ABCMeta):
 
         self.columns_by_index = {}
         for index_profile in self.index_profiles:
-            self.columns_by_index[index_profile.nickname] = tuple(
+            self.columns_by_index[index_profile.name] = tuple(
                 (p['alias'] and p['alias'] or p['name'], p['type'])
                 for p in index_profile.columns if not p['rejected'])
 

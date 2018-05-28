@@ -18,8 +18,13 @@ from base64 import b64decode
 from django.contrib.auth import authenticate
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
+from django.http import HttpResponseRedirect
 from functools import wraps
 from onegeo_api.exceptions import ConflictError
+
+
+class HttpResponseSeeOther(HttpResponseRedirect):
+    status_code = 303
 
 
 class BasicAuth(object):

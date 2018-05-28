@@ -15,6 +15,7 @@
 
 
 from django.conf import settings
+from django.http import Http404
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
 from functools import wraps
@@ -36,6 +37,8 @@ def elastic_exceptions_handler(f):
             qname = e.__class__.__qualname__
             if qname not in exceptions.__all__:
                 raise e
+            if qname == 'NotFoundError':
+                raise Http404
             if qname in ('ImproperlyConfigured', 'SerializationError'):
                 raise ElasticError(e.__str__())
             raise ElasticError(
@@ -72,8 +75,13 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn.bulk(index=index, doc_type=doc_type, body=body)
 
     @elastic_exceptions_handler
-    def delete_index(self, index):
-        self.conn.indices.delete(index=index)
+    def get_index(self, index='_all', **kwargs):
+        kwargs.setdefault('flat_settings', True)
+        return self.conn.indices.get(index=index, **kwargs)
+
+    @elastic_exceptions_handler
+    def delete_index(self, index, **kwargs):
+        self.conn.indices.delete(index=index, **kwargs)
 
     @elastic_exceptions_handler
     def switch_aliases(self, index, name):
