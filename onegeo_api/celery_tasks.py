@@ -102,7 +102,8 @@ def on_task_failure(task_id=None, sender=None, exception=None, **kwargs):
 
 @task_success.connect
 def on_task_success(sender=None, **kwargs):
-    Task.logged.filter(uuid=UUID(sender.request.id)).update(success=True)
+    Task.logged.filter(uuid=UUID(sender.request.id)).update(
+        success=True, details=kwargs.get('result'))
 
 
 @task_postrun.connect
@@ -126,34 +127,40 @@ def data_source_analyzing(alias=None, source=None, user=None, resource_ns=None):
 
 
 @task(name='indexing', ignore_result=False)
-def indexing(alias=None, index_profile=None, user=None, resource_ns=None):
+def indexing(alias=None, index_profile=None,
+             user=None, resource_ns=None, force_update=False):
+
     user = User.objects.get(pk=user)
     index_profile = IndexProfile.objects.get(pk=index_profile)
 
+    columns_mapping = {}
     analyzers = []
-    for col_property in iter(index_profile.columns):
-        name = col_property.pop('name')
-        index_profile.onegeo.update_property(
-            name, 'alias', col_property['alias'])
-        index_profile.onegeo.update_property(
-            name, 'type', col_property['type'])
-        index_profile.onegeo.update_property(
-            name, 'pattern', col_property['pattern'])
-        index_profile.onegeo.update_property(
-            name, 'occurs', col_property['occurs'])
-        index_profile.onegeo.update_property(
-            name, 'rejected', col_property['rejected'])
-        index_profile.onegeo.update_property(
-            name, 'searchable', col_property['searchable'])
-        index_profile.onegeo.update_property(
-            name, 'weight', col_property['weight'])
+    for col in iter(index_profile.columns):
+        name = col.pop('name')
+        alias = col['alias']
+        columns_mapping[name] = alias or name
 
-        analyzer = col_property['analyzer']
+        rejected = col['rejected']
+        analyzer = col['analyzer']
+        analyzer = col['search_analyzer']
+        searchable = col['searchable']
+        weight = col['weight']
+        occurs = col['occurs']
+        pattern = col['pattern']
+        column_type = col['type']
+
+        index_profile.onegeo.update_property(name, 'alias', alias)
+        index_profile.onegeo.update_property(name, 'type', column_type)
+        index_profile.onegeo.update_property(name, 'pattern', pattern)
+        index_profile.onegeo.update_property(name, 'occurs', occurs)
+        index_profile.onegeo.update_property(name, 'rejected', rejected)
+        index_profile.onegeo.update_property(name, 'searchable', searchable)
+        index_profile.onegeo.update_property(name, 'weight', weight)
+
         if analyzer and analyzer not in analyzers:
             analyzers.append(analyzer)
         index_profile.onegeo.update_property(name, 'analyzer', analyzer)
 
-        analyzer = col_property['search_analyzer']
         if analyzer and analyzer not in analyzers:
             analyzers.append(analyzer)
         index_profile.onegeo.update_property(name, 'search_analyzer', analyzer)
@@ -167,6 +174,16 @@ def indexing(alias=None, index_profile=None, user=None, resource_ns=None):
         'settings': {
             'analysis': get_complete_analysis(analyzer=analyzers, user=user)}}
 
-    elastic_conn.create_index(index, body)
-    elastic_conn.push_collection(index, index, index_profile.onegeo.get_collection())
-    elastic_conn.switch_aliases(index, index_profile.uuid)
+    created, reindexed, failed = elastic_conn.create_or_reindex(
+        index=index, body=body, alias=index_profile.uuid,
+        collection=index_profile.onegeo.get_collection(),
+        columns_mapping=columns_mapping, update=force_update)
+
+    res = {}
+    if created:
+        res['created'] = {'count': len(created), 'ids': created}
+    if reindexed:
+        res['reindexed'] = {'count': len(reindexed), 'ids': reindexed}
+    if failed:
+        res['failed'] = {'count': len(failed), 'details': failed}
+    return res

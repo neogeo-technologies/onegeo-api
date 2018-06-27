@@ -17,8 +17,10 @@
 from abc import ABCMeta
 from abc import abstractmethod
 from django.http import JsonResponse
+import itertools
 from json import dumps
 from json import loads
+import operator
 import re
 
 
@@ -35,7 +37,8 @@ DEFAULT_QUERY_DSL = {
             'should': [{
                 'match_all': {}}, {
                 'multi_match': {
-                    'fields': ['properties.*'],
+                    # 'fields': ['properties.*'],
+                    'fields': ['{*properties.<text>*}'],
                     'fuzziness': 'auto',
                     'query': '{%query%}'}}]}},
     'size': '{%size|10%}'}
@@ -69,6 +72,16 @@ class AbstractPlugin(metaclass=ABCMeta):
         raise NotImplementedError(
             "This is an abstract method. You can't do anything with it.")
 
+    def _get_columns_grouped(self, i):
+        l = list(itertools.chain.from_iterable(self.columns_by_index.values()))
+        return itertools.groupby(
+            sorted(l, key=operator.itemgetter(1)), key=operator.itemgetter(i))
+
+    def get_all_same_type_columns(self, type, prefix='properties'):
+        return dict(
+            (c[0], list('{}.{}'.format(prefix, e[0]) for e in tuple(c[1])))
+            for c in self._get_columns_grouped(1)).get(type, [])
+
 
 class Plugin(AbstractPlugin):
 
@@ -76,13 +89,31 @@ class Plugin(AbstractPlugin):
         super().__init__(query_dsl, index_profiles, **kwargs)
 
     def input(self, **params):
-        self.query_dsl = loads(re.sub(
-            '{%.+?%}',
-            lambda m: re.sub(
-                '{%(\w+)(\|(.+))?%}',
-                lambda m: params.get(m.group(1), m.group(3)),
-                m.group(0)),
-            dumps(self.query_dsl)))
+
+        _id = params.pop('_id')
+        if _id:
+            self.query_dsl = {'query': {'ids': {'values': _id}}}
+        else:
+            query_dsl = re.sub(
+                '{%(.+?)%}',
+                lambda m: re.sub(
+                    '(\w+)(\|(.+))?',
+                    lambda m: params.get(m.group(1), m.group(3)),
+                    m.group(1)),
+                dumps(self.query_dsl))
+
+            query_dsl = re.sub(
+                '{\*(.+?)\*}',
+                lambda m: re.sub(
+                    '(\w+)\.\<(\w+)\>',
+                    lambda m: '", "'.join(
+                        self.get_all_same_type_columns(
+                            m.group(2), prefix=m.group(1))),
+                    m.group(1)),
+                query_dsl)
+            self.query_dsl = loads(query_dsl)
+
+        self.query_dsl['_source'] = {'excludes': ['_columns_mapping']}
         return self.query_dsl
 
     def output(self, data, **params):

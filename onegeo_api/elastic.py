@@ -15,14 +15,15 @@
 
 
 from django.conf import settings
-from django.http import Http404
+# from django.http import Http404
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
 from functools import wraps
+import itertools
 import json
 from onegeo_api.exceptions import ElasticError
 from onegeo_api.utils import Singleton
-from uuid import uuid4
+import operator
 
 
 HOSTS = settings.ELASTICSEARCH_HOSTS
@@ -37,8 +38,8 @@ def elastic_exceptions_handler(f):
             qname = e.__class__.__qualname__
             if qname not in exceptions.__all__:
                 raise e
-            if qname == 'NotFoundError':
-                raise Http404
+            # if qname == 'NotFoundError':
+            #     raise Http404
             if qname in ('ImproperlyConfigured', 'SerializationError'):
                 raise ElasticError(e.__str__())
             raise ElasticError(
@@ -52,27 +53,155 @@ class ElasticWrapper(metaclass=Singleton):
     def __init__(self):
         self.conn = Elasticsearch(hosts=HOSTS)
 
+    def create_or_reindex(self, index=None, body=None, alias=None,
+                          collection=None, columns_mapping=None, update=None):
+
+        prev_indices = self.get_indices_by_alias(alias, unique=True)
+        if len(prev_indices) > 1:
+            raise Exception('TODO')
+
+        self.create_index(index, body)
+
+        failed = []
+
+        reindexed = None
+        if len(prev_indices) == 1:
+            prev_index = prev_indices[0]
+            docs = self.list_documents(index=prev_index).pop(prev_index)
+            if docs:
+                actual = [
+                    (dict(e[0]), list(m[0] for m in e[1]))
+                    for e in itertools.groupby(docs, key=operator.itemgetter(1))]
+                try:
+                    reindexed, _failed, collection = \
+                        self.reindex_collection(
+                            prev_index, index, collection,
+                            actual, columns_mapping, update=update)
+                except Exception as e:
+                    self.delete_index(index)
+                    raise e
+                failed += _failed
+        try:
+            created, _failed = \
+                self.create_collection(index, collection, columns_mapping)
+        except Exception as e:
+            self.delete_index(index)
+            raise e
+        failed += _failed
+
+        self.switch_aliases(index, alias)
+
+        return created, reindexed or [], failed
+
     @elastic_exceptions_handler
     def create_index(self, index, body):
         self.conn.indices.create(index=index, body=body)
 
     @elastic_exceptions_handler
-    def push_collection(self, index, doc_type, collection, step=10):
-        body, count = '', 1
+    def reindex_collection(self, prev_index, next_index, collection,
+                           actual, columns_mapping, step=1000, update=False):
+
+        REPLACE_COLUMN_NAME = (
+            'ctx._source.properties["{new}"]=ctx._source.properties.remove("{old}");'
+            'ctx._source._columns_mapping["{origin}"]="{new}"')
+
+        painless_script = []
+        prev_collection = []
+        for prev_columns_mapping, prev_docs in actual:
+            prev_collection += prev_docs
+            if prev_columns_mapping != columns_mapping:
+                for k, v in columns_mapping.items():
+                    if k in prev_columns_mapping \
+                            and prev_columns_mapping[k] != v:
+                        partial = REPLACE_COLUMN_NAME.format(
+                            new=v, old=prev_columns_mapping[k], origin=k)
+                        painless_script.append(partial)
+
+        to_reindex = []
+        to_create = []
+        if update:
+            for document in collection:
+                md5 = document.get('_md5')
+                if md5 in prev_collection:
+                    to_reindex.append(md5)
+                else:
+                    to_create.append(document)
+        else:
+            to_reindex = prev_collection
+
+        failed = []
+        count = len(to_reindex)
+        if count:
+            x = 0
+            for i in range(0, count - 1, step):
+                y = (count > i) and i < step and i or step + i
+                body = {
+                    'size': len(to_reindex[x:y]),
+                    'source': {
+                        'index': prev_index,
+                        'type': prev_index,
+                        'query': {
+                            'ids': {
+                                'type': prev_index,
+                                'values': to_reindex[x:y]}}},
+                    'dest': {
+                        'index': next_index,
+                        'type': next_index,
+                        'version_type': 'internal'}}
+
+                if painless_script:
+                    body['script'] = {
+                        'source': ';'.join(painless_script),
+                        'lang': 'painless'}
+
+                res = self.conn.reindex(body)
+                # TODO parse res
+                failed += res.get('failure', [])
+                x += step
+
+        return list(to_reindex), failed, to_create
+
+    @elastic_exceptions_handler
+    def create_collection(self, index, collection, columns_mapping, step=100):
+
+        created, failed = [], []
+
+        def _req(index, doc_type, body):
+            res = self.conn.bulk(index=index, doc_type=doc_type, body=body)
+            for item in res.get('items'):
+                md5 = item['index']['_id']
+                error = item['index'].get('error')
+                if error:
+                    failed.append({md5: error})
+                else:
+                    created.append(md5)
+
+        doc_type = index
+
+        body = ''
+        count = 1
         for document in collection:
+            document['_columns_mapping'] = columns_mapping
             header = {
                 'index': {
-                    '_index': index, '_type': doc_type, '_id': str(uuid4())}}
+                    '_id': document.pop('_md5'),
+                    '_index': index,
+                    '_type': doc_type}}
             body += '{0}\n{1}\n'.format(
-                json.dumps(header), json.dumps(document))
+                json.dumps(header, separators=(',', ':')),
+                json.dumps(document, separators=(',', ':')))
 
             if count < step:
                 count += 1
                 continue
             # else:
-            self.conn.bulk(index=index, doc_type=doc_type, body=body)
-            body, count = '', 1
-        self.conn.bulk(index=index, doc_type=doc_type, body=body)
+            _req(index, doc_type, body)
+            body = ''
+            count = 1
+        # else:
+        body and _req(index, doc_type, body)
+
+        return created, failed
 
     @elastic_exceptions_handler
     def get_index(self, index='_all', **kwargs):
@@ -105,12 +234,14 @@ class ElasticWrapper(metaclass=Singleton):
             self.delete_index(indices[i])
 
     @elastic_exceptions_handler
-    def get_indices_by_alias(self, name):
+    def get_indices_by_alias(self, name, unique=False):
         indices = []
         if self.conn.indices.exists_alias(name=name):
             res = self.conn.indices.get_alias(name=name)
             for index, _ in res.items():
                 indices.append(index)
+        if unique and len(indices) > 1:
+            raise Exception('Index should be unique.')  # TODO
         return indices
 
     @elastic_exceptions_handler
@@ -130,5 +261,35 @@ class ElasticWrapper(metaclass=Singleton):
     def search(self, index='_all', body=None, params={}):
         return self.conn.search(index=index, body=body, params=params)
 
+    @elastic_exceptions_handler
+    def list_documents(self, index, step=1000, **kwargs):
+
+        x = 0
+        l = []
+        search_after = None
+        count = self.conn.count(index=index).get('count')
+        for i in range(0, count - 1, step):
+            y = (count > i) and i < step and i or step
+            body = {
+                '_source': '_columns_mapping',
+                'query': {'match_all': {}},
+                'size': y,
+                'sort': {'_id': 'asc'},
+                'stored_fields': []}
+
+            if x < 10000:
+                body['from'] = x
+            else:
+                body['search_after'] = [search_after]
+
+            res = self.conn.search(index=index, body=body)
+            l += [(hit['_index'], hit['_id'], tuple(sorted([(k, v) for k, v in hit['_source']['_columns_mapping'].items()]))) for hit in res['hits']['hits']]
+            x += step
+            search_after = l[-1][1]
+
+        groups = itertools.groupby(
+            sorted(l, key=operator.itemgetter(0)), key=operator.itemgetter(0))
+
+        return dict((g[0], [(m[1], m[2]) for m in tuple(g[1])]) for g in groups)
 
 elastic_conn = ElasticWrapper()

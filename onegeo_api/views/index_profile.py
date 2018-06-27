@@ -64,7 +64,7 @@ class IndexProfilesList(View):
 
         try:
             resource_name = re.search(
-                '^/sources/(\w+)/resources/(\w+)/?$',
+                'sources/(\w+)/resources/(\w+)/?$',
                 data.pop('resource')).group(2)
         except AttributeError as e:
             return JsonResponse({'error': e.__str__()}, status=400)
@@ -107,12 +107,20 @@ class IndexProfilesDetail(View):
     def post(self, request, name):
         index_profile = IndexProfile.get_or_raise(name, user=request.user)
 
+        params = dict((k, ','.join(v)) for k, v in dict(request.GET).items())
+
+        force_update = False
+        if '_force_update' in params and not re.match(
+                '^(false|no)$', params.pop('_force_update'), flags=re.IGNORECASE):
+            force_update = True
+
         task_id = uuid4()
         indexing.apply_async(
             kwargs={'alias': index_profile.alias.pk,
+                    'force_update': force_update,
                     'index_profile': index_profile.pk,
-                    'user': request.user.pk,
-                    'resource_ns': 'index'},
+                    'resource_ns': 'index',
+                    'user': request.user.pk},
             task_id=str(task_id))
 
         response = HttpResponse(status=202)
