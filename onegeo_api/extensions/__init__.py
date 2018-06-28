@@ -90,7 +90,7 @@ class Plugin(AbstractPlugin):
 
     def input(self, **params):
 
-        _id = params.pop('_id')
+        _id = params.get('_id')
         if _id:
             self.query_dsl = {'query': {'ids': {'values': _id}}}
         else:
@@ -113,7 +113,7 @@ class Plugin(AbstractPlugin):
                 query_dsl)
             self.query_dsl = loads(query_dsl)
 
-        self.query_dsl['_source'] = {'excludes': ['_columns_mapping']}
+        self.query_dsl['_source'] = {'excludes': ['_columns_mapping', '_backup']}
         return self.query_dsl
 
     def output(self, data, **params):

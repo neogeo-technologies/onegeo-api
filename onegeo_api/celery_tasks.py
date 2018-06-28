@@ -121,9 +121,10 @@ def data_source_analyzing(alias=None, source=None, user=None, resource_ns=None):
     source = Source.objects.get(pk=source)
 
     for item in source.onegeo.get_resources():
+        title = getattr(item, 'title', 'Foo')
         Resource.objects.create(**{
             'columns': item.columns, 'source': source,
-            'title': item.title, 'typename': item.name, 'user': source.user})
+            'title': title, 'typename': item.name, 'user': source.user})
 
 
 @task(name='indexing', ignore_result=False)
@@ -138,9 +139,10 @@ def indexing(alias=None, index_profile=None,
     for col in iter(index_profile.columns):
         name = col.pop('name')
         alias = col['alias']
-        columns_mapping[name] = alias or name
-
         rejected = col['rejected']
+        if not rejected:
+            columns_mapping[name] = alias or name
+
         analyzer = col['analyzer']
         analyzer = col['search_analyzer']
         searchable = col['searchable']

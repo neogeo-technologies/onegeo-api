@@ -101,24 +101,48 @@ class ElasticWrapper(metaclass=Singleton):
     def reindex_collection(self, prev_index, next_index, collection,
                            actual, columns_mapping, step=1000, update=False):
 
-        REPLACE_COLUMN_NAME = (
+        painless = []
+        REPLACE_COLUMN = (
             'ctx._source.properties["{new}"]=ctx._source.properties.remove("{old}");'
-            'ctx._source._columns_mapping["{origin}"]="{new}"')
+            'ctx._source._columns_mapping["{raw}"]="{new}"')
+        ADD_COLUMN = (
+            'ctx._source.properties["{new}"]=ctx._source._backup.remove("{raw}");'
+            'ctx._source._columns_mapping["{raw}"]="{new}"')
+        REMOVE_COLUMN = (
+            'ctx._source.properties.remove("{old}");'
+            'ctx._source._columns_mapping.remove("{raw}")')
 
-        painless_script = []
         prev_collection = []
         for prev_columns_mapping, prev_docs in actual:
+
             prev_collection += prev_docs
             if prev_columns_mapping != columns_mapping:
-                for k, v in columns_mapping.items():
-                    if k in prev_columns_mapping \
-                            and prev_columns_mapping[k] != v:
-                        partial = REPLACE_COLUMN_NAME.format(
-                            new=v, old=prev_columns_mapping[k], origin=k)
-                        painless_script.append(partial)
 
-        to_reindex = []
-        to_create = []
+                left = set(prev_columns_mapping) - set(columns_mapping)
+                right = set(columns_mapping) - set(prev_columns_mapping)
+                intersect = set.intersection(
+                    set(prev_columns_mapping), set(columns_mapping))
+
+                if intersect:
+                    for raw in intersect:
+                        new = columns_mapping[raw]
+                        old = prev_columns_mapping.get(raw)
+                        if old and new != old:
+                            painless.append(
+                                REPLACE_COLUMN.format(
+                                    new=new, old=old, raw=raw))
+                if left:
+                    for raw in left:
+                        painless.append(
+                            REMOVE_COLUMN.format(
+                                old=prev_columns_mapping[raw], raw=raw))
+                if right:
+                    for raw in right:
+                        painless.append(
+                            ADD_COLUMN.format(
+                                new=columns_mapping[raw], raw=raw))
+
+        to_reindex, to_create = [], []
         if update:
             for document in collection:
                 md5 = document.get('_md5')
@@ -149,9 +173,9 @@ class ElasticWrapper(metaclass=Singleton):
                         'type': next_index,
                         'version_type': 'internal'}}
 
-                if painless_script:
+                if painless:
                     body['script'] = {
-                        'source': ';'.join(painless_script),
+                        'source': ';'.join(painless),
                         'lang': 'painless'}
 
                 res = self.conn.reindex(body)
