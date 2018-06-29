@@ -77,7 +77,7 @@ class SearchModelsList(View):
 
         for item in indexes:
             try:
-                val = re.search('^/indexes/(\w+)/?$', item).group(1)
+                val = re.search('indexes/(\w+)/?$', item).group(1)
             except AttributeError as e:
                 return JsonResponse(data={'error': e.__str__()}, status=400)
             instance.indexes.add(

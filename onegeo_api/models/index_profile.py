@@ -18,6 +18,7 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
+from onegeo_api.elastic import elastic_conn
 from onegeo_api.models.abstracts import AbstractModelProfile
 import onegeo_manager
 import re
@@ -84,6 +85,18 @@ class IndexProfile(AbstractModelProfile):
     def onegeo(self, *args, **kwargs):
         raise AttributeError('Attibute is locked, you can not delete it.')
 
+    @property
+    def synchronized(self, *args, **kwargs):
+        return elastic_conn.is_index_exists(index=self.uuid)
+
+    @synchronized.setter
+    def synchronized(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not change it.')
+
+    @synchronized.deleter
+    def synchronized(self, *args, **kwargs):
+        raise AttributeError('Attibute is locked, you can not delete it.')
+
     def detail_renderer(self, include=False, cascading=False, **kwargs):
         return {
             'columns': self.columns,
@@ -91,6 +104,7 @@ class IndexProfile(AbstractModelProfile):
             'title': self.title,
             'reindex_frequency': self.reindex_frequency,
             'resource': self.resource.location,
+            'synchronized': self.synchronized,
             'uuid': self.uuid}
 
     @classmethod

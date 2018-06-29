@@ -228,6 +228,10 @@ class ElasticWrapper(metaclass=Singleton):
         return created, failed
 
     @elastic_exceptions_handler
+    def is_index_exists(self, **kwargs):
+        return self.conn.indices.exists(**kwargs)
+
+    @elastic_exceptions_handler
     def get_index(self, index='_all', **kwargs):
         kwargs.setdefault('flat_settings', True)
         return self.conn.indices.get(index=index, **kwargs)
