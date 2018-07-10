@@ -121,7 +121,7 @@ def data_source_analyzing(alias=None, source=None, user=None, resource_ns=None):
     source = Source.objects.get(pk=source)
 
     for item in source.onegeo.get_resources():
-        title = getattr(item, 'title', 'Foo')
+        title = getattr(item, 'title', 'FeatureType (Nameless)')
         Resource.objects.create(**{
             'columns': item.columns, 'source': source,
             'title': title, 'typename': item.name, 'user': source.user})
