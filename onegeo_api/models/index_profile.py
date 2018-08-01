@@ -35,6 +35,7 @@ class IndexProfile(AbstractModelProfile):
         verbose_name_plural = 'Indexation Profiles'
 
     REINDEX_FREQUENCY_CHOICES = (
+        ('never', 'never'),
         ('monthly', 'monthly'),
         ('weekly', 'weekly'),
         ('daily', 'daily'))

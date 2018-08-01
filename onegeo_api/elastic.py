@@ -67,8 +67,9 @@ class ElasticWrapper(metaclass=Singleton):
         reindexed = None
         if len(prev_indices) == 1:
             prev_index = prev_indices[0]
-            docs = self.list_documents(index=prev_index).pop(prev_index)
+            docs = self.list_documents(index=prev_index)
             if docs:
+                del docs['prev_index']
                 actual = [
                     (dict(e[0]), list(m[0] for m in e[1]))
                     for e in itertools.groupby(docs, key=operator.itemgetter(1))]
