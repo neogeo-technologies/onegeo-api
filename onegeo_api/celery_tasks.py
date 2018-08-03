@@ -176,10 +176,16 @@ def indexing(alias=None, index_profile=None,
         'settings': {
             'analysis': get_complete_analysis(analyzer=analyzers, user=user)}}
 
+    if index_profile.onegeo.resource.source.protocol == 'pdf':
+        pipeline = elastic_conn.create_pipeline()
+    else:
+        pipeline = False
+
     created, reindexed, failed = elastic_conn.create_or_reindex(
         index=index, body=body, alias=index_profile.uuid,
         collection=index_profile.onegeo.get_collection(),
-        columns_mapping=columns_mapping, update=force_update)
+        columns_mapping=columns_mapping, update=force_update,
+        pipeline=pipeline)
 
     res = {}
     if created:

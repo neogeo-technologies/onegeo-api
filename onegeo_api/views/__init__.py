@@ -21,29 +21,16 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from onegeo_api.models import Source
 from onegeo_api.utils import BasicAuth
-from pathlib import Path
-
-
-PDF_DIR_PATH = settings.PDF_DATA_BASE_DIR
+from onegeo_api.utils import subdirectories
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class Uris(View):
 
-    # TODO not only for pdf dir..
-
-    def all_sub_directories(self, dirpath=PDF_DIR_PATH):
-        p = Path(dirpath)
-        if not p.exists():
-            raise ConnectionError('Given path does not exist.')
-        # else:
-        return ['file:///{}'.format(x.name) for x in p.iterdir() if x.is_dir()]
-
     @BasicAuth()
     def get(self, request):
         return JsonResponse(
-            data='pdf' in dict(Source.PROTOCOL_CHOICES) and self.all_sub_directories() or [],
-            safe=False)
+            data=subdirectories(settings.SOURCE_ROOT_DIR), safe=False)
 
 
 @method_decorator(csrf_exempt, name='dispatch')

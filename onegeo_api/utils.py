@@ -21,6 +21,7 @@ from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from functools import wraps
 from onegeo_api.exceptions import ConflictError
+from pathlib import Path
 
 
 class HttpResponseSeeOther(HttpResponseRedirect):
@@ -106,3 +107,10 @@ def merge_two_objs(obj1, obj2, path=None):
         else:
             obj1[k] = obj2[k]
     return obj1
+
+
+def subdirectories(root):
+    p = Path(root)
+    if not p.exists():
+        raise ConnectionError('Given path does not exist.')
+    return [x.as_uri() for x in p.iterdir() if x.is_dir()]

@@ -20,7 +20,6 @@ from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
 from functools import wraps
 import itertools
-import json
 from onegeo_api.exceptions import ElasticError
 from onegeo_api.utils import Singleton
 import operator
@@ -54,7 +53,8 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn = Elasticsearch(hosts=HOSTS)
 
     def create_or_reindex(self, index=None, body=None, alias=None,
-                          collection=None, columns_mapping=None, update=None):
+                          collection=None, columns_mapping=None, update=None,
+                          pipeline=False):
 
         prev_indices = self.get_indices_by_alias(alias, unique=True)
         if len(prev_indices) > 1:
@@ -69,7 +69,7 @@ class ElasticWrapper(metaclass=Singleton):
             prev_index = prev_indices[0]
             docs = self.list_documents(index=prev_index)
             if docs:
-                del docs['prev_index']
+                del docs[prev_index]
                 actual = [
                     (dict(e[0]), list(m[0] for m in e[1]))
                     for e in itertools.groupby(docs, key=operator.itemgetter(1))]
@@ -84,7 +84,7 @@ class ElasticWrapper(metaclass=Singleton):
                 failed += _failed
         try:
             created, _failed = \
-                self.create_collection(index, collection, columns_mapping)
+                self.create_collection(index, collection, columns_mapping, pipeline=pipeline)
         except Exception as e:
             self.delete_index(index)
             raise e
@@ -187,12 +187,14 @@ class ElasticWrapper(metaclass=Singleton):
         return list(to_reindex), failed, to_create
 
     @elastic_exceptions_handler
-    def create_collection(self, index, collection, columns_mapping, step=100):
+    def create_collection(self, index, collection, columns_mapping, step=100, pipeline=False):
 
         created, failed = [], []
 
-        def _req(index, doc_type, body):
-            res = self.conn.bulk(index=index, doc_type=doc_type, body=body)
+        def _req(index, doc_type, body, pipeline):
+            res = self.conn.bulk(
+                index=index, doc_type=doc_type, body=body,
+                pipeline=pipeline and 'attachment' or None)
             for item in res.get('items'):
                 md5 = item['index']['_id']
                 error = item['index'].get('error')
@@ -203,7 +205,7 @@ class ElasticWrapper(metaclass=Singleton):
 
         doc_type = index
 
-        body = ''
+        body = []
         count = 1
         for document in collection:
             document['_columns_mapping'] = columns_mapping
@@ -212,19 +214,22 @@ class ElasticWrapper(metaclass=Singleton):
                     '_id': document.pop('_md5'),
                     '_index': index,
                     '_type': doc_type}}
-            body += '{0}\n{1}\n'.format(
-                json.dumps(header, separators=(',', ':')),
-                json.dumps(document, separators=(',', ':')))
+            try:
+                body.append(header)
+                body.append(document)
+            except Exception as e:
+                failed.append({header['index']['_id']: e.__str__()})
+                continue
 
             if count < step:
                 count += 1
                 continue
             # else:
-            _req(index, doc_type, body)
-            body = ''
+            _req(index, doc_type, body, pipeline)
+            body = []
             count = 1
         # else:
-        body and _req(index, doc_type, body)
+        body and _req(index, doc_type, body, pipeline)
 
         return created, failed
 
@@ -320,5 +325,21 @@ class ElasticWrapper(metaclass=Singleton):
             sorted(l, key=operator.itemgetter(0)), key=operator.itemgetter(0))
 
         return dict((g[0], [(m[1], m[2]) for m in tuple(g[1])]) for g in groups)
+
+    def create_pipeline(self, field='_raw'):
+        body = {'description': 'Attachment',
+                'processors': [{
+                    'attachment': {
+                        'field': field,
+                        'ignore_missing': True,
+                        'indexed_chars': -1,
+                        'properties': [
+                            'author', 'content', 'content_length',
+                            'content_type', 'date', 'keywords',
+                            'language', 'title']
+                        }}]}
+        self.conn.ingest.put_pipeline(id='attachment', body=body)
+        return True
+
 
 elastic_conn = ElasticWrapper()
