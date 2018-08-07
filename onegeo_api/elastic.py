@@ -332,12 +332,7 @@ class ElasticWrapper(metaclass=Singleton):
                     'attachment': {
                         'field': field,
                         'ignore_missing': True,
-                        'indexed_chars': -1,
-                        'properties': [
-                            'author', 'content', 'content_length',
-                            'content_type', 'date', 'keywords',
-                            'language', 'title']
-                        }}]}
+                        'indexed_chars': -1}}]}
         self.conn.ingest.put_pipeline(id='attachment', body=body)
         return True
 

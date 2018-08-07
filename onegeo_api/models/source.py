@@ -54,7 +54,7 @@ class Source(AbstractModelProfile):
             self.nickname = re.search(
                 'sources/(?P<name>(\w|-){1,100})/?$', value).group('name')
         except AttributeError:
-            raise AttributeError("'Location' attibute is malformed.")
+            raise AttributeError("'Location' attribute is malformed.")
 
     @location.deleter
     def location(self, *args, **kwargs):
@@ -68,11 +68,11 @@ class Source(AbstractModelProfile):
 
     @onegeo.setter
     def onegeo(self, *args, **kwargs):
-        raise AttributeError('Attibute is locked, you can not change it.')
+        raise AttributeError('attribute is locked, you can not change it.')
 
     @onegeo.deleter
     def onegeo(self, *args, **kwargs):
-        raise AttributeError('Attibute is locked, you can not delete it.')
+        raise AttributeError('attribute is locked, you can not delete it.')
 
     def iter_resources(self):
         instance = apps.get_model(

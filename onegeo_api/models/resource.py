@@ -19,9 +19,13 @@ from django.contrib.postgres.fields import JSONField
 from django.db import models
 from django.urls import reverse
 from onegeo_api.models.abstracts import AbstractModelProfile
+import re
 
 
 class Resource(AbstractModelProfile):
+
+    class Extras(object):
+        fields = ('columns', 'location', 'title')
 
     class Meta(object):
         verbose_name = 'Resource'
@@ -50,27 +54,32 @@ class Resource(AbstractModelProfile):
                                            'name': str(self.name)})
 
     @location.setter
-    def location(self, *args, **kwargs):
-        raise AttributeError('Attibute is locked, you can not change it.')
+    def location(self, value):
+        try:
+            self.nickname = re.search(
+                'sources/(?P<name>(\w|-){1,100})/?$', value).group('name')
+        except AttributeError:
+            raise AttributeError("'Location' attibute is malformed.")
 
     @location.deleter
     def location(self, *args, **kwargs):
-        raise AttributeError('Attibute is locked, you can not delete it.')
+        raise AttributeError('Attribute is locked, you can not delete it.')
 
     @property
     def onegeo(self, *args, **kwargs):
         if not self._onegeo:
             self._onegeo = \
-                self.source.onegeo.get_resources(names=[self.typename])[0]
+                self.source.onegeo.get_resources(
+                    names=[self.typename], columns=self.columns)[0]
         return self._onegeo
 
     @onegeo.setter
     def onegeo(self, *args, **kwargs):
-        raise AttributeError('Attibute is locked, you can not change it.')
+        raise AttributeError('Attribute is locked, you can not change it.')
 
     @onegeo.deleter
     def onegeo(self):
-        raise AttributeError('Attibute is locked, you can not delete it.')
+        raise AttributeError('Attribute is locked, you can not delete it.')
 
     def detail_renderer(self, **kwargs):
         return {

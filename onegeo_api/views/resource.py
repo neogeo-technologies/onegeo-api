@@ -14,10 +14,14 @@
 # under the License.
 
 
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
+from django.http import HttpResponse
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+import json
 from onegeo_api.models import Resource
 from onegeo_api.models import Source
 from onegeo_api.models import Task
@@ -62,6 +66,40 @@ class ResourcesList(View):
 class ResourcesDetail(View):
 
     @BasicAuth()
-    def get(self, request, name):
+    def get(self, request, source, name):
         resource = Resource.get_or_raise(name, user=request.user)
         return JsonResponse(resource.detail_renderer())
+
+    @BasicAuth()
+    def put(self, request, source, name):
+
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+        except json.decoder.JSONDecodeError as e:
+            return JsonResponse({'error': e.__str__()}, status=400)
+
+        user = request.user
+        instance = Resource.get_or_raise(name, user=user)
+
+        expected = set(data.keys())
+        fields = set(Resource.Extras.fields)
+        if expected.intersection(fields) != fields:
+            msg = 'Some of the input paramaters needed are missing: {}.'.format(
+                ', '.join("'{}'".format(str(item)) for item in fields.difference(expected)))
+            return JsonResponse({'error': msg}, status=400)
+
+        data = dict((k, v) for k, v in data.items() if k in fields)
+        try:
+            for k, v in data.items():
+                setattr(instance, k, v)
+            instance.save()
+        except TypeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
+        except ValidationError as e:
+            return JsonResponse(data={'error': e.message}, status=400)
+        except AttributeError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=400)
+        except IntegrityError as e:
+            return JsonResponse(data={'error': e.__str__()}, status=409)
+
+        return HttpResponse(status=204)
