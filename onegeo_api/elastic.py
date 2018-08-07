@@ -326,6 +326,32 @@ class ElasticWrapper(metaclass=Singleton):
 
         return dict((g[0], [(m[1], m[2]) for m in tuple(g[1])]) for g in groups)
 
+    @elastic_exceptions_handler
+    def get_all_documents(self, index, step=1000, **kwargs):
+        _source = kwargs.pop('_source', [])
+
+        x = 0
+        search_after = None
+        count = self.conn.count(index=index).get('count')
+        for i in range(0, count - 1, step):
+            y = (count > i) and i < step and i or step
+            body = {
+                '_source': _source,
+                'query': {'match_all': {}},
+                'size': y,
+                'sort': {'_id': 'asc'},
+                'stored_fields': []}
+
+            if x < 10000:
+                body['from'] = x
+            else:
+                body['search_after'] = [search_after]
+
+            res = self.conn.search(index=index, body=body)
+            yield from res['hits']['hits']
+            x += step
+            search_after = res['hits']['hits'][-1]['_id']
+
     def create_pipeline(self, field='_raw'):
         body = {'description': 'Attachment',
                 'processors': [{

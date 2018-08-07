@@ -149,3 +149,10 @@ class AbstractModelProfile(models.Model):
         if user and user != instance.user:
             raise PermissionDenied()
         return instance
+
+    @classmethod
+    def get_by_location(cls, location, **kwargs):
+        queryset = cls.objects.all()
+        for instance in queryset:
+            if instance.location == location:
+                return instance
