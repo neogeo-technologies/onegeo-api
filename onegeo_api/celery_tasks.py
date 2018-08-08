@@ -137,19 +137,20 @@ def indexing(alias=None, index_profile=None,
     columns_mapping = {}
     analyzers = []
     for col in iter(index_profile.columns):
+
         name = col.pop('name')
-        alias = col['alias']
-        rejected = col['rejected']
+        alias = col.get('alias')
+        rejected = col.get('rejected')
         if not rejected:
             columns_mapping[name] = alias or name
 
-        analyzer = col['analyzer']
-        analyzer = col['search_analyzer']
-        searchable = col['searchable']
-        weight = col['weight']
-        occurs = col['occurs']
-        pattern = col['pattern']
-        column_type = col['type']
+        analyzer = col.get('analyzer')
+        search_analyzer = col.get('search_analyzer')
+        searchable = col.get('searchable')
+        weight = col.get('weight')
+        occurs = col.get('occurs')
+        pattern = col.get('pattern')
+        column_type = col.get('type')
 
         index_profile.onegeo.update_property(name, 'alias', alias)
         index_profile.onegeo.update_property(name, 'type', column_type)
@@ -163,9 +164,9 @@ def indexing(alias=None, index_profile=None,
             analyzers.append(analyzer)
         index_profile.onegeo.update_property(name, 'analyzer', analyzer)
 
-        if analyzer and analyzer not in analyzers:
-            analyzers.append(analyzer)
-        index_profile.onegeo.update_property(name, 'search_analyzer', analyzer)
+        if search_analyzer and search_analyzer not in analyzers:
+            analyzers.append(search_analyzer)
+        index_profile.onegeo.update_property(name, 'search_analyzer', search_analyzer)
 
     index = str(uuid4())
     mappings = index_profile.onegeo.generate_elastic_mapping()
