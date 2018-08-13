@@ -15,13 +15,17 @@
 
 
 from base64 import b64decode
+from collections import deque
+from collections import Mapping
 from django.contrib.auth import authenticate
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from functools import wraps
+from numbers import Number
 from onegeo_api.exceptions import ConflictError
 from pathlib import Path
+import sys
 
 
 class HttpResponseSeeOther(HttpResponseRedirect):
@@ -114,3 +118,31 @@ def subdirectories(root):
     if not p.exists():
         raise ConnectionError('Given path does not exist.')
     return [x.as_uri() for x in p.iterdir() if x.is_dir()]
+
+
+def estimate_size(obj):
+    """Recursively iterate to sum size of object."""
+    done = []
+
+    def inner(sub):
+        if id(sub) in done:
+            return 0
+
+        sizeof = sys.getsizeof(sub)
+        if isinstance(sub, (str, bytes, Number, range, bytearray)):
+            pass  # bypass remaining control flow and return
+        elif isinstance(sub, (tuple, list, set, deque)):
+            sizeof += sum(inner(i) for i in sub)
+        elif isinstance(sub, Mapping) or hasattr(sub, 'items'):
+            sizeof += sum(inner(k) + inner(v) for k, v in getattr(sub, 'items')())
+
+        # Check for custom object instances - may subclass above too
+        if hasattr(sub, '__dict__'):
+            sizeof += inner(vars(sub))
+        if hasattr(sub, '__slots__'):  # can have __slots__ with __dict__
+            sizeof += sum(inner(getattr(sub, s)) for s in sub.__slots__ if hasattr(sub, s))
+
+        done.append(id(obj))
+        return sizeof
+
+    return inner(obj)

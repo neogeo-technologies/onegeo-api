@@ -32,7 +32,6 @@ from django.utils import timezone
 from onegeo_api.elastic import elastic_conn
 from onegeo_api.models.analysis import get_complete_analysis
 from uuid import UUID
-from uuid import uuid4
 
 
 logger = get_task_logger(__name__)
@@ -53,15 +52,23 @@ def on_beforehand(headers=None, body=None, sender=None, **kwargs):
     user = User.objects.get(pk=body[1]['user'])
     resource_ns = body[1]['resource_ns']
 
+    details = None
+
+    if sender == 'indexing':
+        details = {'index': body[1]['index']}
+    else:
+        details = None
+
     related_tasks = Task.asynchronous.filter(
         alias=alias, task_name=sender, user=user,
         stop_date__isnull=True, success__isnull=True)
 
     if len(related_tasks) > 0:
-        revoke([task.uuid for task in related_tasks], terminate=True)
+        for related_task in related_tasks:
+            revoke(related_task.uuid, terminate=True)
     # then
     Task.asynchronous.create(
-        uuid=UUID(uuid), alias=alias,
+        uuid=UUID(uuid), alias=alias, details=details,
         task_name=sender, user=user, resource_ns=resource_ns)
 
 
@@ -71,21 +78,41 @@ def on_beforehand(headers=None, body=None, sender=None, **kwargs):
 
 
 @task_revoked.connect
-def on_task_revoked(sender=None, request=None, **kwargs):
-    Task.logged.filter(uuid=UUID(request.id)).update(
-        success=False, details={'reason': 'revoked'})
+def on_task_revoked(task_id=None, sender=None, request=None, **kwargs):
+    task = Task.logged.get(uuid=UUID(request.id))
+    if sender.__qualname__ == 'indexing':
+        index = task.details.get('index')
+        if index:
+            elastic_conn.delete_index(index)
 
-
-@task_unknown.connect
-def on_task_unknown(sender=None, request=None, **kwargs):
-    Task.logged.filter(uuid=UUID(request.id)).update(
-        success=False, details={'reason': 'revoked'})
+    task.success = False
+    task.details = {'reason': 'revoked'}
+    task.stop_date = timezone.now()
+    task.save()
 
 
 @task_rejected.connect
-def on_task_rejected(sender=None, request=None, **kwargs):
-    Task.logged.filter(uuid=UUID(request.id)).update(
-        success=False, details={'reason': 'revoked'})
+def on_task_rejected(task_id=None, sender=None, request=None, **kwargs):
+    task = Task.logged.get(uuid=UUID(request.id))
+    if sender.__qualname__ == 'indexing':
+        elastic_conn.delete_index(task.details.get('index'))
+
+    task.success = False
+    task.details = {'reason': 'rejected'}
+    task.stop_date = timezone.now()
+    task.save()
+
+
+@task_unknown.connect
+def on_task_unknown(task_id=None, sender=None, request=None, **kwargs):
+    task = Task.logged.get(uuid=UUID(request.id))
+    if sender.__qualname__ == 'indexing':
+        elastic_conn.delete_index(task.details.get('index'))
+
+    task.success = False
+    task.details = {'reason': 'unknown'}
+    task.stop_date = timezone.now()
+    task.save()
 
 
 @task_failure.connect
@@ -108,7 +135,11 @@ def on_task_success(sender=None, **kwargs):
 
 @task_postrun.connect
 def on_task_postrun(task_id=None, **kwargs):
-    Task.logged.filter(uuid=UUID(task_id)).update(stop_date=timezone.now())
+    if task_id:
+        task = Task.logged.get(uuid=UUID(task_id))
+        task.stop_date = timezone.now()
+        task.success = task.success is None and False
+        task.save()
 
 
 # @after_task_publish.connect
@@ -128,7 +159,7 @@ def data_source_analyzing(alias=None, source=None, user=None, resource_ns=None):
 
 
 @task(name='indexing', ignore_result=False)
-def indexing(alias=None, index_profile=None,
+def indexing(alias=None, index_profile=None, index=None,
              user=None, resource_ns=None, force_update=False):
 
     user = User.objects.get(pk=user)
@@ -168,13 +199,13 @@ def indexing(alias=None, index_profile=None,
             analyzers.append(search_analyzer)
         index_profile.onegeo.update_property(name, 'search_analyzer', search_analyzer)
 
-    index = str(uuid4())
     mappings = index_profile.onegeo.generate_elastic_mapping()
 
     body = {
         'mappings': {
             index: mappings.get('foo')},
         'settings': {
+            'number_of_replicas': 0,
             'analysis': get_complete_analysis(analyzer=analyzers, user=user)}}
 
     if index_profile.onegeo.resource.source.protocol == 'pdf':
@@ -190,9 +221,9 @@ def indexing(alias=None, index_profile=None,
 
     res = {}
     if created:
-        res['created'] = {'count': len(created), 'ids': created}
+        res['created'] = len(created)  # {'count': len(created), 'ids': created}
     if reindexed:
-        res['reindexed'] = {'count': len(reindexed), 'ids': reindexed}
+        res['reindexed'] = len(reindexed)  # {'count': len(reindexed), 'ids': reindexed}
     if failed:
         res['failed'] = {'count': len(failed), 'details': failed}
     return res

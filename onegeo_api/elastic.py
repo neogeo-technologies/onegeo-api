@@ -18,11 +18,15 @@ from django.conf import settings
 # from django.http import Http404
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
+# from elasticsearch import helpers
 from functools import wraps
 import itertools
 from onegeo_api.exceptions import ElasticError
+from onegeo_api.utils import estimate_size
 from onegeo_api.utils import Singleton
 import operator
+# import json
+# from io import StringIO
 
 
 HOSTS = settings.ELASTICSEARCH_HOSTS
@@ -84,7 +88,7 @@ class ElasticWrapper(metaclass=Singleton):
                 failed += _failed
         try:
             created, _failed = \
-                self.create_collection(index, collection, columns_mapping, pipeline=pipeline)
+                self.index_collection(index, collection, columns_mapping, pipeline=pipeline)
         except Exception as e:
             self.delete_index(index)
             raise e
@@ -186,15 +190,49 @@ class ElasticWrapper(metaclass=Singleton):
 
         return list(to_reindex), failed, to_create
 
-    @elastic_exceptions_handler
-    def create_collection(self, index, collection, columns_mapping, step=100, pipeline=False):
+    # @elastic_exceptions_handler
+    # def index_collection(self, index, collection, columns_mapping, pipeline=False):
+    #
+    #     def _data():
+    #         for doc in collection:
+    #             total = 0
+    #             total += estimate_size(doc)
+    #
+    #             _id = doc.pop('_md5')
+    #             doc['_columns_mapping'] = columns_mapping
+    #             yield {
+    #                 '_index': index,
+    #                 '_id': _id,
+    #                 '_op_type': 'index',
+    #                 '_type': index,
+    #                 'doc': doc,
+    #                 'pipeline': pipeline and 'attachment' or None}
+    #
+    #     return helpers.bulk(
+    #         self.conn, _data(),
+    #         chunk_size=100, max_chunk_bytes=10 * 1024 * 1024,
+    #         raise_on_error=False, raise_on_exception=False,
+    #         max_retries=2, initial_backoff=2, stats_only=False,
+    #         max_backoff=600, yield_ok=True)
 
+    @elastic_exceptions_handler
+    def index_collection(self, index, collection, columns_mapping,
+                         pipeline=False, step=100, chunk_size=10485760):
+
+        total = 0
         created, failed = [], []
 
-        def _req(index, doc_type, body, pipeline):
-            res = self.conn.bulk(
-                index=index, doc_type=doc_type, body=body,
-                pipeline=pipeline and 'attachment' or None)
+        def _bulk(index, doc_type, body, pipeline, count=0, size=0):
+            try:
+                res = self.conn.bulk(
+                    index=index, doc_type=doc_type, body=body,
+                    pipeline=pipeline and 'attachment' or None)
+            except exceptions.SerializationError as e:
+                print(e)
+                return
+            except ValueError as e:
+                print(e)
+                return
             for item in res.get('items'):
                 md5 = item['index']['_id']
                 error = item['index'].get('error')
@@ -203,33 +241,39 @@ class ElasticWrapper(metaclass=Singleton):
                 else:
                     created.append(md5)
 
-        doc_type = index
-
-        body = []
-        count = 1
+        body, body_size = [], 0
         for document in collection:
+
+            md5 = document.pop('_md5')
+
+            header = {'index': {'_id': md5, '_index': index, '_type': index}}
             document['_columns_mapping'] = columns_mapping
-            header = {
-                'index': {
-                    '_id': document.pop('_md5'),
-                    '_index': index,
-                    '_type': doc_type}}
+            doc = [header, document]
+
             try:
-                body.append(header)
-                body.append(document)
-            except Exception as e:
-                failed.append({header['index']['_id']: e.__str__()})
+                doc_size = estimate_size(doc)
+            except RecursionError:
+                failed.append({md5: 'Unable to estimate size.'})
+                continue
+            if doc_size > 104857600:
+                failed.append({md5: 'File size exceed max limit.'})
                 continue
 
-            if count < step:
-                count += 1
+            x = len(body) / 2
+            reload = x == step
+            one_bullet_left = body_size + doc_size > chunk_size
+
+            if one_bullet_left or reload:
+                total += body_size
+                _bulk(index, index, body, pipeline, count=x, size=body_size)
+                body, body_size = doc, doc_size
                 continue
-            # else:
-            _req(index, doc_type, body, pipeline)
-            body = []
-            count = 1
+
+            body += doc
+            body_size += doc_size
         # else:
-        body and _req(index, doc_type, body, pipeline)
+        total += body_size
+        _bulk(index, index, body, pipeline, count=x, size=body_size)
 
         return created, failed
 
@@ -317,7 +361,12 @@ class ElasticWrapper(metaclass=Singleton):
                 body['search_after'] = [search_after]
 
             res = self.conn.search(index=index, body=body)
-            l += [(hit['_index'], hit['_id'], tuple(sorted([(k, v) for k, v in hit['_source']['_columns_mapping'].items()]))) for hit in res['hits']['hits']]
+            l += [(
+                hit['_index'],
+                hit['_id'],
+                tuple(sorted([(k, v) for k, v in hit['_source'].get('_columns_mapping', {}).items()]))
+                ) for hit in res['hits']['hits']]
+
             x += step
             search_after = l[-1][1]
 

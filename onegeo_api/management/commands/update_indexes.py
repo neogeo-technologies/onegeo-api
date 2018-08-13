@@ -41,9 +41,11 @@ class Command(BaseCommand):
 
     def update_index(self, instance):
         task_id = uuid4()
+        index = uuid4()  # Id of the index for ES
         indexing.apply_async(
             kwargs={'alias': instance.alias.pk,
                     'force_update': True,
+                    'index': str(index),
                     'index_profile': instance.pk,
                     'resource_ns': 'index',
                     'user': instance.user.pk},
