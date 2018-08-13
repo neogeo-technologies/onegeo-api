@@ -115,9 +115,11 @@ class IndexProfilesDetail(View):
             force_update = True
 
         task_id = uuid4()
+        index = uuid4()
         indexing.apply_async(
             kwargs={'alias': index_profile.alias.pk,
                     'force_update': force_update,
+                    'index': str(index),
                     'index_profile': index_profile.pk,
                     'resource_ns': 'index',
                     'user': request.user.pk},
