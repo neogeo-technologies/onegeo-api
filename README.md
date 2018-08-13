@@ -21,8 +21,7 @@
 (onegeo_venv) /onegeo_venv> pip install --upgrade setuptools
 (onegeo_venv) /onegeo_venv> pip install psycopg2
 (onegeo_venv) /onegeo_venv> pip install 'django>=1.10,<1.11'
-(onegeo_venv) /onegeo_venv> pip install 'elasticsearch>=5.0.0,<6.0.0'
-(onegeo_venv) /onegeo_venv> pip install PyPDF2
+(onegeo_venv) /onegeo_venv> pip install 'elasticsearch>=6.0.0,<7.0.0'
 (onegeo_venv) /onegeo_venv> pip install redis
 (onegeo_venv) /onegeo_venv> pip install celery
 (onegeo_venv) /onegeo_venv> pip install --process-dependency-links git+https://github.com/neogeo-technologies/onegeo-manager.git@nightly#egg=onegeo_manager
