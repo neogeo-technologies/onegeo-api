@@ -151,6 +151,11 @@ SITE_ID = 1
 
 API_BASE_PATH = 'api/'
 
+DUMPING_CSV = {
+    'LOCATIONS': [''],
+    'FILENAME': '/path/to/export.csv',
+    'BASE_URL': 'http://127.0.0.1:8080/'}
+
 ```
 
 Ensuite :
