@@ -88,6 +88,9 @@ ENV/
 # Rope project settings
 .ropeproject
 
-
 # PyCharm stuff:
 .idea/
+
+# App extensions Python Files
+onegeo_api/extensions/*.py
+!onegeo_api/extensions/__init__.py
