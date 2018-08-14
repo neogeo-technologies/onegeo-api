@@ -71,16 +71,16 @@ SECRET_KEY = 'abcdefghijklmnopqrstuvwxyz0123456789'
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['localhost']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
-    'django.contrib.messages',
     'django.contrib.sessions',
-    'django.contrib.sites',
+    'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
     'onegeo_api']
 
 MIDDLEWARE = [
@@ -116,9 +116,6 @@ DATABASES = {
         'HOST':  'localhost',
         'PORT': '5432'}}
 
-ELASTICSEARCH_HOSTS = [
-    {'host': 'localhost', 'port': '9200', 'timeout': 10}]
-
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -138,6 +135,8 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = '/var/www/html/static/'
 
+SOURCE_ROOT_DIR = '/path/to/data/source/directory'
+
 CELERY_BROKER_URL = 'redis://localhost:6379'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 CELERY_ACCEPT_CONTENT = ['application/json']
@@ -145,7 +144,8 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-PDF_DATA_BASE_DIR = '/path/to/data/pdf'  # optionnel
+ELASTICSEARCH_HOSTS = [
+    {'host': 'localhost', 'port': 9200}]
 
 SITE_ID = 1
 
@@ -161,13 +161,12 @@ Ensuite :
 
 ```python
 from django.conf.urls import include
-from django.conf import settings
 from django.conf.urls import url
 from django.contrib import admin
+from django.conf import settings
 
 
 API_BASE_PATH = settings.API_BASE_PATH
-
 
 urlpatterns = [
     url('^admin/', admin.site.urls),
