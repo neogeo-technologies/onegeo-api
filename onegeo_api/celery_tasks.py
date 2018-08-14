@@ -138,7 +138,6 @@ def on_task_postrun(task_id=None, **kwargs):
     if task_id:
         task = Task.logged.get(uuid=UUID(task_id))
         task.stop_date = timezone.now()
-        task.success = task.success is None and False
         task.save()
 
 
