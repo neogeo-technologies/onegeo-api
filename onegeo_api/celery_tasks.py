@@ -204,6 +204,7 @@ def indexing(alias=None, index_profile=None, index=None,
         'mappings': {
             index: mappings.get('foo')},
         'settings': {
+            'codec': 'best_compression',
             'number_of_replicas': 0,
             'analysis': get_complete_analysis(analyzer=analyzers, user=user)}}
 
