@@ -44,7 +44,7 @@ class Command(BaseCommand):
         index = uuid4()  # Id of the index for ES
         indexing.apply_async(
             kwargs={'alias': instance.alias.pk,
-                    'force_update': False,
+                    'force_update': True,
                     'index': str(index),
                     'index_profile': instance.pk,
                     'resource_ns': 'index',
