@@ -1,3 +1,4 @@
+# Copyright (c) 2017-2018
 # Copyright (c) 2017-2018 Neogeo-Technologies.
 # All Rights Reserved.
 #
@@ -20,6 +21,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
 # from elasticsearch import helpers
 from functools import wraps
+import gc
 import itertools
 from onegeo_api.exceptions import ElasticError
 from onegeo_api.utils import estimate_size
@@ -57,8 +59,8 @@ class ElasticWrapper(metaclass=Singleton):
         self.conn = Elasticsearch(hosts=HOSTS)
 
     def create_or_reindex(self, index=None, body=None, alias=None,
-                          collection=None, columns_mapping=None, update=None,
-                          pipeline=False):
+                          collection=None, columns_mapping=None,
+                          update=None, pipeline=False):
 
         prev_indices = self.get_indices_by_alias(alias, unique=True)
         if len(prev_indices) > 1:
@@ -66,37 +68,43 @@ class ElasticWrapper(metaclass=Singleton):
 
         self.create_index(index, body)
 
+        created = []
         failed = []
+        reindexed = []
 
-        reindexed = None
+        docs = {}
         if len(prev_indices) == 1:
             prev_index = prev_indices[0]
             docs = self.list_documents(index=prev_index)
-            if docs:
-                del docs[prev_index]
-                actual = [
-                    (dict(e[0]), list(m[0] for m in e[1]))
-                    for e in itertools.groupby(docs, key=operator.itemgetter(1))]
-                try:
-                    reindexed, _failed, collection = \
-                        self.reindex_collection(
-                            prev_index, index, collection,
-                            actual, columns_mapping, update=update)
-                except Exception as e:
-                    self.delete_index(index)
-                    raise e
+
+        if docs:
+            actual = [
+                (dict(e[0]), list(m[0] for m in e[1]))
+                for e in itertools.groupby(
+                    docs[prev_index], key=operator.itemgetter(1))]
+            try:
+                reindexed, _failed, created = \
+                    self.reindex_collection(
+                        prev_index, index, collection, actual,
+                        columns_mapping, update=update, pipeline=pipeline)
+            except Exception as e:
+                self.delete_index(index)
+                raise e
+            else:
                 failed += _failed
-        try:
-            created, _failed = \
-                self.index_collection(index, collection, columns_mapping, pipeline=pipeline)
-        except Exception as e:
-            self.delete_index(index)
-            raise e
-        failed += _failed
+        else:
+            try:
+                created, _failed = self.index_collection(
+                    index, collection, columns_mapping, pipeline=pipeline)
+            except Exception as e:
+                self.delete_index(index)
+                raise e
+            else:
+                failed += _failed
 
         self.switch_aliases(index, alias)
 
-        return created, reindexed or [], failed
+        return created, reindexed, failed
 
     @elastic_exceptions_handler
     def create_index(self, index, body):
@@ -104,7 +112,8 @@ class ElasticWrapper(metaclass=Singleton):
 
     @elastic_exceptions_handler
     def reindex_collection(self, prev_index, next_index, collection,
-                           actual, columns_mapping, step=1000, update=False):
+                           actual, columns_mapping, step=1000,
+                           chunk_size=10485760, update=False, pipeline=False):
 
         painless = []
         REPLACE_COLUMN = (
@@ -119,6 +128,10 @@ class ElasticWrapper(metaclass=Singleton):
 
         prev_collection = []
         for prev_columns_mapping, prev_docs in actual:
+
+            left = set()
+            right = set()
+            gc.collect(generation=2)
 
             prev_collection += prev_docs
             if prev_columns_mapping != columns_mapping:
@@ -147,18 +160,62 @@ class ElasticWrapper(metaclass=Singleton):
                             ADD_COLUMN.format(
                                 new=columns_mapping[raw], raw=raw))
 
-        to_reindex, to_create = [], []
+        to_reindex = []
+        created = []
+        failed = []
+
         if update:
+
+            body = []
+            body_size = 0
+            # count = 0
             for document in collection:
+                # count += 1
+                # if count > 5000:
+                #     break
+
                 md5 = document.get('_md5')
                 if md5 in prev_collection:
                     to_reindex.append(md5)
                 else:
-                    to_create.append(document)
+
+                    header = {'index': {'_id': md5, '_index': next_index, '_type': next_index}}
+                    document['_columns_mapping'] = columns_mapping
+                    doc = [header, document]
+
+                    try:
+                        doc_size = estimate_size(doc)
+                    except RecursionError:
+                        failed.append({md5: 'Unable to estimate size.'})
+                        continue
+                    if doc_size > 104857600:
+                        failed.append({md5: 'File size exceed max limit.'})
+                        continue
+
+                    x = len(body) / 2
+                    reload = x == step
+                    one_bullet_left = body_size + doc_size > chunk_size
+
+                    if one_bullet_left or reload:
+                        self._bulk(
+                            next_index, next_index, body, pipeline,
+                            created=lambda z: created.append(z),
+                            failed=lambda z: failed.append(z))
+                        body, body_size = doc, doc_size
+                        continue
+
+                    body += doc
+                    body_size += doc_size
+
+            if body:
+                self._bulk(
+                    next_index, next_index, body, pipeline,
+                    created=lambda z: created.append(z),
+                    failed=lambda z: failed.append(z))
+
         else:
             to_reindex = prev_collection
 
-        failed = []
         count = len(to_reindex)
         if count:
             x = 0
@@ -188,7 +245,7 @@ class ElasticWrapper(metaclass=Singleton):
                 failed += res.get('failure', [])
                 x += step
 
-        return list(to_reindex), failed, to_create
+        return list(to_reindex), failed, created
 
     # @elastic_exceptions_handler
     # def index_collection(self, index, collection, columns_mapping, pipeline=False):
@@ -215,37 +272,40 @@ class ElasticWrapper(metaclass=Singleton):
     #         max_retries=2, initial_backoff=2, stats_only=False,
     #         max_backoff=600, yield_ok=True)
 
+    def _bulk(self, index, doc_type, body, pipeline, created=None, failed=None):
+        try:
+            res = self.conn.bulk(
+                index=index, doc_type=doc_type, body=body,
+                pipeline=pipeline and 'attachment' or None)
+        except exceptions.SerializationError as e:
+            print(e)
+            return
+        except ValueError as e:
+            print(e)
+            return
+        for item in res.get('items'):
+            md5 = item['index']['_id']
+            error = item['index'].get('error')
+            if error:
+                callable(failed) and failed({md5: error})
+            else:
+                callable(created) and created(md5)
+
     @elastic_exceptions_handler
     def index_collection(self, index, collection, columns_mapping,
                          pipeline=False, step=100, chunk_size=10485760):
+        created = []
+        failed = []
+        body = []
+        body_size = 0
+        # count = 0
 
-        total = 0
-        created, failed = [], []
-
-        def _bulk(index, doc_type, body, pipeline, count=0, size=0):
-            try:
-                res = self.conn.bulk(
-                    index=index, doc_type=doc_type, body=body,
-                    pipeline=pipeline and 'attachment' or None)
-            except exceptions.SerializationError as e:
-                print(e)
-                return
-            except ValueError as e:
-                print(e)
-                return
-            for item in res.get('items'):
-                md5 = item['index']['_id']
-                error = item['index'].get('error')
-                if error:
-                    failed.append({md5: error})
-                else:
-                    created.append(md5)
-
-        body, body_size = [], 0
         for document in collection:
+            # count += 1
+            # if count > 5000:
+            #     break
 
             md5 = document.pop('_md5')
-
             header = {'index': {'_id': md5, '_index': index, '_type': index}}
             document['_columns_mapping'] = columns_mapping
             doc = [header, document]
@@ -264,16 +324,22 @@ class ElasticWrapper(metaclass=Singleton):
             one_bullet_left = body_size + doc_size > chunk_size
 
             if one_bullet_left or reload:
-                total += body_size
-                _bulk(index, index, body, pipeline, count=x, size=body_size)
+                self._bulk(
+                    index, index, body, pipeline,
+                    created=lambda z: created.append(z),
+                    failed=lambda z: failed.append(z))
                 body, body_size = doc, doc_size
                 continue
 
             body += doc
             body_size += doc_size
+
         # else:
-        total += body_size
-        _bulk(index, index, body, pipeline, count=x, size=body_size)
+        if body:
+            self._bulk(
+                index, index, body, pipeline,
+                created=lambda z: created.append(z),
+                failed=lambda z: failed.append(z))
 
         return created, failed
 
