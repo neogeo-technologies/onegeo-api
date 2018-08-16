@@ -40,22 +40,23 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
 
-        for location in LOCATIONS:
-            instance = IndexProfile.get_by_location(location)
+        with open(FILENAME, 'w') as f:
+            writer = csv.writer(f)
 
-            index = str(instance.alias.uuid)
+            columns = (
+                'COLL_NOM', 'COLL_SIRET', 'BUDGET_ANNEE',
+                'COL_COMMUNE', 'DELIB_NUM', 'DELIB_DATE',
+                'DELIB_OBJET', 'PREF_ID', 'DELIB_URL')
+            writer.writerows([columns])
 
-            docs = elastic_conn.get_all_documents(
-                elastic_conn.get_indices_by_alias(index, unique=True),
-                _source=['lineage', 'properties'])
+            for location in LOCATIONS:
+                instance = IndexProfile.get_by_location(location)
 
-            with open(FILENAME, 'w') as f:
-                writer = csv.writer(f)
-                columns = (
-                    'COLL_NOM', 'COLL_SIRET', 'BUDGET_ANNEE',
-                    'COL_COMMUNE', 'DELIB_NUM', 'DELIB_DATE',
-                    'DELIB_OBJET', 'PREF_ID', 'DELIB_URL')
-                writer.writerows([columns])
+                index = str(instance.alias.uuid)
+
+                docs = elastic_conn.get_all_documents(
+                    elastic_conn.get_indices_by_alias(index, unique=True),
+                    _source=['lineage', 'properties'])
 
                 for doc in docs:
                     doc = doc['_source']
@@ -67,8 +68,12 @@ class Command(BaseCommand):
                         continue
 
                     if 'date_seance' in properties:
-                        date_now = dateutil.parser.parse(
-                            properties['date_seance'], dayfirst=True)
+                        try:
+                            date_now = dateutil.parser.parse(
+                                properties['date_seance'], dayfirst=True)
+                        except Exception:
+                            print('Error format date', properties['date_seance'])
+                            continue
                     else:
                         continue
 
