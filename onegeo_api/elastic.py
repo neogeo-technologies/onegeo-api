@@ -1,4 +1,3 @@
-# Copyright (c) 2017-2018
 # Copyright (c) 2017-2018 Neogeo-Technologies.
 # All Rights Reserved.
 #
