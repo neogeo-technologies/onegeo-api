@@ -51,6 +51,8 @@ class Command(BaseCommand):
 
             for location in LOCATIONS:
                 instance = IndexProfile.get_by_location(location)
+                if not instance:
+                    continue
 
                 index = str(instance.alias.uuid)
 
@@ -87,6 +89,7 @@ class Command(BaseCommand):
                     data['DELIB_URL'] = reduce(
                         urllib.parse.urljoin, [
                             BASE_URL.endswith('/') and BASE_URL or '{}/'.format(BASE_URL),
+                            '{}/'.format(lineage['source']['uri'].split('/')[-1]),
                             '{}/'.format(lineage['resource']['name']),
                             lineage['filename']])
                     data['COL_COMMUNE'] = properties.get('communes')
