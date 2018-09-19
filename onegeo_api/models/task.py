@@ -22,6 +22,7 @@ from django.db import models
 from django.http import Http404
 from django.urls import reverse
 from django.utils import timezone
+from onegeo_api.utils import pagination_handler
 from uuid import uuid4
 
 
@@ -136,9 +137,10 @@ class Task(models.Model):
             'target': self.target_location}
 
     @classmethod
-    def list_renderer(cls, defaults):
+    @pagination_handler
+    def list_renderer(cls, defaults, i=0, j=None, **kwargs):
         return [t.detail_renderer() for t in
-                cls.logged.filter(**defaults).order_by('-start_date')]
+                cls.logged.filter(**defaults).order_by('-start_date')[i:j]]
 
     @classmethod
     def get_with_permission(cls, defaults, user):

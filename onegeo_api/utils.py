@@ -146,3 +146,18 @@ def estimate_size(obj):
         return sizeof
 
     return inner(obj)
+
+
+def pagination_handler(f):
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        x = kwargs.pop('page_number', None)
+        y = kwargs.pop('page_size', None)
+        if isinstance(x, int) and isinstance(y, int) and x > 0 and y > 0:
+            i = (x * y) - y
+            j = i + y
+            kwargs.update({'i': i, 'j': j})
+
+        return f(*args, **kwargs)
+    return wrapper

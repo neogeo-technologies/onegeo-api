@@ -38,7 +38,12 @@ class LoggedTasks(View):
     @BasicAuth()
     def get(self, request):
         defaults = {'user': request.user}
-        return JsonResponse(Task.list_renderer(defaults), safe=False)
+        tasks = Task.list_renderer(
+            defaults,
+            page_number=request.GET.get('page_number', 1),
+            page_size=request.GET.get('page_size', 10))
+
+        return JsonResponse(tasks, safe=False)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
