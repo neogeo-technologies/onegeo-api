@@ -28,6 +28,7 @@ from onegeo_api.utils import Singleton
 import operator
 # import json
 # from io import StringIO
+import re
 
 
 HOSTS = settings.ELASTICSEARCH_HOSTS
@@ -180,16 +181,19 @@ class ElasticWrapper(metaclass=Singleton):
 
                     header = {'index': {'_id': md5, '_index': next_index, '_type': next_index}}
                     document['_columns_mapping'] = columns_mapping
-                    doc = [header, document]
 
                     try:
-                        doc_size = estimate_size(doc)
+                        doc_size = estimate_size([header, document])
                     except RecursionError:
-                        failed.append({md5: 'Unable to estimate size.'})
-                        continue
+                        # failed.append({md5: 'Unable to estimate size.'})
+                        # continue
+                        del document['_raw']
                     if doc_size > 104857600:
-                        failed.append({md5: 'File size exceed max limit.'})
-                        continue
+                        # failed.append({md5: 'File size exceed max limit.'})
+                        # continue
+                        del document['_raw']
+
+                    doc = [header, document]
 
                     x = len(body) / 2
                     reload = x == step
@@ -271,24 +275,76 @@ class ElasticWrapper(metaclass=Singleton):
     #         max_retries=2, initial_backoff=2, stats_only=False,
     #         max_backoff=600, yield_ok=True)
 
+    def _index(self, index, doc_type, id, body, pipeline, created=None, failed=None):
+        try:
+            res = self.conn.index(
+                index=index, doc_type=doc_type, id=id, body=body,
+                pipeline=pipeline and 'attachment' or None)
+        except exceptions.RequestError as e:
+            if e.args[1] == 'illegal_argument_exception':
+                try:
+                    reason = e.args[2]['error']['reason']
+                except Exception:
+                    pass
+                else:
+                    regexs = [
+                        (
+                            "^startOffset must be non-negative, and endOffset "
+                            "must be >= startOffset, and offsets must not go "
+                            "backwards startOffset=\d+,endOffset=\d+,"
+                            "lastStartOffset=\d+ for field \'(.+)\'$"),
+                        '^DocValuesField "(.+)" is too large, must be <= \d+$']
+                    value = None
+                    for regex in regexs:
+                        matched = re.match(regex, reason)
+                        if matched:
+                            value = matched.group(1)
+                            break
+
+                    if value.startswith('attachment'):
+                        del body['_raw']
+                    else:
+                        field = value.split('.')
+                        if len(field) > 1:
+                            eval('body["{}"].pop("{}")'.format('"]["'.join(field[:-1]), field[-1]))
+                        else:
+                            del body[field]
+
+                    return self._index(
+                        index, doc_type, id, body, pipeline,
+                        created=created, failed=failed)
+
+            callable(failed) and failed({id: e.__str__()})
+        except Exception as e:
+            callable(failed) and failed({id: e.__str__()})
+        else:
+            if res.get('result') == 'created':
+                callable(created) and created(id)
+
     def _bulk(self, index, doc_type, body, pipeline, created=None, failed=None):
         try:
             res = self.conn.bulk(
                 index=index, doc_type=doc_type, body=body,
                 pipeline=pipeline and 'attachment' or None)
-        except exceptions.SerializationError as e:
-            print(e)
-            return
-        except ValueError as e:
-            print(e)
-            return
-        for item in res.get('items'):
-            md5 = item['index']['_id']
-            error = item['index'].get('error')
-            if error:
-                callable(failed) and failed({md5: error})
-            else:
-                callable(created) and created(md5)
+        except Exception:
+            for i in range(0, len(body), 2):
+                b = body[i + 1]
+                id = body[i]['index']['_id']
+                self._index(
+                    index, doc_type, id, b, pipeline, created=created, failed=failed)
+        else:
+            for item in res.get('items'):
+                md5 = item['index']['_id']
+                error = item['index'].get('error')
+                if error:
+                    for i in range(0, len(body), 2):
+                        if body[i]['index']['_id'] == md5:
+                            b = body[i + 1]
+                            self._index(index, doc_type, md5, b, pipeline,
+                                        created=created, failed=failed)
+                            break
+                else:
+                    callable(created) and created(md5)
 
     @elastic_exceptions_handler
     def index_collection(self, index, collection, columns_mapping,
@@ -307,16 +363,19 @@ class ElasticWrapper(metaclass=Singleton):
             md5 = document.pop('_md5')
             header = {'index': {'_id': md5, '_index': index, '_type': index}}
             document['_columns_mapping'] = columns_mapping
-            doc = [header, document]
 
             try:
-                doc_size = estimate_size(doc)
+                doc_size = estimate_size([header, document])
             except RecursionError:
-                failed.append({md5: 'Unable to estimate size.'})
-                continue
+                # failed.append({md5: 'Unable to estimate size.'})
+                # continue
+                del document['_raw']
             if doc_size > 104857600:
-                failed.append({md5: 'File size exceed max limit.'})
-                continue
+                # failed.append({md5: 'File size exceed max limit.'})
+                # continue
+                del document['_raw']
+
+            doc = [header, document]
 
             x = len(body) / 2
             reload = x == step
