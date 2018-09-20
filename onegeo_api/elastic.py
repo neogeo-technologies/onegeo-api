@@ -71,6 +71,7 @@ class ElasticWrapper(metaclass=Singleton):
         created = []
         failed = []
         reindexed = []
+        warning = []
 
         docs = {}
         if len(prev_indices) == 1:
@@ -83,7 +84,7 @@ class ElasticWrapper(metaclass=Singleton):
                 for e in itertools.groupby(
                     docs[prev_index], key=operator.itemgetter(1))]
             try:
-                reindexed, _failed, created = \
+                reindexed, _failed, _warning, created = \
                     self.reindex_collection(
                         prev_index, index, collection, actual,
                         columns_mapping, update=update, pipeline=pipeline)
@@ -91,20 +92,22 @@ class ElasticWrapper(metaclass=Singleton):
                 self.delete_index(index)
                 raise e
             else:
+                warning += _warning
                 failed += _failed
         else:
             try:
-                created, _failed = self.index_collection(
+                created, _warning, _failed = self.index_collection(
                     index, collection, columns_mapping, pipeline=pipeline)
             except Exception as e:
                 self.delete_index(index)
                 raise e
             else:
+                warning += _warning
                 failed += _failed
 
         self.switch_aliases(index, alias)
 
-        return created, reindexed, failed
+        return created, reindexed, warning, failed
 
     @elastic_exceptions_handler
     def create_index(self, index, body):
@@ -163,6 +166,7 @@ class ElasticWrapper(metaclass=Singleton):
         to_reindex = []
         created = []
         failed = []
+        warning = []
 
         if update:
 
@@ -171,13 +175,24 @@ class ElasticWrapper(metaclass=Singleton):
             # count = 0
             for document in collection:
                 # count += 1
-                # if count > 5000:
+                # if count > 2000:
                 #     break
 
                 md5 = document.get('_md5')
                 if md5 in prev_collection:
-                    to_reindex.append(md5)
+                    if md5 in to_reindex:
+                        warning.append({
+                            md5: 'Duplicate entry: "{}"'.format(
+                                document['lineage']['filename'])})
+                    else:
+                        to_reindex.append(md5)
+                elif md5 in [entry.keys()[0] for entry in created]:
+                    warning.append({
+                        md5: 'Duplicate entry: "{}"'.format(
+                            document['lineage']['filename'])})
                 else:
+                    x = len(body) / 2
+                    reload = x == step
 
                     header = {'index': {'_id': md5, '_index': next_index, '_type': next_index}}
                     document['_columns_mapping'] = columns_mapping
@@ -185,18 +200,15 @@ class ElasticWrapper(metaclass=Singleton):
                     try:
                         doc_size = estimate_size([header, document])
                     except RecursionError:
-                        # failed.append({md5: 'Unable to estimate size.'})
-                        # continue
-                        del document['_raw']
+                        # 'Unable to estimate size.'
+                        reload = True
+                        doc_size = 0
                     if doc_size > 104857600:
-                        # failed.append({md5: 'File size exceed max limit.'})
-                        # continue
+                        # 'File size exceed max limit.'
                         del document['_raw']
 
                     doc = [header, document]
 
-                    x = len(body) / 2
-                    reload = x == step
                     one_bullet_left = body_size + doc_size > chunk_size
 
                     if one_bullet_left or reload:
@@ -248,7 +260,7 @@ class ElasticWrapper(metaclass=Singleton):
                 failed += res.get('failure', [])
                 x += step
 
-        return list(to_reindex), failed, created
+        return list(to_reindex), failed, warning, created
 
     # @elastic_exceptions_handler
     # def index_collection(self, index, collection, columns_mapping, pipeline=False):
@@ -314,12 +326,12 @@ class ElasticWrapper(metaclass=Singleton):
                         index, doc_type, id, body, pipeline,
                         created=created, failed=failed)
 
-            callable(failed) and failed({id: e.__str__()})
+                    callable(failed) and failed({id: e.__str__()[-100:]})
         except Exception as e:
-            callable(failed) and failed({id: e.__str__()})
+            callable(failed) and failed({id: e.__str__()[-100:]})
         else:
             if res.get('result') == 'created':
-                callable(created) and created(id)
+                callable(created) and created({id: body['lineage']['filename']})
 
     def _bulk(self, index, doc_type, body, pipeline, created=None, failed=None):
         try:
@@ -344,41 +356,43 @@ class ElasticWrapper(metaclass=Singleton):
                                         created=created, failed=failed)
                             break
                 else:
-                    callable(created) and created(md5)
+                    callable(created) and created({md5: item['index']['_source']['lineage']['filename']})
 
     @elastic_exceptions_handler
     def index_collection(self, index, collection, columns_mapping,
                          pipeline=False, step=100, chunk_size=10485760):
         created = []
         failed = []
+        warning = []
         body = []
         body_size = 0
-        # count = 0
 
         for document in collection:
-            # count += 1
-            # if count > 5000:
-            #     break
-
             md5 = document.pop('_md5')
+            if md5 in [entry.keys()[0] for entry in created]:
+                warning.append({
+                    md5: 'Duplicate entry: "{}"'.format(
+                        document['lineage']['filename'])})
+                continue
+
+            x = len(body) / 2
+            reload = x == step
+
             header = {'index': {'_id': md5, '_index': index, '_type': index}}
             document['_columns_mapping'] = columns_mapping
 
             try:
                 doc_size = estimate_size([header, document])
             except RecursionError:
-                # failed.append({md5: 'Unable to estimate size.'})
-                # continue
-                del document['_raw']
+                # Unable to estimate size.
+                doc_size = 0
+                reload = True  # Force reload
             if doc_size > 104857600:
-                # failed.append({md5: 'File size exceed max limit.'})
-                # continue
+                # File size exceed max limit
                 del document['_raw']
 
             doc = [header, document]
 
-            x = len(body) / 2
-            reload = x == step
             one_bullet_left = body_size + doc_size > chunk_size
 
             if one_bullet_left or reload:
@@ -399,7 +413,7 @@ class ElasticWrapper(metaclass=Singleton):
                 created=lambda z: created.append(z),
                 failed=lambda z: failed.append(z))
 
-        return created, failed
+        return created, warning, failed
 
     @elastic_exceptions_handler
     def is_index_exists(self, **kwargs):

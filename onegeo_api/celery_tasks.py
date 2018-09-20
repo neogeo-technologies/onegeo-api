@@ -213,7 +213,7 @@ def indexing(alias=None, index_profile=None, index=None,
     else:
         pipeline = False
 
-    created, reindexed, failed = elastic_conn.create_or_reindex(
+    created, reindexed, warning, failed = elastic_conn.create_or_reindex(
         index=index, body=body, alias=index_profile.uuid,
         collection=index_profile.onegeo.get_collection(),
         columns_mapping=columns_mapping, update=force_update,
@@ -224,6 +224,8 @@ def indexing(alias=None, index_profile=None, index=None,
         res['created'] = len(created)  # {'count': len(created), 'ids': created}
     if reindexed:
         res['reindexed'] = len(reindexed)  # {'count': len(reindexed), 'ids': reindexed}
+    if warning:
+        res['warning'] = {'count': len(warning), 'details': warning}
     if failed:
         res['failed'] = {'count': len(failed), 'details': failed}
     return res
