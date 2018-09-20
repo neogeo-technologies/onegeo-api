@@ -25,6 +25,7 @@ import itertools
 from onegeo_api.exceptions import ElasticError
 from onegeo_api.utils import estimate_size
 from onegeo_api.utils import Singleton
+from onegeo_manager.utils import digest_object
 import operator
 # import json
 # from io import StringIO
@@ -172,13 +173,14 @@ class ElasticWrapper(metaclass=Singleton):
 
             body = []
             body_size = 0
-            # count = 0
-            for document in collection:
-                # count += 1
-                # if count > 2000:
-                #     break
 
-                md5 = document.get('_md5')
+            for document in collection:
+
+                # Comme les fichiers sont dupliqués dans l'arborescence :
+                md5 = digest_object({
+                    'filename': document['lineage']['filename'],
+                    'md5': document.get('_md5')})
+
                 if md5 in prev_collection:
                     if md5 in to_reindex:
                         warning.append({
@@ -368,7 +370,12 @@ class ElasticWrapper(metaclass=Singleton):
         body_size = 0
 
         for document in collection:
-            md5 = document.pop('_md5')
+
+            # Comme les fichiers sont dupliqués dans l'arborescence :
+            md5 = digest_object({
+                'filename': document['lineage']['filename'],
+                'md5': document.pop('_md5')})
+
             if md5 in created:
                 warning.append({
                     md5: 'Duplicate entry: "{}"'.format(
