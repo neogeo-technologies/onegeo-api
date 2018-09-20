@@ -186,7 +186,7 @@ class ElasticWrapper(metaclass=Singleton):
                                 document['lineage']['filename'])})
                     else:
                         to_reindex.append(md5)
-                elif md5 in [entry.keys()[0] for entry in created]:
+                elif md5 in created:
                     warning.append({
                         md5: 'Duplicate entry: "{}"'.format(
                             document['lineage']['filename'])})
@@ -356,7 +356,7 @@ class ElasticWrapper(metaclass=Singleton):
                                         created=created, failed=failed)
                             break
                 else:
-                    callable(created) and created({md5: item['index']['_source']['lineage']['filename']})
+                    callable(created) and created(md5)
 
     @elastic_exceptions_handler
     def index_collection(self, index, collection, columns_mapping,
@@ -369,7 +369,7 @@ class ElasticWrapper(metaclass=Singleton):
 
         for document in collection:
             md5 = document.pop('_md5')
-            if md5 in [entry.keys()[0] for entry in created]:
+            if md5 in created:
                 warning.append({
                     md5: 'Duplicate entry: "{}"'.format(
                         document['lineage']['filename'])})
