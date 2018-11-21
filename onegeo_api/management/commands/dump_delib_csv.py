@@ -92,7 +92,7 @@ class Command(BaseCommand):
                             '{}/'.format(lineage['source']['uri'].split('/')[-1]),
                             '{}/'.format(lineage['resource']['name']),
                             lineage['filename']])
-                    data['COLL_COMMUNE'] = properties.get('communes').replace(',', ' / ')
+                    data['COLL_COMMUNE'] = properties.get('communes', "").replace(',', ' / ')
                     data['COLL_NOM'] = 'Métropole de Lyon'
                     data['COLL_SIRET'] = '20004697700019'
                     data['PREF_ID'] = 'Préfecture du Rhône'
