@@ -41,12 +41,12 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
 
         with open(FILENAME, 'w') as f:
-            writer = csv.writer(f)
+            writer = csv.writer(f, delimiter=';')
 
             columns = (
-                'COLL_NOM', 'COLL_SIRET', 'BUDGET_ANNEE',
-                'COL_COMMUNE', 'DELIB_NUM', 'DELIB_DATE',
-                'DELIB_OBJET', 'PREF_ID', 'DELIB_URL')
+                'COLL_NOM', 'COLL_SIRET', 'COLL_COMMUNE',
+                'DELIB_ID', 'DELIB_DATE', 'DELIB_OBJET',
+                'BUDGET_ANNEE', 'PREF_ID', 'DELIB_URL')
             writer.writerows([columns])
 
             for location in LOCATIONS:
@@ -85,14 +85,14 @@ class Command(BaseCommand):
                         str(date_now.month).zfill(2),
                         str(date_now.day).zfill(2))
                     data['DELIB_OBJET'] = properties.get('titre')
-                    data['DELIB_NUM'] = properties.get('numero_seance')
+                    data['DELIB_ID'] = properties.get('numero_seance')
                     data['DELIB_URL'] = reduce(
                         urllib.parse.urljoin, [
                             BASE_URL.endswith('/') and BASE_URL or '{}/'.format(BASE_URL),
                             '{}/'.format(lineage['source']['uri'].split('/')[-1]),
                             '{}/'.format(lineage['resource']['name']),
                             lineage['filename']])
-                    data['COL_COMMUNE'] = properties.get('communes')
+                    data['COLL_COMMUNE'] = properties.get('communes').replace(',', ' / ')
                     data['COLL_NOM'] = 'Métropole de Lyon'
                     data['COLL_SIRET'] = '20004697700019'
                     data['PREF_ID'] = 'Préfecture du Rhône'
