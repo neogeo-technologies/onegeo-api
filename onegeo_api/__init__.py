@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2018 Neogeo-Technologies.
+# Copyright (c) 2019 Neogeo-Technologies.
 # All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,3 +15,4 @@
 
 
 default_app_config = 'onegeo_api.apps.OnegeoAPIConfig'
+__version__ = '0.2.0dev'
