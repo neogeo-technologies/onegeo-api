@@ -62,7 +62,8 @@ class AbstractModelProfile(models.Model):
     description = models.TextField(
         verbose_name='Description', blank=True, null=True)
 
-    user = models.ForeignKey(to=User, blank=True, null=True)
+    user = models.ForeignKey(to=User, blank=True, null=True,
+                             on_delete=models.CASCADE)
 
     class Meta(object):
         abstract = True
@@ -106,7 +107,7 @@ class AbstractModelProfile(models.Model):
         try:
             self.alias.alias_name = self.nickname
         except Exception as e:
-            if e.__class__.__qualname__ == 'RelatedObjectDoesNotExist':
+            if e.__class__.__qualname__.endswith('RelatedObjectDoesNotExist'):
                 stack = inspect.stack()
                 caller = stack[0][0].f_locals['self'].__class__.__qualname__
                 self.alias = Alias.objects.create(
