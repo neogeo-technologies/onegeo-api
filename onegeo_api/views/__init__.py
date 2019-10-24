@@ -30,10 +30,11 @@ class Uris(View):
     @BasicAuth()
     def get(self, request):
         try:
-            return JsonResponse(
-                data=subdirectories(settings.SOURCE_ROOT_DIR), safe=False)
+            data = subdirectories(settings.SOURCE_ROOT_DIR)
         except:
-            return []
+            data = []
+        finally:
+            return JsonResponse(data=data, safe=False)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
